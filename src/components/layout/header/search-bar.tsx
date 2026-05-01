@@ -1,0 +1,137 @@
+'use client'
+
+import { useState, useRef, useEffect, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
+import { SearchIcon, XIcon } from '@/components/ui/icons'
+
+export function SearchBar() {
+  const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState('')
+  const inputRef = useRef<HTMLInputElement>(null)
+  const router = useRouter()
+
+  // باز کردن با کلید /
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === '/' && !['INPUT', 'TEXTAREA'].includes((e.target as Element).tagName)) {
+        e.preventDefault()
+        setOpen(true)
+      }
+      if (e.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  }, [])
+
+  useEffect(() => {
+    if (open) {
+      inputRef.current?.focus()
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = ''
+      setQuery('')
+    }
+  }, [open])
+
+  const handleSubmit = useCallback(
+    (e: React.FormEvent) => {
+      e.preventDefault()
+      if (!query.trim()) return
+      router.push(`/shop?q=${encodeURIComponent(query.trim())}`)
+      setOpen(false)
+    },
+    [query, router],
+  )
+
+  return (
+    <>
+      {/* دکمه باز کردن جستجو */}
+      <button
+        onClick={() => setOpen(true)}
+        className="btn btn-ghost p-2.5 relative"
+        aria-label="جستجو"
+        aria-keyshortcuts="/"
+      >
+        <SearchIcon size={20} />
+        <span className="hidden xl:flex items-center gap-1.5 me-1 text-xs text-surface-400">
+          <kbd className="inline-flex items-center px-1.5 py-0.5 rounded border border-surface-200 font-mono bg-surface-50">
+            /
+          </kbd>
+        </span>
+      </button>
+
+      {/* Overlay جستجو */}
+      {open && (
+        <>
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 z-50 bg-surface-950/60 animate-fade-in"
+            onClick={() => setOpen(false)}
+            aria-hidden="true"
+          />
+
+          {/* پنل جستجو */}
+          <div className="fixed inset-x-0 top-0 z-50 p-4 sm:p-6 animate-slide-down">
+            <div
+              className="bg-white rounded-2xl mx-auto max-w-2xl overflow-hidden"
+              style={{ boxShadow: 'var(--shadow-modal)' }}
+            >
+              <form onSubmit={handleSubmit} className="flex items-center gap-3 p-4">
+                <SearchIcon size={20} className="text-surface-400 flex-shrink-0" />
+                <input
+                  ref={inputRef}
+                  type="search"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="جستجو در محصولات، مقالات و راهنماها..."
+                  className="flex-1 text-base outline-none placeholder:text-surface-400 bg-transparent"
+                  autoComplete="off"
+                />
+                {query && (
+                  <button
+                    type="button"
+                    onClick={() => setQuery('')}
+                    className="text-surface-400 hover:text-surface-700 transition-colors"
+                    aria-label="پاک کردن"
+                  >
+                    <XIcon size={16} />
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setOpen(false)}
+                  className="text-xs text-surface-400 hover:text-surface-700 transition-colors px-2 py-1 border border-surface-200 rounded-lg"
+                >
+                  Esc
+                </button>
+              </form>
+
+              {/* پیشنهادات سریع */}
+              {!query && (
+                <div className="border-t border-surface-100 px-4 py-3">
+                  <p className="text-xs text-surface-400 mb-2">جستجوهای پرتکرار:</p>
+                  <div className="flex flex-wrap gap-2">
+                    {['دزدگیر خانگی', 'حسگر حرکتی', 'سیرن خارجی', 'ریموت دزدگیر'].map(
+                      (term) => (
+                        <button
+                          key={term}
+                          onClick={() => {
+                            setQuery(term)
+                            inputRef.current?.focus()
+                          }}
+                          className="text-xs px-3 py-1.5 rounded-full bg-surface-100 text-surface-700 hover:bg-brand-50 hover:text-brand-700 transition-colors"
+                        >
+                          {term}
+                        </button>
+                      ),
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </>
+      )}
+    </>
+  )
+}

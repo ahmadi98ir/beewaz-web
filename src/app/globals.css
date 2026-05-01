@@ -1,0 +1,381 @@
+@import "tailwindcss";
+
+/* ─── Vazirmatn Font (self-hosted fallback via Google Fonts CDN) ─────────────
+   این import از layout.tsx با next/font انجام می‌شود.
+   این بلوک فقط برای محیط‌های بدون SSR است. */
+
+/* ─── Design Tokens ──────────────────────────────────────────────────────────
+   Tailwind 4: توکن‌های @theme به صورت خودکار به کلاس‌های Tailwind تبدیل می‌شوند.
+   مثال: --color-brand-600 → bg-brand-600, text-brand-600, border-brand-600 */
+
+@theme {
+  /* Brand — قرمز اقتدار، تداعی‌کننده هشدار و حفاظت */
+  --color-brand-50:  #fff1f1;
+  --color-brand-100: #ffdfdf;
+  --color-brand-200: #ffc5c5;
+  --color-brand-300: #ff9d9d;
+  --color-brand-400: #ff6464;
+  --color-brand-500: #ff2b2b;
+  --color-brand-600: #e61010;  /* رنگ اصلی برند */
+  --color-brand-700: #c20a0a;
+  --color-brand-800: #a10909;
+  --color-brand-900: #850d0d;
+  --color-brand-950: #490303;
+
+  /* Surface — پالت تیره برای بخش‌های حرفه‌ای */
+  --color-surface-50:  #f8fafc;
+  --color-surface-100: #f1f5f9;
+  --color-surface-200: #e2e8f0;
+  --color-surface-700: #334155;
+  --color-surface-800: #1e293b;
+  --color-surface-900: #0f172a;
+  --color-surface-950: #080e1d;
+
+  /* Typography */
+  --font-sans:    "Vazirmatn", "IRANSans", system-ui, sans-serif;
+  --font-display: "Vazirmatn", system-ui, sans-serif;
+  --font-mono:    "Vazirmatn", ui-monospace, monospace;
+
+  /* Spacing extras */
+  --spacing-18: 4.5rem;
+  --spacing-22: 5.5rem;
+  --spacing-88: 22rem;
+  --spacing-112: 28rem;
+
+  /* Radius */
+  --radius-xs:  0.25rem;
+  --radius-sm:  0.375rem;
+  --radius-md:  0.5rem;
+  --radius-lg:  0.75rem;
+  --radius-xl:  1rem;
+  --radius-2xl: 1.5rem;
+  --radius-3xl: 2rem;
+
+  /* Shadows */
+  --shadow-card:   0 1px 3px rgb(0 0 0 / 0.06), 0 4px 16px rgb(0 0 0 / 0.06);
+  --shadow-header: 0 1px 0 rgb(0 0 0 / 0.08), 0 4px 24px rgb(0 0 0 / 0.05);
+  --shadow-dropdown: 0 4px 6px -1px rgb(0 0 0 / 0.08),
+                     0 16px 48px -4px rgb(0 0 0 / 0.12);
+  --shadow-modal:  0 20px 60px rgb(0 0 0 / 0.25);
+
+  /* Transitions */
+  --ease-spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  --ease-out-expo: cubic-bezier(0.19, 1, 0.22, 1);
+
+  /* Animation durations */
+  --duration-fast:   120ms;
+  --duration-base:   200ms;
+  --duration-slow:   320ms;
+  --duration-slower: 500ms;
+}
+
+/* ─── Base Styles ────────────────────────────────────────────────────────────── */
+
+@layer base {
+  *, *::before, *::after {
+    box-sizing: border-box;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--color-surface-50);
+    color: var(--color-surface-900);
+    font-family: var(--font-sans);
+    line-height: 1.7;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* تایپوگرافی فارسی — حروف فارسی بزرگ‌تر از لاتین احساس می‌شوند */
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-display);
+    font-weight: 700;
+    line-height: 1.35;
+    letter-spacing: -0.01em;
+  }
+
+  /* اعداد فارسی vs لاتین */
+  .num-fa { font-feature-settings: "ss04"; }
+
+  /* حذف outline پیش‌فرض و جایگزین با outline برند */
+  :focus-visible {
+    outline: 2px solid var(--color-brand-600);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
+  }
+
+  /* اسکرول‌بار سفارشی */
+  ::-webkit-scrollbar       { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--color-surface-100); }
+  ::-webkit-scrollbar-thumb { background: var(--color-surface-200); border-radius: 99px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--color-surface-700); }
+
+  /* selection */
+  ::selection {
+    background-color: color-mix(in srgb, var(--color-brand-600) 20%, transparent);
+    color: var(--color-brand-900);
+  }
+}
+
+/* ─── Component Utilities ────────────────────────────────────────────────────── */
+
+@layer components {
+  /* Container اصلی سایت */
+  .container-main {
+    width: 100%;
+    max-width: 1280px;
+    margin-inline: auto;
+    padding-inline: 1rem;
+
+    @media (min-width: 640px)  { padding-inline: 1.5rem; }
+    @media (min-width: 1024px) { padding-inline: 2rem; }
+  }
+
+  /* دکمه‌های پایه */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.625rem 1.25rem;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    border-radius: var(--radius-lg);
+    cursor: pointer;
+    transition: all var(--duration-base) ease;
+    white-space: nowrap;
+    user-select: none;
+
+    &:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+  }
+
+  .btn-primary {
+    background-color: var(--color-brand-600);
+    color: #fff;
+    border: 1.5px solid var(--color-brand-600);
+    box-shadow: 0 1px 2px rgb(230 16 16 / 0.25);
+
+    &:hover:not(:disabled) {
+      background-color: var(--color-brand-700);
+      border-color: var(--color-brand-700);
+      box-shadow: 0 4px 12px rgb(230 16 16 / 0.3);
+      transform: translateY(-1px);
+    }
+    &:active:not(:disabled) { transform: translateY(0); }
+  }
+
+  .btn-outline {
+    background-color: transparent;
+    color: var(--color-brand-600);
+    border: 1.5px solid var(--color-brand-600);
+
+    &:hover:not(:disabled) {
+      background-color: var(--color-brand-50);
+    }
+  }
+
+  .btn-ghost {
+    background-color: transparent;
+    color: var(--color-surface-700);
+    border: 1.5px solid transparent;
+
+    &:hover:not(:disabled) {
+      background-color: var(--color-surface-100);
+      color: var(--color-surface-900);
+    }
+  }
+
+  /* کارت پایه */
+  .card {
+    background-color: #fff;
+    border: 1px solid var(--color-surface-200);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-card);
+    overflow: hidden;
+    transition: box-shadow var(--duration-base) ease,
+                transform var(--duration-base) ease;
+
+    &:hover {
+      box-shadow: 0 4px 20px rgb(0 0 0 / 0.1);
+    }
+  }
+
+  /* badge */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.125rem 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    border-radius: 99px;
+  }
+
+  .badge-brand {
+    background-color: var(--color-brand-50);
+    color: var(--color-brand-700);
+  }
+
+  /* Input پایه */
+  .input {
+    width: 100%;
+    padding: 0.625rem 0.875rem;
+    font-size: 0.9375rem;
+    font-family: var(--font-sans);
+    border: 1.5px solid var(--color-surface-200);
+    border-radius: var(--radius-lg);
+    background-color: #fff;
+    color: var(--color-surface-900);
+    transition: border-color var(--duration-fast) ease,
+                box-shadow var(--duration-fast) ease;
+    outline: none;
+
+    &::placeholder { color: var(--color-surface-700); opacity: 0.6; }
+
+    &:focus {
+      border-color: var(--color-brand-600);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-brand-600) 15%, transparent);
+    }
+  }
+}
+
+/* ─── Utilities ──────────────────────────────────────────────────────────────── */
+
+@layer utilities {
+  /* متن‌های gradient برند */
+  .text-gradient-brand {
+    background: linear-gradient(135deg, var(--color-brand-600), var(--color-brand-400));
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  /* شیشه‌ای (glassmorphism) برای overlay‌ها */
+  .glass {
+    background: rgb(255 255 255 / 0.85);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border: 1px solid rgb(255 255 255 / 0.4);
+  }
+
+  .glass-dark {
+    background: rgb(15 23 42 / 0.85);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border: 1px solid rgb(255 255 255 / 0.08);
+  }
+
+  /* انیمیشن fade-in ساده */
+  .animate-fade-in {
+    animation: fadeIn var(--duration-slow) var(--ease-out-expo) both;
+  }
+
+  .animate-slide-up {
+    animation: slideUp var(--duration-slow) var(--ease-out-expo) both;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes slideDown {
+    from { opacity: 0; transform: translateY(-8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .animate-slide-down {
+    animation: slideDown var(--duration-base) var(--ease-out-expo) both;
+  }
+
+  /* Hero — floating shield */
+  @keyframes float {
+    0%, 100% { transform: translateY(0px) rotate(0deg); }
+    33%       { transform: translateY(-12px) rotate(1deg); }
+    66%       { transform: translateY(-6px) rotate(-1deg); }
+  }
+  .animate-float {
+    animation: float 5s ease-in-out infinite;
+  }
+
+  /* Hero — pulse rings */
+  @keyframes pulse-ring {
+    0%   { transform: scale(1); opacity: 0.6; }
+    100% { transform: scale(2.2); opacity: 0; }
+  }
+  .animate-pulse-ring {
+    animation: pulse-ring 2.4s ease-out infinite;
+  }
+  .animate-pulse-ring-delay {
+    animation: pulse-ring 2.4s ease-out 1.2s infinite;
+  }
+
+  /* Scroll-triggered: base state (قبل از دیده شدن) */
+  .reveal {
+    opacity: 0;
+    transform: translateY(28px);
+    transition: opacity 0.65s var(--ease-out-expo),
+                transform 0.65s var(--ease-out-expo);
+  }
+  .reveal.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* Counter animate */
+  @keyframes count-up {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Shimmer برای skeleton loading */
+  @keyframes shimmer {
+    0%   { background-position: -400px 0; }
+    100% { background-position: 400px 0; }
+  }
+  .skeleton {
+    background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+    background-size: 800px 100%;
+    animation: shimmer 1.5s ease-in-out infinite;
+    border-radius: var(--radius-lg);
+  }
+
+  /* Card hover lift */
+  .hover-lift {
+    transition: transform var(--duration-base) var(--ease-out-expo),
+                box-shadow var(--duration-base) ease;
+  }
+  .hover-lift:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 32px rgb(0 0 0 / 0.1);
+  }
+
+  /* Gradient border برای featured items */
+  .gradient-border {
+    position: relative;
+    background: white;
+  }
+  .gradient-border::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1.5px;
+    background: linear-gradient(135deg, var(--color-brand-600), var(--color-brand-400));
+    mask: linear-gradient(white 0 0) content-box, linear-gradient(white 0 0);
+    mask-composite: exclude;
+    -webkit-mask-composite: xor;
+    pointer-events: none;
+  }
+}
