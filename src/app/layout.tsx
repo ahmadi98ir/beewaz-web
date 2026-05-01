@@ -1,18 +1,8 @@
 import type { Metadata, Viewport } from 'next'
-import { Vazirmatn } from 'next/font/google'
 import { Header } from '@/components/layout/header'
 import { Footer } from '@/components/layout/footer'
 import { ChatWidget } from '@/components/chat/chat-widget'
 import './globals.css'
-
-// فونت Vazirmatn — بهینه‌سازی خودکار توسط Next.js font optimization
-const vazirmatn = Vazirmatn({
-  subsets: ['arabic'],          // شامل حروف فارسی و عربی
-  variable: '--font-sans',      // تطبیق با CSS custom property در globals.css
-  display: 'swap',
-  weight: ['400', '500', '600', '700', '900'],
-  preload: true,
-})
 
 export const metadata: Metadata = {
   title: {
@@ -50,7 +40,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="fa" dir="rtl" className={vazirmatn.variable}>
+    <html lang="fa" dir="rtl">
       <body className="min-h-screen flex flex-col bg-surface-50 antialiased">
         <Header />
         <main className="flex-1" id="main-content">

@@ -1,8 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;900&display=swap');
 @import "tailwindcss";
-
-/* ─── Vazirmatn Font (self-hosted fallback via Google Fonts CDN) ─────────────
-   این import از layout.tsx با next/font انجام می‌شود.
-   این بلوک فقط برای محیط‌های بدون SSR است. */
 
 /* ─── Design Tokens ──────────────────────────────────────────────────────────
    Tailwind 4: توکن‌های @theme به صورت خودکار به کلاس‌های Tailwind تبدیل می‌شوند.

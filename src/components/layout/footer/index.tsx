@@ -11,6 +11,7 @@ import {
   CheckIcon,
 } from '@/components/ui/icons'
 import { footerLinks } from '@/config/navigation'
+import { NewsletterForm } from './newsletter-form'
 
 // Server Component — بدون 'use client' → سریع‌ترین رندر ممکن
 
@@ -164,24 +165,7 @@ export function Footer() {
             {/* خبرنامه */}
             <div className="mt-8">
               <p className="text-xs text-white/50 mb-3">دریافت آخرین اخبار و تخفیف‌ها:</p>
-              <form
-                className="flex gap-2"
-                onSubmit={(e) => e.preventDefault()}
-                aria-label="عضویت در خبرنامه"
-              >
-                <input
-                  type="tel"
-                  placeholder="شماره موبایل"
-                  className="flex-1 min-w-0 px-3 py-2 text-sm rounded-lg bg-white/10 border border-white/10 text-white placeholder:text-white/30 focus:outline-none focus:border-brand-500 focus:bg-white/15 transition-colors"
-                  dir="ltr"
-                />
-                <button
-                  type="submit"
-                  className="flex-shrink-0 px-3 py-2 text-xs font-semibold rounded-lg bg-brand-600 hover:bg-brand-700 transition-colors"
-                >
-                  عضو شو
-                </button>
-              </form>
+              <NewsletterForm />
             </div>
           </div>
 

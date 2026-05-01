@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { signIn } from 'next-auth/react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { Logo } from '@/components/ui/logo'
+import { BeewazLogo } from '@/components/ui/logo'
 import { ShieldIcon } from '@/components/ui/icons'
 
 export default function LoginForm() {
@@ -41,7 +41,7 @@ export default function LoginForm() {
         {/* Logo */}
         <div className="text-center mb-8">
           <div className="flex justify-center mb-4">
-            <Logo />
+            <BeewazLogo />
           </div>
           <h1 className="text-xl font-black text-surface-900">ورود به حساب کاربری</h1>
           <p className="text-sm text-surface-400 mt-1">برای خرید و پیگیری سفارش وارد شوید</p>
