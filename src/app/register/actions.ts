@@ -21,7 +21,7 @@ export async function registerAction(
   })
 
   if (!parsed.success) {
-    return { error: parsed.error.errors[0].message }
+    return { error: parsed.error.errors[0]?.message ?? 'اطلاعات وارد شده معتبر نیست' }
   }
 
   try {

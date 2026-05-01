@@ -92,7 +92,7 @@ export default function ProfilePage() {
                 </thead>
                 <tbody className="divide-y divide-surface-100">
                   {mockOrders.map((order) => {
-                    const sc = statusMap[order.status]
+                    const sc = statusMap[order.status] ?? { label: order.status, cls: 'bg-surface-100 text-surface-600 border-surface-200' }
                     return (
                       <tr key={order.id} className="hover:bg-surface-50 transition-colors">
                         <td className="px-5 py-4 font-mono text-xs font-bold text-surface-600">{order.id}</td>

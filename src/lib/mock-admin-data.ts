@@ -6,7 +6,7 @@ export type AdminOrder = {
   phone: string
   city: string
   totalAmount: number
-  status: 'pending' | 'paid' | 'processing' | 'shipped' | 'delivered' | 'cancelled'
+  status: 'pending' | 'paid' | 'processing' | 'shipped' | 'delivered' | 'cancelled' | 'refunded'
   itemCount: number
   createdAt: string
 }

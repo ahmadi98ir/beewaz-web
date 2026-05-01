@@ -27,7 +27,7 @@ export async function getProductsByCategorySlug(
 
   if (!category) return { items: [], total: 0, category: null }
 
-  const [items, [{ count }]] = await Promise.all([
+  const [items, countRows] = await Promise.all([
     db.query.products.findMany({
       where: and(
         eq(products.categoryId, category.id),
@@ -49,6 +49,7 @@ export async function getProductsByCategorySlug(
       ),
   ])
 
+  const count = countRows[0]?.count ?? 0
   return { items, total: count, category }
 }
 

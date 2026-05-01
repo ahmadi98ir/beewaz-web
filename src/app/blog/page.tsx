@@ -41,39 +41,44 @@ export default function BlogPage() {
 
       <div className="container-main py-12">
         {/* Featured — big card */}
-        {featured.length > 0 && (
+        {featured[0] && (
           <AnimateIn>
-            <div className="mb-12">
-              <Link
-                href={`/blog/${featured[0].slug}`}
-                className="group grid lg:grid-cols-2 gap-0 bg-white rounded-3xl border border-surface-200 overflow-hidden hover:shadow-xl transition-all duration-300"
-              >
-                <div
-                  className="h-64 lg:h-auto flex items-center justify-center"
-                  style={{ background: `linear-gradient(135deg, ${featured[0].from}, ${featured[0].to})` }}
-                >
-                  <svg className="w-24 h-24 opacity-20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
-                  </svg>
+            {(() => {
+              const top = featured[0]
+              return (
+                <div className="mb-12">
+                  <Link
+                    href={`/blog/${top.slug}`}
+                    className="group grid lg:grid-cols-2 gap-0 bg-white rounded-3xl border border-surface-200 overflow-hidden hover:shadow-xl transition-all duration-300"
+                  >
+                    <div
+                      className="h-64 lg:h-auto flex items-center justify-center"
+                      style={{ background: `linear-gradient(135deg, ${top.from}, ${top.to})` }}
+                    >
+                      <svg className="w-24 h-24 opacity-20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
+                      </svg>
+                    </div>
+                    <div className="p-8 lg:p-10 flex flex-col justify-center">
+                      <span className="inline-flex px-3 py-1 rounded-lg text-xs font-bold bg-brand-50 text-brand-600 border border-brand-100 mb-4 w-fit">
+                        {top.categoryName}
+                      </span>
+                      <h2 className="text-2xl font-black text-surface-900 group-hover:text-brand-600 transition-colors leading-snug mb-3">
+                        {top.title}
+                      </h2>
+                      <p className="text-surface-500 leading-relaxed mb-6 line-clamp-3">{top.excerpt}</p>
+                      <div className="flex items-center gap-4 text-xs text-surface-400">
+                        <span>{top.author}</span>
+                        <span>·</span>
+                        <span>{top.readTime} دقیقه مطالعه</span>
+                        <span>·</span>
+                        <span>{top.views.toLocaleString('fa-IR')} بازدید</span>
+                      </div>
+                    </div>
+                  </Link>
                 </div>
-                <div className="p-8 lg:p-10 flex flex-col justify-center">
-                  <span className="inline-flex px-3 py-1 rounded-lg text-xs font-bold bg-brand-50 text-brand-600 border border-brand-100 mb-4 w-fit">
-                    {featured[0].categoryName}
-                  </span>
-                  <h2 className="text-2xl font-black text-surface-900 group-hover:text-brand-600 transition-colors leading-snug mb-3">
-                    {featured[0].title}
-                  </h2>
-                  <p className="text-surface-500 leading-relaxed mb-6 line-clamp-3">{featured[0].excerpt}</p>
-                  <div className="flex items-center gap-4 text-xs text-surface-400">
-                    <span>{featured[0].author}</span>
-                    <span>·</span>
-                    <span>{featured[0].readTime} دقیقه مطالعه</span>
-                    <span>·</span>
-                    <span>{featured[0].views.toLocaleString('fa-IR')} بازدید</span>
-                  </div>
-                </div>
-              </Link>
-            </div>
+              )
+            })()}
           </AnimateIn>
         )}
 
