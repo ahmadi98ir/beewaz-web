@@ -30,8 +30,17 @@ const INITIAL_FILTERS: Filters = {
 
 const ITEMS_PER_PAGE = 12
 
-export function ShopClient() {
-  const [filters, setFilters] = useState<Filters>(INITIAL_FILTERS)
+type Props = {
+  initialQuery?: string
+  initialCategory?: string
+}
+
+export function ShopClient({ initialQuery = '', initialCategory }: Props) {
+  const [searchQuery, setSearchQuery] = useState(initialQuery)
+  const [filters, setFilters] = useState<Filters>({
+    ...INITIAL_FILTERS,
+    categories: initialCategory ? [initialCategory] : [],
+  })
   const [sort, setSort] = useState<SortOption>('newest')
   const [view, setView] = useState<ViewMode>('grid')
   const [page, setPage] = useState(1)
@@ -51,6 +60,17 @@ export function ShopClient() {
   const filtered = useMemo(() => {
     let list = [...mockProducts]
 
+    // جستجوی متنی
+    if (searchQuery.trim().length >= 1) {
+      const q = searchQuery.trim().toLowerCase()
+      list = list.filter(
+        (p) =>
+          p.nameFa.includes(q) ||
+          p.sku.toLowerCase().includes(q) ||
+          p.categoryName.includes(q) ||
+          p.descriptionFa.includes(q),
+      )
+    }
     // دسته‌بندی
     if (filters.categories.length > 0) {
       list = list.filter((p) => filters.categories.includes(p.categorySlug))
@@ -82,7 +102,8 @@ export function ShopClient() {
     (filters.minPrice ? 1 : 0) +
     (filters.maxPrice ? 1 : 0) +
     (filters.inStock ? 1 : 0) +
-    (filters.isNew ? 1 : 0)
+    (filters.isNew ? 1 : 0) +
+    (searchQuery.trim() ? 1 : 0)
 
   return (
     <div className="min-h-screen bg-surface-50">
@@ -103,25 +124,47 @@ export function ShopClient() {
       <div className="container-main py-8">
 
         {/* ── Page Header ───────────────────────────────────────────────────── */}
-        <div className="flex items-center justify-between mb-6 gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
           <div>
             <h1 className="text-2xl sm:text-3xl font-black text-surface-900">فروشگاه بیواز</h1>
             <p className="text-sm text-surface-500 mt-1">کامل‌ترین مجموعه تجهیزات امنیتی</p>
           </div>
 
-          {/* دکمه فیلتر موبایل */}
-          <button
-            onClick={() => setMobileFilterOpen(true)}
-            className="lg:hidden btn btn-outline py-2.5 px-4 text-sm gap-2"
-          >
-            <MenuIcon size={16} />
-            فیلترها
-            {activeFiltersCount > 0 && (
-              <span className="w-5 h-5 rounded-full bg-brand-600 text-white text-xs font-bold flex items-center justify-center">
-                {activeFiltersCount}
-              </span>
-            )}
-          </button>
+          <div className="flex items-center gap-3">
+            {/* جستجوی inline */}
+            <div className="relative flex-1 sm:w-64 sm:flex-none">
+              <input
+                type="search"
+                value={searchQuery}
+                onChange={(e) => { setSearchQuery(e.target.value); setPage(1) }}
+                placeholder="جستجوی محصول..."
+                className="input pe-10 py-2.5 text-sm"
+              />
+              <svg
+                viewBox="0 0 24 24"
+                className="absolute top-1/2 -translate-y-1/2 end-3 w-4 h-4 text-surface-400 pointer-events-none"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
+              </svg>
+            </div>
+
+            {/* دکمه فیلتر موبایل */}
+            <button
+              onClick={() => setMobileFilterOpen(true)}
+              className="lg:hidden btn btn-outline py-2.5 px-4 text-sm gap-2 flex-shrink-0"
+            >
+              <MenuIcon size={16} />
+              فیلترها
+              {activeFiltersCount > 0 && (
+                <span className="w-5 h-5 rounded-full bg-brand-600 text-white text-xs font-bold flex items-center justify-center">
+                  {activeFiltersCount}
+                </span>
+              )}
+            </button>
+          </div>
         </div>
 
         <div className="flex gap-6">

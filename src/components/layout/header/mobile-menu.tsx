@@ -3,8 +3,9 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { MenuIcon, XIcon, ChevronDownIcon, PhoneIcon } from '@/components/ui/icons'
+import { MenuIcon, XIcon, ChevronDownIcon, PhoneIcon, ShoppingCartIcon } from '@/components/ui/icons'
 import { BeewazLogo } from '@/components/ui/logo'
+import { useCart } from '@/stores/cart'
 import type { NavItem } from '@/config/navigation'
 
 type Props = { items: NavItem[] }
@@ -13,6 +14,7 @@ export function MobileMenu({ items }: Props) {
   const [open, setOpen] = useState(false)
   const [expanded, setExpanded] = useState<string | null>(null)
   const pathname = usePathname()
+  const cartCount = useCart((s) => s.count)
 
   // بستن منو هنگام تغییر مسیر
   useEffect(() => { setOpen(false) }, [pathname])
@@ -32,12 +34,17 @@ export function MobileMenu({ items }: Props) {
       {/* دکمه همبرگر */}
       <button
         onClick={() => setOpen(true)}
-        className="lg:hidden btn btn-ghost p-2.5"
+        className="lg:hidden btn btn-ghost p-2.5 relative"
         aria-label="باز کردن منو"
         aria-expanded={open}
         aria-controls="mobile-menu"
       >
         <MenuIcon size={22} />
+        {cartCount > 0 && (
+          <span className="absolute -top-0.5 -start-0.5 min-w-[16px] h-4 px-0.5 rounded-full bg-brand-600 text-white text-[9px] font-bold flex items-center justify-center">
+            {cartCount}
+          </span>
+        )}
       </button>
 
       {/* Backdrop */}
@@ -153,15 +160,23 @@ export function MobileMenu({ items }: Props) {
           </ul>
         </nav>
 
-        {/* فوتر drawer — اطلاعات تماس */}
+        {/* فوتر drawer */}
         <div className="border-t border-surface-100 p-4 space-y-3">
+          {cartCount > 0 && (
+            <Link
+              href="/cart"
+              className="btn btn-outline w-full justify-center gap-2 text-sm"
+            >
+              <ShoppingCartIcon size={16} />
+              سبد خرید ({cartCount} محصول)
+            </Link>
+          )}
           <Link
             href="/contact"
             className="btn btn-primary w-full justify-center text-sm"
           >
             مشاوره رایگان
           </Link>
-
           <a
             href="tel:+982100000000"
             className="flex items-center justify-center gap-2 text-sm text-surface-600 hover:text-brand-600 transition-colors py-2"

@@ -6,6 +6,11 @@ export const metadata: Metadata = {
   description: 'خرید آنلاین سیستم دزدگیر، حسگر، سیرن و تجهیزات امنیتی. بیش از ۸۰ محصول اصل با گارانتی رسمی.',
 }
 
-export default function ShopPage() {
-  return <ShopClient />
+type Props = {
+  searchParams: Promise<{ q?: string; category?: string }>
+}
+
+export default async function ShopPage({ searchParams }: Props) {
+  const { q, category } = await searchParams
+  return <ShopClient initialQuery={q} initialCategory={category} />
 }

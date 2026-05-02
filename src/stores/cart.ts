@@ -44,10 +44,9 @@ export const useCart = create<CartStore>()(
               items: state.items.map((i) =>
                 i.id === newItem.id ? { ...i, quantity: i.quantity + 1 } : i,
               ),
-              isOpen: true,
             }
           }
-          return { items: [...state.items, { ...newItem, quantity: 1 }], isOpen: true }
+          return { items: [...state.items, { ...newItem, quantity: 1 }] }
         })
       },
 

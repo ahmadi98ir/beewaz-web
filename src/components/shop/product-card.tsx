@@ -1,6 +1,12 @@
+'use client'
+
 import Link from 'next/link'
 import { ShoppingCartIcon, HeartIcon } from '@/components/ui/icons'
 import { formatPrice, discountPercent } from '@/lib/utils'
+import { useCart } from '@/stores/cart'
+import { useToast } from '@/stores/toast'
+import { useQuickView } from '@/stores/quick-view'
+import { ProductSvgIcon } from '@/components/shop/product-svg-icon'
 import type { MockProduct } from '@/lib/mock-data'
 
 type Props = {
@@ -27,21 +33,43 @@ function StarRating({ rating }: { rating: number }) {
 }
 
 export function ProductCard({ product, view = 'grid' }: Props) {
+  const addItem = useCart((s) => s.addItem)
+  const toast = useToast()
+  const showQuickView = useQuickView((s) => s.show)
+
   const hasDiscount = !!product.comparePrice
-  const discount = hasDiscount
-    ? discountPercent(product.price, product.comparePrice!)
-    : 0
+  const discount = hasDiscount ? discountPercent(product.price, product.comparePrice!) : 0
   const isLowStock = product.stock > 0 && product.stock <= 5
+
+  const handleAddToCart = (e: React.MouseEvent) => {
+    e.preventDefault()
+    if (product.stock === 0) return
+    addItem({
+      id: product.id,
+      slug: product.slug,
+      categorySlug: product.categorySlug,
+      nameFa: product.nameFa,
+      sku: product.sku,
+      price: product.price,
+      comparePrice: product.comparePrice,
+      placeholderFrom: product.placeholderFrom,
+      placeholderTo: product.placeholderTo,
+    })
+    toast.success(`${product.nameFa} به سبد اضافه شد`)
+  }
+
+  const handleQuickView = (e: React.MouseEvent) => {
+    e.preventDefault()
+    showQuickView(product)
+  }
 
   if (view === 'list') {
     return (
       <div className="card hover-lift flex flex-col sm:flex-row overflow-hidden group">
-        {/* تصویر */}
         <Link href={`/shop/${product.categorySlug}/${product.slug}`} className="flex-shrink-0 sm:w-52">
           <ProductImage product={product} className="aspect-square sm:aspect-auto sm:h-full" />
         </Link>
 
-        {/* محتوا */}
         <div className="flex flex-col flex-1 p-5 gap-3">
           <div className="flex items-start justify-between gap-4">
             <div>
@@ -80,10 +108,22 @@ export function ProductCard({ product, view = 'grid' }: Props) {
                 </div>
               )}
             </div>
-            <button className="btn btn-primary py-2.5 px-5 text-sm gap-2">
-              <ShoppingCartIcon size={16} />
-              افزودن به سبد
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={handleQuickView}
+                className="btn btn-ghost py-2.5 px-4 text-sm text-surface-600"
+              >
+                مشاهده سریع
+              </button>
+              <button
+                onClick={handleAddToCart}
+                disabled={product.stock === 0}
+                className="btn btn-primary py-2.5 px-5 text-sm gap-2"
+              >
+                <ShoppingCartIcon size={16} />
+                {product.stock === 0 ? 'ناموجود' : 'افزودن به سبد'}
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -92,8 +132,7 @@ export function ProductCard({ product, view = 'grid' }: Props) {
 
   return (
     <div className="card hover-lift group relative flex flex-col">
-
-      {/* ── تصویر محصول ──────────────────────────────────────────── */}
+      {/* تصویر محصول */}
       <div className="relative overflow-hidden">
         <Link href={`/shop/${product.categorySlug}/${product.slug}`} tabIndex={-1}>
           <ProductImage product={product} className="aspect-square" />
@@ -113,23 +152,39 @@ export function ProductCard({ product, view = 'grid' }: Props) {
           )}
         </div>
 
-        {/* دکمه علاقه‌مندی */}
-        <button
-          className="absolute top-3 end-3 w-8 h-8 rounded-xl bg-white/90 backdrop-blur-sm flex items-center justify-center text-surface-400 hover:text-brand-600 opacity-0 group-hover:opacity-100 transition-all duration-200 hover:scale-110"
-          aria-label="افزودن به علاقه‌مندی‌ها"
-        >
-          <HeartIcon size={16} />
-        </button>
-
-        {/* دکمه افزودن به سبد — روی تصویر هنگام hover */}
-        <div className="absolute inset-x-0 bottom-0 p-3 translate-y-full group-hover:translate-y-0 transition-transform duration-250">
-          <button className="btn btn-primary w-full py-2.5 text-sm gap-2 shadow-lg shadow-brand-600/30">
-            <ShoppingCartIcon size={15} />
-            افزودن به سبد
+        {/* دکمه‌های hover */}
+        <div className="absolute top-3 end-3 flex flex-col gap-1.5">
+          <button
+            className="w-8 h-8 rounded-xl bg-white/90 backdrop-blur-sm flex items-center justify-center text-surface-400 hover:text-brand-600 opacity-0 group-hover:opacity-100 transition-all duration-200 hover:scale-110"
+            aria-label="افزودن به علاقه‌مندی‌ها"
+          >
+            <HeartIcon size={16} />
+          </button>
+          <button
+            onClick={handleQuickView}
+            className="w-8 h-8 rounded-xl bg-white/90 backdrop-blur-sm flex items-center justify-center text-surface-400 hover:text-brand-600 opacity-0 group-hover:opacity-100 transition-all duration-200 hover:scale-110 delay-75"
+            aria-label="مشاهده سریع"
+            title="مشاهده سریع"
+          >
+            <svg viewBox="0 0 20 20" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.75">
+              <path d="M1 10C1 10 4 4 10 4s9 6 9 6-3 6-9 6-9-6-9-6z" strokeLinecap="round" />
+              <circle cx="10" cy="10" r="2.5" />
+            </svg>
           </button>
         </div>
 
-        {/* موجودی پایین */}
+        {/* دکمه افزودن به سبد روی تصویر */}
+        <div className="absolute inset-x-0 bottom-0 p-3 translate-y-full group-hover:translate-y-0 transition-transform duration-250">
+          <button
+            onClick={handleAddToCart}
+            disabled={product.stock === 0}
+            className="btn btn-primary w-full py-2.5 text-sm gap-2 shadow-lg shadow-brand-600/30 disabled:opacity-60"
+          >
+            <ShoppingCartIcon size={15} />
+            {product.stock === 0 ? 'ناموجود' : 'افزودن به سبد'}
+          </button>
+        </div>
+
         {isLowStock && (
           <div className="absolute bottom-3 start-3 end-3 group-hover:opacity-0 transition-opacity">
             <div className="bg-amber-50 text-amber-700 text-xs font-semibold text-center py-1.5 px-3 rounded-lg border border-amber-200">
@@ -146,27 +201,21 @@ export function ProductCard({ product, view = 'grid' }: Props) {
         )}
       </div>
 
-      {/* ── اطلاعات محصول ────────────────────────────────────────── */}
+      {/* اطلاعات محصول */}
       <div className="p-4 flex flex-col flex-1 gap-2">
-        {/* دسته‌بندی */}
-        <span className="text-xs font-semibold text-brand-600">
-          {product.categoryName}
-        </span>
+        <span className="text-xs font-semibold text-brand-600">{product.categoryName}</span>
 
-        {/* نام محصول */}
         <Link href={`/shop/${product.categorySlug}/${product.slug}`}>
           <h3 className="text-sm font-bold text-surface-900 hover:text-brand-600 transition-colors leading-snug line-clamp-2">
             {product.nameFa}
           </h3>
         </Link>
 
-        {/* امتیاز */}
         <div className="flex items-center gap-2">
           <StarRating rating={product.rating} />
           <span className="text-xs text-surface-400">({product.reviewCount})</span>
         </div>
 
-        {/* قیمت */}
         <div className="mt-auto pt-2 border-t border-surface-50">
           {hasDiscount && (
             <span className="text-xs text-surface-400 line-through block">
@@ -178,12 +227,9 @@ export function ProductCard({ product, view = 'grid' }: Props) {
           </span>
         </div>
       </div>
-
     </div>
   )
 }
-
-// ── Placeholder image ───────────────────────────────────────────────────────
 
 function ProductImage({
   product,
@@ -199,16 +245,12 @@ function ProductImage({
         background: `linear-gradient(135deg, ${product.placeholderFrom} 0%, ${product.placeholderTo} 100%)`,
       }}
     >
-      {/* SKU code به عنوان visual placeholder */}
-      <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-4">
-        <div className="w-16 h-16 rounded-2xl bg-white/60 backdrop-blur-sm flex items-center justify-center shadow-sm">
-          <span className="text-2xl font-black text-surface-400 select-none">
-            {product.sku.replace('BW-', '')}
-          </span>
-        </div>
-        <span className="text-xs font-mono text-surface-400/70 text-center leading-tight select-none">
-          {product.sku}
-        </span>
+      <div className="absolute inset-0 flex items-center justify-center">
+        <ProductSvgIcon
+          categorySlug={product.categorySlug}
+          size={80}
+          className="text-surface-500/60"
+        />
       </div>
     </div>
   )

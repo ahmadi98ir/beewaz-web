@@ -2,6 +2,9 @@ import type { Metadata, Viewport } from 'next'
 import { Header } from '@/components/layout/header'
 import { Footer } from '@/components/layout/footer'
 import { ChatWidget } from '@/components/chat/chat-widget'
+import { ToastContainer } from '@/components/ui/toast'
+import { PageTransition } from '@/components/ui/page-transition'
+import { QuickViewModal } from '@/components/shop/quick-view-modal'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -44,11 +47,12 @@ export default function RootLayout({
       <body className="min-h-screen flex flex-col bg-surface-50 antialiased">
         <Header />
         <main className="flex-1" id="main-content">
-          {children}
+          <PageTransition>{children}</PageTransition>
         </main>
         <Footer />
-        {/* چت‌بات — در تمام صفحات نمایش داده می‌شود */}
         <ChatWidget />
+        <QuickViewModal />
+        <ToastContainer />
       </body>
     </html>
   )
