@@ -39,12 +39,15 @@ export function Footer() {
       <div className="border-b border-white/10">
         <div className="container-main py-6">
           <ul className="grid grid-cols-2 sm:grid-cols-4 gap-4" role="list">
-            {trustSignals.map(({ icon: Icon, label }) => (
-              <li key={label} className="flex items-center gap-3">
-                <div className="flex-shrink-0 w-9 h-9 rounded-xl bg-brand-600/20 flex items-center justify-center">
-                  <Icon size={18} className="text-brand-400" />
+            {trustSignals.map(({ icon: Icon, label }, i) => (
+              <li key={label} className="flex items-center gap-3 group">
+                <div className="flex-shrink-0 w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-200 group-hover:scale-110"
+                  style={i % 2 === 0
+                    ? { background: 'rgb(249 115 22 / 0.18)', boxShadow: '0 0 12px rgb(249 115 22 / 0.2)' }
+                    : { background: 'rgb(27 58 138 / 0.35)' }}>
+                  <Icon size={18} style={{ color: i % 2 === 0 ? '#FB923C' : '#93B4FF' }} />
                 </div>
-                <span className="text-sm font-medium text-white/80">{label}</span>
+                <span className="text-sm font-medium text-white/80 group-hover:text-white transition-colors">{label}</span>
               </li>
             ))}
           </ul>
@@ -70,18 +73,18 @@ export function Footer() {
                 href="tel:+982100000000"
                 className="flex items-center gap-3 text-sm text-white/70 hover:text-white transition-colors group"
               >
-                <PhoneIcon size={15} className="text-brand-400 flex-shrink-0 group-hover:text-brand-300 transition-colors" />
+                <PhoneIcon size={15} className="flex-shrink-0 transition-colors group-hover:opacity-80" style={{ color: '#FB923C' }} />
                 <span dir="ltr">۰۲۱-۰۰۰۰-۰۰۰۰</span>
               </a>
               <a
                 href="mailto:info@beewaz.ir"
                 className="flex items-center gap-3 text-sm text-white/70 hover:text-white transition-colors group"
               >
-                <MailIcon size={15} className="text-brand-400 flex-shrink-0 group-hover:text-brand-300 transition-colors" />
+                <MailIcon size={15} className="flex-shrink-0 transition-colors group-hover:opacity-80" style={{ color: '#FB923C' }} />
                 <span dir="ltr">info@beewaz.ir</span>
               </a>
               <div className="flex items-start gap-3 text-sm text-white/70">
-                <MapPinIcon size={15} className="text-brand-400 flex-shrink-0 mt-0.5" />
+                <MapPinIcon size={15} className="flex-shrink-0 mt-0.5" style={{ color: '#FB923C' }} />
                 <span>تهران، ایران</span>
               </div>
             </address>
@@ -95,7 +98,7 @@ export function Footer() {
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label={label}
-                  className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center hover:bg-brand-600 transition-colors duration-200"
+                  className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center transition-all duration-200 hover:scale-110 hover:bg-accent-500"
                 >
                   <Icon size={16} />
                 </a>
@@ -115,7 +118,7 @@ export function Footer() {
                     href={href}
                     className="text-sm text-white/60 hover:text-white transition-colors hover:translate-x-0.5 inline-flex items-center gap-1.5 group"
                   >
-                    <span className="w-1 h-1 rounded-full bg-brand-600 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-accent-500 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
                     {label}
                   </Link>
                 </li>
@@ -135,7 +138,7 @@ export function Footer() {
                     href={href}
                     className="text-sm text-white/60 hover:text-white transition-colors hover:translate-x-0.5 inline-flex items-center gap-1.5 group"
                   >
-                    <span className="w-1 h-1 rounded-full bg-brand-600 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-accent-500 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
                     {label}
                   </Link>
                 </li>
@@ -155,7 +158,7 @@ export function Footer() {
                     href={href}
                     className="text-sm text-white/60 hover:text-white transition-colors hover:translate-x-0.5 inline-flex items-center gap-1.5 group"
                   >
-                    <span className="w-1 h-1 rounded-full bg-brand-600 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-accent-500 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
                     {label}
                   </Link>
                 </li>

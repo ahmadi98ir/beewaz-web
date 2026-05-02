@@ -13,17 +13,21 @@ export function FeaturedProducts() {
         <AnimateIn>
           <div className="flex items-end justify-between mb-10 gap-4 flex-wrap">
             <div>
-              <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-brand-50 border border-brand-100 text-brand-700 text-sm font-semibold mb-3">
-                محصولات پرفروش
+              <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border text-sm font-semibold mb-3"
+                style={{ background: 'rgb(249 115 22 / 0.08)', borderColor: 'rgb(249 115 22 / 0.3)', color: '#EA6C00' }}>
+                <span className="w-2 h-2 rounded-full bg-accent-500 animate-pulse" />
+                پرفروش‌ترین‌ها
               </div>
               <h2 className="text-3xl sm:text-4xl font-black text-surface-900">
-                محصولات ویژه بیواز
+                محصولات ویژه{' '}
+                <span className="text-gradient-brand">بیواز</span>
               </h2>
             </div>
 
             <Link
               href="/shop"
-              className="inline-flex items-center gap-2 text-sm font-semibold text-brand-600 hover:text-brand-700 transition-colors group"
+              className="inline-flex items-center gap-2 text-sm font-semibold transition-colors group"
+              style={{ color: '#F97316' }}
             >
               مشاهده همه
               <ArrowLeftIcon size={16} className="transition-transform group-hover:-translate-x-1" />

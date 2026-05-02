@@ -6,18 +6,31 @@
    مثال: --color-brand-600 → bg-brand-600, text-brand-600, border-brand-600 */
 
 @theme {
-  /* Brand — قرمز اقتدار، تداعی‌کننده هشدار و حفاظت */
-  --color-brand-50:  #fff1f1;
-  --color-brand-100: #ffdfdf;
-  --color-brand-200: #ffc5c5;
-  --color-brand-300: #ff9d9d;
-  --color-brand-400: #ff6464;
-  --color-brand-500: #ff2b2b;
-  --color-brand-600: #e61010;  /* رنگ اصلی برند */
-  --color-brand-700: #c20a0a;
-  --color-brand-800: #a10909;
-  --color-brand-900: #850d0d;
-  --color-brand-950: #490303;
+  /* Brand — سرمه‌ای برند بیواز (از لوگو) */
+  --color-brand-50:  #EFF4FF;
+  --color-brand-100: #DBE8FF;
+  --color-brand-200: #BFCFFE;
+  --color-brand-300: #93AAFD;
+  --color-brand-400: #6080FA;
+  --color-brand-500: #3B5CEF;
+  --color-brand-600: #1B3A8A;  /* رنگ اصلی برند — نیوی لوگو */
+  --color-brand-700: #152E70;
+  --color-brand-800: #0F2155;
+  --color-brand-900: #0A163A;
+  --color-brand-950: #060B20;
+
+  /* Accent — نارنجی برند (ELECTRONIC در لوگو) */
+  --color-accent-50:  #FFF7ED;
+  --color-accent-100: #FFEDD5;
+  --color-accent-200: #FED7AA;
+  --color-accent-300: #FDBA74;
+  --color-accent-400: #FB923C;
+  --color-accent-500: #F97316;  /* نارنجی اصلی */
+  --color-accent-600: #EA580C;
+  --color-accent-700: #C2410C;
+  --color-accent-800: #9A3412;
+  --color-accent-900: #7C2D12;
+  --color-accent-950: #431407;
 
   /* Surface — پالت تیره برای بخش‌های حرفه‌ای */
   --color-surface-50:  #f8fafc;
@@ -157,12 +170,27 @@
     background-color: var(--color-brand-600);
     color: #fff;
     border: 1.5px solid var(--color-brand-600);
-    box-shadow: 0 1px 2px rgb(230 16 16 / 0.25);
+    box-shadow: 0 1px 2px rgb(27 58 138 / 0.25);
 
     &:hover:not(:disabled) {
       background-color: var(--color-brand-700);
       border-color: var(--color-brand-700);
-      box-shadow: 0 4px 12px rgb(230 16 16 / 0.3);
+      box-shadow: 0 4px 12px rgb(27 58 138 / 0.35);
+      transform: translateY(-1px);
+    }
+    &:active:not(:disabled) { transform: translateY(0); }
+  }
+
+  .btn-accent {
+    background-color: var(--color-accent-500);
+    color: #fff;
+    border: 1.5px solid var(--color-accent-500);
+    box-shadow: 0 1px 2px rgb(249 115 22 / 0.25);
+
+    &:hover:not(:disabled) {
+      background-color: var(--color-accent-600);
+      border-color: var(--color-accent-600);
+      box-shadow: 0 4px 12px rgb(249 115 22 / 0.35);
       transform: translateY(-1px);
     }
     &:active:not(:disabled) { transform: translateY(0); }
@@ -245,9 +273,17 @@
 /* ─── Utilities ──────────────────────────────────────────────────────────────── */
 
 @layer utilities {
-  /* متن‌های gradient برند */
+  /* متن‌های gradient برند — نیوی به نارنجی */
   .text-gradient-brand {
-    background: linear-gradient(135deg, var(--color-brand-600), var(--color-brand-400));
+    background: linear-gradient(135deg, var(--color-brand-500) 0%, var(--color-accent-500) 100%);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  /* gradient نارنجی برای accent */
+  .text-gradient-accent {
+    background: linear-gradient(135deg, var(--color-accent-400) 0%, var(--color-accent-600) 100%);
     background-clip: text;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -318,22 +354,86 @@
     animation: pulse-ring 2.4s ease-out 1.2s infinite;
   }
 
-  /* Scroll-triggered: base state (قبل از دیده شدن) */
+  /* Scroll-triggered: چهار جهت */
   .reveal {
     opacity: 0;
     transform: translateY(28px);
     transition: opacity 0.65s var(--ease-out-expo),
                 transform 0.65s var(--ease-out-expo);
   }
-  .reveal.visible {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  .reveal.visible { opacity: 1; transform: translateY(0); }
+
+  .reveal-left  { opacity: 0; transform: translateX(-36px); transition: opacity 0.65s var(--ease-out-expo), transform 0.65s var(--ease-out-expo); }
+  .reveal-right { opacity: 0; transform: translateX(36px);  transition: opacity 0.65s var(--ease-out-expo), transform 0.65s var(--ease-out-expo); }
+  .reveal-scale { opacity: 0; transform: scale(0.92);       transition: opacity 0.55s var(--ease-out-expo), transform 0.55s var(--ease-spring); }
+  .reveal-left.visible, .reveal-right.visible, .reveal-scale.visible { opacity: 1; transform: translateX(0) scale(1); }
 
   /* Counter animate */
   @keyframes count-up {
     from { opacity: 0; transform: translateY(8px); }
     to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── انیمیشن‌های جدید ───────────────────────────────── */
+
+  @keyframes bounceIn {
+    0%   { opacity: 0; transform: scale(0.8) translateY(8px); }
+    60%  { transform: scale(1.05) translateY(-2px); }
+    100% { opacity: 1; transform: scale(1) translateY(0); }
+  }
+  .animate-bounce-in {
+    animation: bounceIn 0.5s var(--ease-spring) both;
+  }
+
+  @keyframes glowPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgb(249 115 22 / 0); }
+    50%       { box-shadow: 0 0 0 8px rgb(249 115 22 / 0.15); }
+  }
+  .animate-glow-pulse {
+    animation: glowPulse 2.5s ease-in-out infinite;
+  }
+
+  @keyframes rotateSlow {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+  }
+  .animate-rotate-slow {
+    animation: rotateSlow 12s linear infinite;
+  }
+
+  @keyframes shimmerText {
+    0%   { background-position: 0% 50%; }
+    50%  { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+  .animate-shimmer-text {
+    background-size: 200% auto;
+    animation: shimmerText 3s ease infinite;
+  }
+
+  @keyframes countBadge {
+    0%   { transform: scale(1); }
+    50%  { transform: scale(1.3); }
+    100% { transform: scale(1); }
+  }
+  .animate-badge-pop {
+    animation: countBadge 0.3s var(--ease-spring);
+  }
+
+  @keyframes slideInLeft {
+    from { opacity: 0; transform: translateX(-24px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+  .animate-slide-in-left {
+    animation: slideInLeft var(--duration-slow) var(--ease-out-expo) both;
+  }
+
+  @keyframes slideInRight {
+    from { opacity: 0; transform: translateX(24px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+  .animate-slide-in-right {
+    animation: slideInRight var(--duration-slow) var(--ease-out-expo) both;
   }
 
   /* Shimmer برای skeleton loading */
@@ -358,7 +458,7 @@
     box-shadow: 0 12px 32px rgb(0 0 0 / 0.1);
   }
 
-  /* Gradient border برای featured items */
+  /* Gradient border — نیوی به نارنجی */
   .gradient-border {
     position: relative;
     background: white;
@@ -369,10 +469,54 @@
     inset: 0;
     border-radius: inherit;
     padding: 1.5px;
-    background: linear-gradient(135deg, var(--color-brand-600), var(--color-brand-400));
+    background: linear-gradient(135deg, var(--color-brand-600), var(--color-accent-500));
     mask: linear-gradient(white 0 0) content-box, linear-gradient(white 0 0);
     mask-composite: exclude;
     -webkit-mask-composite: xor;
     pointer-events: none;
+  }
+
+  /* orange glow برای عناصر accent */
+  .orange-glow {
+    box-shadow: 0 0 20px rgb(249 115 22 / 0.25), 0 0 60px rgb(249 115 22 / 0.1);
+  }
+  .orange-glow-sm {
+    box-shadow: 0 0 8px rgb(249 115 22 / 0.3);
+  }
+
+  /* badge نارنجی برند */
+  .badge-accent {
+    background-color: var(--color-accent-50);
+    color: var(--color-accent-700);
+    border: 1px solid var(--color-accent-200);
+  }
+
+  /* خط زیرخط نارنجی متحرک برای لینک‌ها */
+  .link-underline-accent {
+    position: relative;
+  }
+  .link-underline-accent::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    inset-inline: 0;
+    height: 2px;
+    background: var(--color-accent-500);
+    border-radius: 99px;
+    transform: scaleX(0);
+    transform-origin: end;
+    transition: transform 0.25s var(--ease-out-expo);
+  }
+  .link-underline-accent:hover::after {
+    transform: scaleX(1);
+    transform-origin: start;
+  }
+
+  /* section divider نارنجی */
+  .orange-divider {
+    height: 3px;
+    width: 48px;
+    background: linear-gradient(90deg, var(--color-accent-500), var(--color-accent-300));
+    border-radius: 99px;
   }
 }

@@ -6,9 +6,9 @@ import { ShieldIcon, CheckIcon } from '@/components/ui/icons'
 
 const stats = [
   { value: 15000, suffix: '+', label: 'مشتری راضی' },
-  { value: 10, suffix: '+', label: 'سال تجربه' },
-  { value: 80, suffix: '+', label: 'محصول انحصاری' },
-  { value: 18, suffix: ' ماه', label: 'گارانتی رسمی' },
+  { value: 10,    suffix: '+', label: 'سال تجربه' },
+  { value: 80,    suffix: '+', label: 'محصول انحصاری' },
+  { value: 18,    suffix: ' ماه', label: 'گارانتی رسمی' },
 ]
 
 const features = [
@@ -25,7 +25,6 @@ function CountUp({ target, suffix }: { target: number; suffix: string }) {
   useEffect(() => {
     const el = ref.current
     if (!el) return
-
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry?.isIntersecting && !started.current) {
@@ -36,12 +35,8 @@ function CountUp({ target, suffix }: { target: number; suffix: string }) {
           let current = 0
           const timer = setInterval(() => {
             current += increment
-            if (current >= target) {
-              setCount(target)
-              clearInterval(timer)
-            } else {
-              setCount(Math.floor(current))
-            }
+            if (current >= target) { setCount(target); clearInterval(timer) }
+            else setCount(Math.floor(current))
           }, duration / steps)
         }
       },
@@ -60,86 +55,68 @@ function CountUp({ target, suffix }: { target: number; suffix: string }) {
 
 export function Hero() {
   return (
-    <section
-      className="relative overflow-hidden bg-surface-950 text-white"
-      aria-label="تصویر اصلی"
-    >
-      {/* ── Background Elements ──────────────────────────────────────────────── */}
+    <section className="relative overflow-hidden bg-surface-950 text-white" aria-label="تصویر اصلی">
 
-      {/* شبکه نقطه‌ای ظریف */}
+      {/* شبکه نقطه‌ای */}
       <div
         className="absolute inset-0 opacity-20"
-        style={{
-          backgroundImage: 'radial-gradient(circle, rgb(255 255 255 / 0.15) 1px, transparent 1px)',
-          backgroundSize: '32px 32px',
-        }}
+        style={{ backgroundImage: 'radial-gradient(circle, rgb(255 255 255 / 0.15) 1px, transparent 1px)', backgroundSize: '32px 32px' }}
       />
 
-      {/* Radial glow قرمز */}
+      {/* Glow‌های رنگی برند */}
       <div className="absolute inset-0 pointer-events-none">
-        <div
-          className="absolute top-1/2 -translate-y-1/2 end-0 w-[600px] h-[600px] rounded-full opacity-25"
-          style={{
-            background: 'radial-gradient(circle, #e61010 0%, transparent 70%)',
-            transform: 'translate(30%, -50%)',
-          }}
-        />
-        <div
-          className="absolute top-0 start-0 w-64 h-64 rounded-full opacity-10"
-          style={{ background: 'radial-gradient(circle, #e61010 0%, transparent 70%)' }}
-        />
+        <div className="absolute top-1/2 -translate-y-1/2 end-0 w-[600px] h-[600px] rounded-full opacity-20"
+          style={{ background: 'radial-gradient(circle, #3B5CEF 0%, transparent 70%)', transform: 'translate(30%, -50%)' }} />
+        <div className="absolute top-0 start-0 w-64 h-64 rounded-full opacity-25"
+          style={{ background: 'radial-gradient(circle, #F97316 0%, transparent 70%)' }} />
+        <div className="absolute bottom-0 end-1/4 w-96 h-96 rounded-full opacity-10"
+          style={{ background: 'radial-gradient(circle, #1B3A8A 0%, transparent 70%)' }} />
       </div>
 
-      {/* ── Content ──────────────────────────────────────────────────────────── */}
+      {/* ── Content ───────────────────────────────────────────────── */}
       <div className="container-main relative z-10 py-20 lg:py-28">
         <div className="grid lg:grid-cols-2 gap-12 lg:gap-8 items-center">
 
-          {/* ستون چپ — متن */}
+          {/* ستون متن */}
           <div className="space-y-8">
 
-            {/* Badge */}
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-brand-600/15 border border-brand-600/30 text-brand-400 text-sm font-semibold backdrop-blur-sm">
-              <span className="w-2 h-2 rounded-full bg-brand-400 animate-pulse flex-shrink-0" />
+            {/* Badge نارنجی */}
+            <div className="animate-bounce-in inline-flex items-center gap-2.5 px-4 py-2 rounded-full border text-sm font-semibold backdrop-blur-sm"
+              style={{ background: 'rgb(249 115 22 / 0.12)', borderColor: 'rgb(249 115 22 / 0.35)', color: '#FB923C' }}>
+              <span className="w-2 h-2 rounded-full bg-accent-400 animate-pulse flex-shrink-0" />
               برند امنیتی پیشرو در ایران
+              <span className="px-2 py-0.5 rounded-full text-xs font-bold"
+                style={{ background: 'rgb(249 115 22 / 0.2)', color: '#FB923C' }}>
+                BEEWAZ
+              </span>
             </div>
 
             {/* Headline */}
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black leading-tight">
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black leading-tight animate-slide-in-left">
               امنیت خانه و{' '}
               <span className="relative inline-block">
-                <span className="text-gradient-brand">کسب‌وکار</span>
-                {/* خط زیر */}
-                <svg
-                  className="absolute -bottom-2 start-0 w-full"
-                  viewBox="0 0 200 8"
-                  preserveAspectRatio="none"
-                  aria-hidden="true"
-                >
-                  <path
-                    d="M0 6 Q50 0 100 4 Q150 8 200 2"
-                    stroke="#e61010"
-                    strokeWidth="3"
-                    fill="none"
-                    strokeLinecap="round"
-                  />
+                <span className="text-gradient-brand animate-shimmer-text">کسب‌وکار</span>
+                <svg className="absolute -bottom-2 start-0 w-full" viewBox="0 0 200 8" preserveAspectRatio="none" aria-hidden="true">
+                  <path d="M0 6 Q50 0 100 4 Q150 8 200 2" stroke="#F97316" strokeWidth="3" fill="none" strokeLinecap="round" />
                 </svg>
               </span>
-              <br />
-              را به بیواز بسپارید
+              <br />را به بیواز بسپارید
             </h1>
 
             {/* Subheadline */}
-            <p className="text-lg text-white/65 leading-relaxed max-w-lg">
+            <p className="text-lg text-white/65 leading-relaxed max-w-lg animate-fade-in" style={{ animationDelay: '200ms' }}>
               سیستم‌های دزدگیر حرفه‌ای برای خانه، مغازه و اماکن تجاری.
               نصب توسط تکنیسین‌های مجرب، گارانتی رسمی و پشتیبانی همیشگی.
             </p>
 
-            {/* Features */}
+            {/* Features با نارنجی */}
             <ul className="flex flex-col sm:flex-row gap-3 sm:gap-6" role="list">
-              {features.map((f) => (
-                <li key={f} className="flex items-center gap-2 text-sm text-white/70">
-                  <span className="w-5 h-5 rounded-full bg-brand-600/20 border border-brand-600/40 flex items-center justify-center flex-shrink-0">
-                    <CheckIcon size={10} className="text-brand-400" />
+              {features.map((f, i) => (
+                <li key={f} className="flex items-center gap-2 text-sm text-white/80 animate-slide-up"
+                  style={{ animationDelay: `${300 + i * 100}ms` }}>
+                  <span className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 animate-glow-pulse"
+                    style={{ background: 'rgb(249 115 22 / 0.2)', border: '1px solid rgb(249 115 22 / 0.5)' }}>
+                    <CheckIcon size={10} style={{ color: '#FB923C' }} />
                   </span>
                   {f}
                 </li>
@@ -147,68 +124,79 @@ export function Hero() {
             </ul>
 
             {/* CTAs */}
-            <div className="flex flex-col sm:flex-row gap-3">
-              <Link href="/shop" className="btn btn-primary px-8 py-3.5 text-base shadow-lg shadow-brand-600/30">
+            <div className="flex flex-col sm:flex-row gap-3 animate-slide-up" style={{ animationDelay: '500ms' }}>
+              <Link href="/shop" className="btn btn-accent px-8 py-3.5 text-base shadow-lg orange-glow">
                 مشاهده محصولات
               </Link>
-              <Link
-                href="/contact"
-                className="btn border border-white/20 text-white hover:bg-white/10 px-8 py-3.5 text-base transition-colors"
-              >
+              <Link href="/contact" className="btn border border-white/20 text-white hover:bg-white/10 px-8 py-3.5 text-base transition-colors">
                 مشاوره رایگان
               </Link>
             </div>
 
           </div>
 
-          {/* ستون راست — تصویر / ایلاستریشن */}
+          {/* ستون تصویر */}
           <div className="relative flex items-center justify-center lg:justify-end">
 
-            {/* حلقه‌های pulse */}
-            <div className="absolute w-80 h-80 rounded-full border border-brand-600/20 animate-pulse-ring" />
-            <div className="absolute w-80 h-80 rounded-full border border-brand-600/10 animate-pulse-ring-delay" />
+            {/* حلقه‌های pulse — نارنجی */}
+            <div className="absolute w-80 h-80 rounded-full border animate-pulse-ring"
+              style={{ borderColor: 'rgb(249 115 22 / 0.25)' }} />
+            <div className="absolute w-80 h-80 rounded-full border animate-pulse-ring-delay"
+              style={{ borderColor: 'rgb(249 115 22 / 0.15)' }} />
 
             {/* کارت اصلی Shield */}
             <div className="relative animate-float">
-              {/* Glow زمینه */}
-              <div className="absolute inset-0 bg-brand-600/30 rounded-3xl blur-3xl scale-110" />
+              <div className="absolute inset-0 rounded-3xl blur-3xl scale-110"
+                style={{ background: 'linear-gradient(135deg, rgb(27 58 138 / 0.4), rgb(249 115 22 / 0.2))' }} />
 
-              <div className="relative w-72 h-72 sm:w-80 sm:h-80 bg-gradient-to-br from-surface-800 to-surface-900 rounded-3xl border border-white/10 flex items-center justify-center shadow-2xl">
-                <ShieldIcon size={120} className="text-brand-500 drop-shadow-lg" />
+              <div className="relative w-72 h-72 sm:w-80 sm:h-80 rounded-3xl border border-white/10 flex items-center justify-center shadow-2xl overflow-hidden"
+                style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1B3A8A 100%)' }}>
 
-                {/* چراغ چشمک‌زن */}
-                <div className="absolute top-5 end-5 flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-green-400 animate-pulse shadow-lg shadow-green-400/50" />
-                  <span className="text-xs text-white/50 font-mono">ARMED</span>
+                {/* آیکون سپر با گلو نارنجی */}
+                <div className="relative">
+                  <div className="absolute inset-0 blur-2xl scale-150 opacity-30"
+                    style={{ background: 'radial-gradient(circle, #F97316, transparent)' }} />
+                  <ShieldIcon size={110} className="relative z-10 drop-shadow-2xl"
+                    style={{ color: '#F97316' }} />
                 </div>
 
-                {/* خط وضعیت */}
+                {/* ARMED indicator */}
+                <div className="absolute top-5 end-5 flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-green-400 animate-pulse shadow-lg shadow-green-400/50" />
+                  <span className="text-xs text-white/50 font-mono tracking-wider">ARMED</span>
+                </div>
+
+                {/* خط وضعیت سیگنال */}
                 <div className="absolute bottom-6 inset-x-6">
                   <div className="flex justify-between text-xs text-white/40 mb-1.5">
                     <span>سیگنال</span>
-                    <span>قوی</span>
+                    <span className="text-accent-400 font-semibold">قوی ۸۵٪</span>
                   </div>
                   <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-gradient-to-l from-brand-500 to-green-400 rounded-full"
-                      style={{ width: '85%' }}
-                    />
+                    <div className="h-full rounded-full" style={{ width: '85%', background: 'linear-gradient(90deg, #1B3A8A, #F97316)' }} />
                   </div>
                 </div>
+
+                {/* دکور گوشه */}
+                <div className="absolute top-0 start-0 w-16 h-16 opacity-10"
+                  style={{ background: 'linear-gradient(135deg, #F97316, transparent)' }} />
               </div>
             </div>
 
             {/* کارت شناور — تجربه */}
-            <div className="absolute -top-4 -start-8 sm:-start-16 glass rounded-2xl px-4 py-3 shadow-xl border border-white/20 text-surface-900 animate-float" style={{ animationDelay: '0.8s' }}>
+            <div className="absolute -top-4 -start-8 sm:-start-16 glass rounded-2xl px-4 py-3 shadow-xl border border-white/20 text-surface-900 animate-float"
+              style={{ animationDelay: '0.8s' }}>
               <p className="text-xs text-surface-500 mb-0.5">تجربه</p>
-              <p className="text-xl font-black text-surface-900">۱۰+ سال</p>
+              <p className="text-xl font-black" style={{ color: '#1B3A8A' }}>۱۰+ سال</p>
+              <div className="orange-divider mt-1.5" />
             </div>
 
             {/* کارت شناور — مشتریان */}
-            <div className="absolute -bottom-4 -end-4 sm:-end-12 glass rounded-2xl px-4 py-3 shadow-xl border border-white/20 text-surface-900 animate-float" style={{ animationDelay: '1.6s' }}>
+            <div className="absolute -bottom-4 -end-4 sm:-end-12 glass rounded-2xl px-4 py-3 shadow-xl border border-white/20 text-surface-900 animate-float"
+              style={{ animationDelay: '1.6s' }}>
               <div className="flex items-center gap-2">
                 <div className="flex -space-x-2 space-x-reverse">
-                  {['#e61010', '#3B82F6', '#10B981'].map((c) => (
+                  {['#1B3A8A', '#F97316', '#10B981'].map((c) => (
                     <div key={c} className="w-7 h-7 rounded-full border-2 border-white" style={{ background: c }} />
                   ))}
                 </div>
@@ -223,13 +211,13 @@ export function Hero() {
         </div>
       </div>
 
-      {/* ── Stats Bar ────────────────────────────────────────────────────────── */}
+      {/* Stats Bar */}
       <div className="relative z-10 border-t border-white/10 bg-white/5 backdrop-blur-sm">
         <div className="container-main py-6">
           <dl className="grid grid-cols-2 sm:grid-cols-4 gap-6">
-            {stats.map(({ value, suffix, label }) => (
-              <div key={label} className="text-center">
-                <dt className="text-2xl sm:text-3xl font-black text-white">
+            {stats.map(({ value, suffix, label }, i) => (
+              <div key={label} className="text-center group">
+                <dt className="text-2xl sm:text-3xl font-black" style={{ color: i % 2 === 0 ? '#F97316' : '#ffffff' }}>
                   <CountUp target={value} suffix={suffix} />
                 </dt>
                 <dd className="text-sm text-white/50 mt-1">{label}</dd>

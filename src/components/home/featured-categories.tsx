@@ -55,12 +55,15 @@ export function FeaturedCategories() {
 
         {/* Header */}
         <AnimateIn className="text-center mb-12">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-brand-50 border border-brand-100 text-brand-700 text-sm font-semibold mb-4">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border text-sm font-semibold mb-4"
+            style={{ background: 'rgb(249 115 22 / 0.08)', borderColor: 'rgb(249 115 22 / 0.25)', color: '#EA6C00' }}>
+            <span className="w-1.5 h-1.5 rounded-full bg-accent-500" />
             دسته‌بندی محصولات
           </div>
           <h2 className="text-3xl sm:text-4xl font-black text-surface-900 mb-3">
             هر آنچه برای امنیت نیاز دارید
           </h2>
+          <div className="orange-divider w-16 mx-auto mb-4" />
           <p className="text-surface-500 max-w-xl mx-auto">
             از حسگرهای پیشرفته تا دزدگیرهای هوشمند — کامل‌ترین مجموعه تجهیزات امنیتی ایران
           </p>
@@ -69,27 +72,27 @@ export function FeaturedCategories() {
         {/* Grid */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
           {mockCategories.map((cat, i) => (
-            <AnimateIn key={cat.slug} delay={i * 70}>
+            <AnimateIn key={cat.slug} delay={i * 80} direction="scale">
               <Link
                 href={`/shop/${cat.slug}`}
-                className="group block rounded-2xl p-5 text-center transition-all duration-300 hover:-translate-y-1 cursor-pointer"
+                className="group block rounded-2xl p-5 text-center transition-all duration-300 hover:-translate-y-2 hover:shadow-lg cursor-pointer border border-transparent hover:border-accent-200"
                 style={{ background: cat.bgColor }}
               >
                 {/* آیکون */}
                 <div
-                  className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-3 transition-transform duration-300 group-hover:scale-110"
+                  className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-3 transition-all duration-300 group-hover:scale-110 group-hover:rotate-3"
                   style={{ background: cat.color + '20', color: cat.color }}
                 >
                   {categoryIcons[cat.slug]}
                 </div>
 
                 {/* نام */}
-                <p className="text-sm font-bold text-surface-800 mb-1">
+                <p className="text-sm font-bold text-surface-800 mb-1 group-hover:text-surface-900 transition-colors">
                   {cat.nameFa}
                 </p>
 
                 {/* تعداد محصول */}
-                <p className="text-xs font-medium" style={{ color: cat.color }}>
+                <p className="text-xs font-semibold transition-colors group-hover:text-accent-500" style={{ color: cat.color }}>
                   {cat.productCount} محصول
                 </p>
               </Link>
@@ -99,10 +102,7 @@ export function FeaturedCategories() {
 
         {/* لینک مشاهده همه */}
         <AnimateIn className="text-center mt-10">
-          <Link
-            href="/shop"
-            className="btn btn-outline px-8"
-          >
+          <Link href="/shop" className="btn btn-accent px-8 orange-glow-sm">
             مشاهده همه محصولات
           </Link>
         </AnimateIn>

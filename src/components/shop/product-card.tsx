@@ -146,7 +146,7 @@ export function ProductCard({ product, view = 'grid' }: Props) {
             </span>
           )}
           {hasDiscount && (
-            <span className="inline-flex px-2.5 py-1 text-xs font-bold rounded-lg bg-brand-600 text-white">
+            <span className="inline-flex px-2.5 py-1 text-xs font-bold rounded-lg text-white badge-accent">
               {discount}٪ تخفیف
             </span>
           )}
@@ -178,7 +178,7 @@ export function ProductCard({ product, view = 'grid' }: Props) {
           <button
             onClick={handleAddToCart}
             disabled={product.stock === 0}
-            className="btn btn-primary w-full py-2.5 text-sm gap-2 shadow-lg shadow-brand-600/30 disabled:opacity-60"
+            className="btn btn-accent w-full py-2.5 text-sm gap-2 shadow-lg disabled:opacity-60"
           >
             <ShoppingCartIcon size={15} />
             {product.stock === 0 ? 'ناموجود' : 'افزودن به سبد'}
@@ -218,11 +218,15 @@ export function ProductCard({ product, view = 'grid' }: Props) {
 
         <div className="mt-auto pt-2 border-t border-surface-50">
           {hasDiscount && (
-            <span className="text-xs text-surface-400 line-through block">
-              {formatPrice(product.comparePrice!)}
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-surface-400 line-through block">
+                {formatPrice(product.comparePrice!)}
+              </span>
+              <span className="badge-accent text-xs px-1.5 py-0.5 rounded font-bold">{discount}٪</span>
+            </div>
           )}
-          <span className={`font-black ${hasDiscount ? 'text-brand-600 text-base' : 'text-surface-900 text-base'}`}>
+          <span className={`font-black text-base ${hasDiscount ? '' : 'text-surface-900'}`}
+            style={hasDiscount ? { color: '#F97316' } : undefined}>
             {formatPrice(product.price)}
           </span>
         </div>

@@ -2,12 +2,22 @@
 
 import { useEffect, useRef } from 'react'
 
+type Direction = 'up' | 'left' | 'right' | 'scale'
+
 type Props = {
   children: React.ReactNode
   className?: string
-  delay?: number        // میلی‌ثانیه
-  threshold?: number    // 0 تا 1
-  once?: boolean        // فقط یک بار اجرا شود
+  delay?: number
+  threshold?: number
+  once?: boolean
+  direction?: Direction
+}
+
+const directionClass: Record<Direction, string> = {
+  up:    'reveal',
+  left:  'reveal-left',
+  right: 'reveal-right',
+  scale: 'reveal-scale',
 }
 
 export function AnimateIn({
@@ -16,6 +26,7 @@ export function AnimateIn({
   delay = 0,
   threshold = 0.12,
   once = true,
+  direction = 'up',
 }: Props) {
   const ref = useRef<HTMLDivElement>(null)
 
@@ -26,10 +37,7 @@ export function AnimateIn({
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry?.isIntersecting) {
-          // تأخیر قابل تنظیم
-          const timer = setTimeout(() => {
-            el.classList.add('visible')
-          }, delay)
+          const timer = setTimeout(() => el.classList.add('visible'), delay)
           if (once) observer.unobserve(el)
           return () => clearTimeout(timer)
         } else if (!once) {
@@ -41,29 +49,30 @@ export function AnimateIn({
 
     observer.observe(el)
     return () => observer.disconnect()
-  }, [delay, threshold, once])
+  }, [delay, threshold, once, direction])
 
   return (
-    <div ref={ref} className={`reveal ${className}`}>
+    <div ref={ref} className={`${directionClass[direction]} ${className}`}>
       {children}
     </div>
   )
 }
 
-/** نسخه‌ای که کلاس reveal را مستقیم روی اولین child می‌زند */
 export function AnimateInGroup({
   children,
   staggerMs = 80,
   className = '',
+  direction = 'up',
 }: {
   children: React.ReactNode[]
   staggerMs?: number
   className?: string
+  direction?: Direction
 }) {
   return (
     <div className={className}>
       {children.map((child, i) => (
-        <AnimateIn key={i} delay={i * staggerMs}>
+        <AnimateIn key={i} delay={i * staggerMs} direction={direction}>
           {child}
         </AnimateIn>
       ))}
