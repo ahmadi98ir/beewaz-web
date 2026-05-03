@@ -23,19 +23,37 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const parsed = loginSchema.safeParse(credentials)
         if (!parsed.success) return null
 
-        const user = await db.query.users.findFirst({
-          where: eq(users.phone, parsed.data.phone),
-        })
+        // ادمین موقت از env — بدون نیاز به دیتابیس
+        const adminPhone = process.env.ADMIN_PHONE
+        const adminPass  = process.env.ADMIN_PASSWORD
+        if (adminPhone && adminPass &&
+            parsed.data.phone === adminPhone &&
+            parsed.data.password === adminPass) {
+          return {
+            id: 'admin-env',
+            name: process.env.ADMIN_NAME ?? 'ادمین',
+            email: null,
+            phone: adminPhone,
+            role: 'admin',
+          }
+        }
 
-        if (!user?.passwordHash) return null
-        if (!compareSync(parsed.data.password, user.passwordHash)) return null
-
-        return {
-          id: user.id,
-          name: user.fullName,
-          email: user.email,
-          phone: user.phone,
-          role: user.role,
+        // لاگین معمولی از دیتابیس
+        try {
+          const user = await db.query.users.findFirst({
+            where: eq(users.phone, parsed.data.phone),
+          })
+          if (!user?.passwordHash) return null
+          if (!compareSync(parsed.data.password, user.passwordHash)) return null
+          return {
+            id: user.id,
+            name: user.fullName,
+            email: user.email,
+            phone: user.phone,
+            role: user.role,
+          }
+        } catch {
+          return null
         }
       },
     }),
