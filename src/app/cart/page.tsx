@@ -85,7 +85,7 @@ export default function CartPage() {
           </div>
           <h1 className="text-xl font-black text-surface-900 mb-2">سبد خرید خالی است</h1>
           <p className="text-surface-500 mb-8 text-sm">محصولات موردنظر را از فروشگاه انتخاب کنید.</p>
-          <Link href="/shop" className="btn btn-primary px-8">
+          <Link href="/shop" className="btn btn-accent px-8">
             رفتن به فروشگاه
           </Link>
         </div>
@@ -166,11 +166,11 @@ export default function CartPage() {
               <div className="border-t border-surface-100 pt-4 mb-5">
                 <div className="flex justify-between">
                   <span className="font-bold text-surface-900">مبلغ قابل پرداخت</span>
-                  <span className="text-xl font-black text-brand-600">{formatPrice(total)}</span>
+                  <span className="text-xl font-black" style={{ color: '#F97316' }}>{formatPrice(total)}</span>
                 </div>
               </div>
 
-              <Link href="/checkout" className="btn btn-primary w-full py-3.5 text-base">
+              <Link href="/checkout" className="btn btn-accent w-full py-3.5 text-base orange-glow-sm">
                 ادامه و پرداخت
               </Link>
 

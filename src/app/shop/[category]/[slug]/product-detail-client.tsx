@@ -219,21 +219,13 @@ function AddToCartButton({ product }: { product: MockProduct }) {
         disabled={product.stock === 0}
         className={[
           'flex-1 btn py-3 text-base gap-2.5 transition-all duration-300',
-          added
-            ? 'bg-green-500 border-green-500 text-white'
-            : 'btn-primary',
+          added ? 'bg-green-500 border-green-500 text-white' : 'btn-accent orange-glow-sm',
         ].join(' ')}
       >
         {added ? (
-          <>
-            <CheckIcon size={18} />
-            افزوده شد!
-          </>
+          <><CheckIcon size={18} />افزوده شد!</>
         ) : (
-          <>
-            <ShoppingCartIcon size={18} />
-            افزودن به سبد خرید
-          </>
+          <><ShoppingCartIcon size={18} />افزودن به سبد خرید</>
         )}
       </button>
 
@@ -320,18 +312,19 @@ export function ProductDetailClient({ product, related, categoryInfo }: Props) {
               </div>
 
               {/* قیمت */}
-              <div className="bg-surface-50 rounded-2xl p-4 space-y-1">
+              <div className="rounded-2xl p-4 space-y-1 border"
+                style={hasDiscount ? { background: 'rgb(249 115 22 / 0.05)', borderColor: 'rgb(249 115 22 / 0.2)' } : { background: '#f8fafc', borderColor: '#e2e8f0' }}>
                 {hasDiscount && (
                   <div className="flex items-center gap-3">
                     <span className="text-sm text-surface-400 line-through">
                       {formatPrice(product.comparePrice!)}
                     </span>
-                    <span className="badge badge-brand text-sm font-bold px-2.5">
+                    <span className="badge-accent text-sm font-bold px-2.5 py-0.5 rounded-lg">
                       {discount}٪ تخفیف
                     </span>
                   </div>
                 )}
-                <div className={`text-3xl font-black ${hasDiscount ? 'text-brand-600' : 'text-surface-900'}`}>
+                <div className="text-3xl font-black" style={{ color: hasDiscount ? '#F97316' : '#0f172a' }}>
                   {formatPrice(product.price)}
                 </div>
               </div>
@@ -350,12 +343,15 @@ export function ProductDetailClient({ product, related, categoryInfo }: Props) {
               {/* Trust signals */}
               <div className="grid grid-cols-3 gap-3 pt-2">
                 {[
-                  { icon: ShieldIcon, text: 'گارانتی ۱۸ ماهه' },
-                  { icon: CheckIcon, text: 'ارسال سریع' },
-                  { icon: PhoneIcon, text: 'پشتیبانی ۲۴/۷' },
-                ].map(({ icon: Icon, text }) => (
-                  <div key={text} className="flex flex-col items-center gap-1.5 text-center p-3 rounded-xl bg-surface-50 border border-surface-200">
-                    <Icon size={16} className="text-brand-600" />
+                  { icon: ShieldIcon, text: 'گارانتی ۱۸ ماهه', accent: true },
+                  { icon: CheckIcon, text: 'ارسال سریع', accent: false },
+                  { icon: PhoneIcon, text: 'پشتیبانی ۲۴/۷', accent: true },
+                ].map(({ icon: Icon, text, accent }) => (
+                  <div key={text} className="flex flex-col items-center gap-1.5 text-center p-3 rounded-xl border"
+                    style={accent
+                      ? { background: 'rgb(249 115 22 / 0.06)', borderColor: 'rgb(249 115 22 / 0.2)' }
+                      : { background: '#f8fafc', borderColor: '#e2e8f0' }}>
+                    <Icon size={16} style={{ color: accent ? '#F97316' : '#1B3A8A' }} />
                     <span className="text-xs font-medium text-surface-600 leading-tight">{text}</span>
                   </div>
                 ))}

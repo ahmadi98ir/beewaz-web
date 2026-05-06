@@ -60,8 +60,8 @@ function RevenueChart() {
             <div key={m.month} className="flex-1 flex flex-col items-center gap-2 group">
               <div className="w-full flex items-end justify-center" style={{ height: '112px' }}>
                 <div
-                  className={`w-full rounded-t-xl transition-all duration-500 relative ${isLast ? 'bg-brand-600' : 'bg-surface-200 group-hover:bg-brand-300'}`}
-                  style={{ height: `${heightPct}%` }}
+                  className={`w-full rounded-t-xl transition-all duration-500 relative ${isLast ? '' : 'bg-surface-200 group-hover:bg-brand-300'}`}
+                  style={{ height: `${heightPct}%`, ...(isLast ? { background: '#F97316' } : {}) }}
                   title={formatPrice(m.revenue)}
                 >
                   {/* Tooltip */}

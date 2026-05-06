@@ -33,7 +33,7 @@ export default function SuccessPage() {
 
         <div className="flex flex-col sm:flex-row gap-3">
           <Link href="/shop" className="btn btn-outline flex-1 py-3">ادامه خرید</Link>
-          <Link href="/dashboard/orders" className="btn btn-primary flex-1 py-3">پیگیری سفارش</Link>
+          <Link href="/profile" className="btn btn-accent flex-1 py-3 orange-glow-sm">پیگیری سفارش</Link>
         </div>
       </div>
     </div>

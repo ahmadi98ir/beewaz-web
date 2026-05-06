@@ -41,7 +41,7 @@ export default function AdminProductsPage() {
           <h1 className="text-lg font-black text-surface-900">مدیریت محصولات</h1>
           <p className="text-xs text-surface-400 mt-0.5">{products.length} محصول ثبت شده</p>
         </div>
-        <Link href="/admin/products/new" className="btn btn-primary py-2.5 px-4 text-sm gap-2">
+        <Link href="/admin/products/new" className="btn btn-accent py-2.5 px-4 text-sm gap-2">
           <span className="text-lg leading-none">+</span>
           محصول جدید
         </Link>
@@ -115,7 +115,8 @@ export default function AdminProductsPage() {
                     <td className="px-5 py-4">
                       <button
                         onClick={() => toggleFeatured(product.id)}
-                        className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${product.isFeatured ? 'bg-brand-600 text-white' : 'bg-surface-100 text-surface-400 hover:bg-brand-50 hover:text-brand-600'}`}
+                        className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${product.isFeatured ? 'text-white' : 'bg-surface-100 text-surface-400 hover:text-accent-500'}`}
+                        style={product.isFeatured ? { background: '#F97316' } : undefined}
                         title={product.isFeatured ? 'حذف از ویژه' : 'افزودن به ویژه'}
                       >
                         <CheckIcon size={14} />

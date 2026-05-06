@@ -27,10 +27,11 @@ function StepIndicator({ current }: { current: Step }) {
         return (
           <div key={label} className="flex items-center">
             <div className="flex flex-col items-center gap-1.5">
-              <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-sm font-bold transition-all ${done ? 'bg-green-500 text-white' : active ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/30' : 'bg-surface-200 text-surface-500'}`}>
+              <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-sm font-bold transition-all ${done ? 'bg-green-500 text-white' : active ? 'text-white shadow-lg' : 'bg-surface-200 text-surface-500'}`}
+                style={active ? { background: '#F97316', boxShadow: '0 4px 14px rgb(249 115 22 / 0.35)' } : undefined}>
                 {done ? <CheckIcon size={16} /> : num}
               </div>
-              <span className={`text-xs font-medium hidden sm:block ${active ? 'text-brand-600' : 'text-surface-400'}`}>{label}</span>
+              <span className={`text-xs font-medium hidden sm:block ${active ? 'text-accent-500' : 'text-surface-400'}`}>{label}</span>
             </div>
             {i < steps.length - 1 && (
               <div className={`h-0.5 w-12 sm:w-20 mx-2 mb-5 transition-colors ${done ? 'bg-green-400' : 'bg-surface-200'}`} />
@@ -136,7 +137,7 @@ export default function CheckoutPage() {
                     <input required dir="ltr" className="input" value={info.postalCode} onChange={e => setInfo(p => ({ ...p, postalCode: e.target.value }))} placeholder="1234567890" maxLength={10} />
                   </div>
                 </div>
-                <button type="submit" className="btn btn-primary w-full py-3.5 text-base mt-2">
+                <button type="submit" className="btn btn-accent w-full py-3.5 text-base mt-2 orange-glow-sm">
                   ادامه — انتخاب روش پرداخت
                 </button>
               </form>
@@ -151,7 +152,8 @@ export default function CheckoutPage() {
                     { id: 'zarinpal', label: 'زرین‌پال', sub: 'پرداخت آنلاین با کارت بانکی', color: '#6366F1' },
                     { id: 'idpay', label: 'آیدی پی', sub: 'پرداخت سریع با کد QR', color: '#10B981' },
                   ] as const).map(({ id, label, sub, color }) => (
-                    <label key={id} className={`flex items-center gap-4 p-4 rounded-2xl border-2 cursor-pointer transition-all ${paymentMethod === id ? 'border-brand-600 bg-brand-50/50' : 'border-surface-200 hover:border-surface-300'}`}>
+                    <label key={id} className={`flex items-center gap-4 p-4 rounded-2xl border-2 cursor-pointer transition-all ${paymentMethod === id ? 'border-accent-400' : 'border-surface-200 hover:border-surface-300'}`}
+                      style={paymentMethod === id ? { background: 'rgb(249 115 22 / 0.05)' } : undefined}>
                       <input type="radio" name="payment" value={id} checked={paymentMethod === id} onChange={() => setPaymentMethod(id)} className="sr-only" />
                       <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: color + '20' }}>
                         <ShieldIcon size={18} style={{ color }} />
@@ -168,7 +170,7 @@ export default function CheckoutPage() {
                 </div>
                 <div className="flex gap-3 pt-2">
                   <button onClick={() => setStep(1)} className="btn btn-ghost flex-1 py-3">بازگشت</button>
-                  <button onClick={() => { setStep(3); window.scrollTo({ top: 0, behavior: 'smooth' }) }} className="btn btn-primary flex-1 py-3">
+                  <button onClick={() => { setStep(3); window.scrollTo({ top: 0, behavior: 'smooth' }) }} className="btn btn-accent flex-1 py-3">
                     مرحله بعد
                   </button>
                 </div>
@@ -191,7 +193,7 @@ export default function CheckoutPage() {
                   <button
                     onClick={handlePlaceOrder}
                     disabled={loading}
-                    className="btn btn-primary flex-1 py-3 gap-2 disabled:opacity-70"
+                    className="btn btn-accent flex-1 py-3 gap-2 disabled:opacity-70 orange-glow-sm"
                   >
                     {loading ? (
                       <>
@@ -226,7 +228,7 @@ export default function CheckoutPage() {
                 <div className="flex justify-between"><span className="text-surface-500">ارسال</span><span className={shipping === 0 ? 'text-green-600 font-semibold' : 'font-semibold'}>{shipping === 0 ? 'رایگان' : formatPrice(shipping)}</span></div>
                 <div className="flex justify-between pt-2 border-t border-surface-100">
                   <span className="font-bold">مجموع</span>
-                  <span className="font-black text-brand-600 text-base">{formatPrice(total)}</span>
+                  <span className="font-black text-base" style={{ color: '#F97316' }}>{formatPrice(total)}</span>
                 </div>
               </div>
             </div>

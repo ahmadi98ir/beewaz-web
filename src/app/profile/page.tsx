@@ -46,7 +46,8 @@ export default function ProfilePage() {
 
         {/* Header */}
         <div className="bg-white rounded-2xl border border-surface-200 p-6 mb-6 flex items-center gap-5">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-brand-500 to-brand-700 flex items-center justify-center text-white text-2xl font-black flex-shrink-0">
+          <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-white text-2xl font-black flex-shrink-0"
+            style={{ background: 'linear-gradient(135deg, #1B3A8A, #F97316)' }}>
             {mockUser.fullName[0]}
           </div>
           <div className="flex-1 min-w-0">
@@ -66,7 +67,8 @@ export default function ProfilePage() {
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
-              className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all ${activeTab === tab.key ? 'bg-brand-600 text-white shadow-sm' : 'text-surface-500 hover:text-surface-700'}`}
+              className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all ${activeTab === tab.key ? 'text-white shadow-sm' : 'text-surface-500 hover:text-surface-700'}`}
+              style={activeTab === tab.key ? { background: '#F97316' } : undefined}
             >
               {tab.label}
             </button>
@@ -79,7 +81,7 @@ export default function ProfilePage() {
             {mockOrders.length === 0 ? (
               <div className="text-center py-16">
                 <p className="text-surface-400 text-sm mb-4">هنوز سفارشی ثبت نکرده‌اید</p>
-                <Link href="/shop" className="btn btn-primary py-2.5 px-6 text-sm">رفتن به فروشگاه</Link>
+                <Link href="/shop" className="btn btn-accent py-2.5 px-6 text-sm">رفتن به فروشگاه</Link>
               </div>
             ) : (
               <table className="w-full text-sm">
@@ -153,7 +155,7 @@ export default function ProfilePage() {
                 />
               </div>
               <div className="flex items-center gap-3 pt-2">
-                <button type="submit" className="btn btn-primary py-2.5 px-6 text-sm">
+                <button type="submit" className="btn btn-accent py-2.5 px-6 text-sm">
                   ذخیره تغییرات
                 </button>
                 {saved && (
