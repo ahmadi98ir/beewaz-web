@@ -63,10 +63,10 @@ export function MobileMenu({ items }: Props) {
         aria-modal="true"
         aria-label="منوی ناوبری"
         className={[
-          'fixed inset-y-0 end-0 z-50 w-80 max-w-[90vw] bg-white flex flex-col',
-          'transform transition-transform duration-300 ease-out lg:hidden',
+          'fixed inset-y-0 right-0 z-50 w-80 max-w-[90vw] bg-white flex flex-col',
+          'transition-transform duration-300 ease-out lg:hidden',
           'shadow-xl',
-          open ? 'translate-x-0' : 'translate-x-full rtl:-translate-x-full',
+          open ? 'translate-x-0' : 'translate-x-full',
         ].join(' ')}
       >
         {/* هدر drawer */}

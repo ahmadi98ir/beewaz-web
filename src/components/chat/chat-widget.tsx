@@ -153,8 +153,8 @@ export function ChatWidget() {
       {/* ── Chat Window ──────────────────────────────────────────────────── */}
       <div
         className={[
-          'fixed bottom-20 end-4 sm:end-6 z-50 w-[calc(100vw-2rem)] sm:w-96',
-          'transition-all duration-300 ease-out origin-bottom-end',
+          'fixed bottom-20 right-4 sm:right-6 z-50 w-80 sm:w-96 max-w-[calc(100vw-2rem)]',
+          'transition-all duration-300 ease-out origin-bottom-right',
           open
             ? 'opacity-100 scale-100 translate-y-0 pointer-events-auto'
             : 'opacity-0 scale-95 translate-y-4 pointer-events-none',
@@ -163,7 +163,7 @@ export function ChatWidget() {
         aria-modal="true"
         aria-label="چت‌بات بیواز"
       >
-        <div className="bg-white rounded-3xl shadow-2xl border border-surface-200 overflow-hidden flex flex-col h-[520px] sm:h-[560px]">
+        <div className="bg-white rounded-3xl shadow-2xl border border-surface-200 overflow-hidden flex flex-col h-[500px] sm:h-[560px]">
 
           {/* Header */}
           <div className="bg-gradient-to-l from-brand-700 to-brand-600 px-4 py-3.5 flex items-center gap-3 flex-shrink-0">
@@ -246,7 +246,7 @@ export function ChatWidget() {
       <button
         onClick={open ? () => setOpen(false) : handleOpen}
         className={[
-          'fixed bottom-4 end-4 sm:end-6 z-50 w-14 h-14 rounded-2xl shadow-xl',
+          'fixed bottom-4 right-4 sm:right-6 z-50 w-14 h-14 rounded-2xl shadow-xl',
           'flex items-center justify-center transition-all duration-300',
           open
             ? 'bg-surface-700 rotate-0'

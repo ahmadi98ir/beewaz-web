@@ -147,9 +147,9 @@ export function AdminSidebar() {
         aria-modal="true"
         aria-label="منوی مدیریت"
         className={[
-          'fixed inset-y-0 end-0 z-50 w-72 max-w-[85vw] bg-surface-900 flex flex-col lg:hidden',
-          'transform transition-transform duration-300 ease-out shadow-2xl',
-          mobileOpen ? 'translate-x-0' : 'translate-x-full rtl:-translate-x-full',
+          'fixed inset-y-0 right-0 z-50 w-72 max-w-[85vw] bg-surface-900 flex flex-col lg:hidden',
+          'transition-transform duration-300 ease-out shadow-2xl',
+          mobileOpen ? 'translate-x-0' : 'translate-x-full',
         ].join(' ')}
       >
         <div className="flex items-center justify-between p-4 border-b border-white/10">
