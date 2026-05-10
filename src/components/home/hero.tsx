@@ -184,7 +184,7 @@ export function Hero() {
             </div>
 
             {/* کارت شناور — تجربه */}
-            <div className="absolute -top-4 -start-8 sm:-start-16 glass rounded-2xl px-4 py-3 shadow-xl border border-white/20 text-surface-900 animate-float"
+            <div className="absolute hidden sm:block -top-4 -start-8 sm:-start-16 glass rounded-2xl px-4 py-3 shadow-xl border border-white/20 text-surface-900 animate-float"
               style={{ animationDelay: '0.8s' }}>
               <p className="text-xs text-surface-500 mb-0.5">تجربه</p>
               <p className="text-xl font-black" style={{ color: '#1B3A8A' }}>۱۰+ سال</p>
@@ -192,7 +192,7 @@ export function Hero() {
             </div>
 
             {/* کارت شناور — مشتریان */}
-            <div className="absolute -bottom-4 -end-4 sm:-end-12 glass rounded-2xl px-4 py-3 shadow-xl border border-white/20 text-surface-900 animate-float"
+            <div className="absolute hidden sm:block -bottom-4 -end-4 sm:-end-12 glass rounded-2xl px-4 py-3 shadow-xl border border-white/20 text-surface-900 animate-float"
               style={{ animationDelay: '1.6s' }}>
               <div className="flex items-center gap-2">
                 <div className="flex -space-x-2 space-x-reverse">

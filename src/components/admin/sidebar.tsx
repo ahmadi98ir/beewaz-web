@@ -1,8 +1,10 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { BeewazLogo } from '@/components/ui/logo'
+import { MenuIcon, XIcon } from '@/components/ui/icons'
 import { mockLeads } from '@/lib/mock-admin-data'
 
 type NavItem = {
@@ -37,26 +39,19 @@ const bottomItems: NavItem[] = [
   { href: '/admin/settings', label: 'تنظیمات', icon: <NavIcon d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065zM15 12a3 3 0 11-6 0 3 3 0 016 0z" /> },
 ]
 
-export function AdminSidebar() {
+function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname()
-
   const isActive = (href: string) =>
     href === '/admin' ? pathname === '/admin' : pathname.startsWith(href)
 
   return (
-    <aside className="hidden lg:flex flex-col w-64 bg-surface-900 min-h-screen flex-shrink-0">
-      {/* Logo */}
-      <div className="p-5 border-b border-white/10">
-        <BeewazLogo variant="light" size="sm" />
-        <p className="text-xs text-white/40 mt-2 ms-0.5">پنل مدیریت</p>
-      </div>
-
-      {/* Nav */}
-      <nav className="flex-1 p-3 space-y-0.5" aria-label="ناوبری ادمین">
+    <>
+      <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto" aria-label="ناوبری ادمین">
         {navItems.map((item) => (
           <Link
             key={item.href}
             href={item.href}
+            onClick={onNavigate}
             className={[
               'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150',
               isActive(item.href)
@@ -76,20 +71,18 @@ export function AdminSidebar() {
         ))}
       </nav>
 
-      {/* Bottom */}
       <div className="p-3 border-t border-white/10 space-y-0.5">
         {bottomItems.map((item) => (
           <Link
             key={item.href}
             href={item.href}
+            onClick={onNavigate}
             className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-white/40 hover:text-white/70 hover:bg-white/8 transition-all duration-150"
           >
             <span className="flex-shrink-0">{item.icon}</span>
             {item.label}
           </Link>
         ))}
-
-        {/* User info */}
         <div className="flex items-center gap-3 px-3 py-3 mt-2 rounded-xl bg-white/5">
           <div className="w-8 h-8 rounded-xl bg-brand-600 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
             م
@@ -100,6 +93,77 @@ export function AdminSidebar() {
           </div>
         </div>
       </div>
-    </aside>
+    </>
+  )
+}
+
+export function AdminSidebar() {
+  const [mobileOpen, setMobileOpen] = useState(false)
+  const pathname = usePathname()
+
+  useEffect(() => { setMobileOpen(false) }, [pathname])
+
+  useEffect(() => {
+    document.body.style.overflow = mobileOpen ? 'hidden' : ''
+    return () => { document.body.style.overflow = '' }
+  }, [mobileOpen])
+
+  return (
+    <>
+      {/* ── Mobile top bar ──────────────────────────────────────────────── */}
+      <div className="lg:hidden fixed top-0 inset-x-0 z-40 bg-surface-900 border-b border-white/10 flex items-center h-14 px-4 gap-3">
+        <button
+          onClick={() => setMobileOpen(true)}
+          className="p-2 rounded-xl text-white/70 hover:text-white hover:bg-white/10 transition-colors"
+          aria-label="باز کردن منو"
+        >
+          <MenuIcon size={20} />
+        </button>
+        <BeewazLogo variant="light" size="sm" />
+        <span className="ms-auto text-xs text-white/30">پنل مدیریت</span>
+      </div>
+
+      {/* ── Desktop static sidebar ──────────────────────────────────────── */}
+      <aside className="hidden lg:flex flex-col w-64 bg-surface-900 min-h-screen flex-shrink-0">
+        <div className="p-5 border-b border-white/10">
+          <BeewazLogo variant="light" size="sm" />
+          <p className="text-xs text-white/40 mt-2 ms-0.5">پنل مدیریت</p>
+        </div>
+        <NavLinks />
+      </aside>
+
+      {/* ── Mobile backdrop ─────────────────────────────────────────────── */}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-surface-950/70 lg:hidden animate-fade-in"
+          onClick={() => setMobileOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
+      {/* ── Mobile drawer ───────────────────────────────────────────────── */}
+      <aside
+        role="dialog"
+        aria-modal="true"
+        aria-label="منوی مدیریت"
+        className={[
+          'fixed inset-y-0 end-0 z-50 w-72 max-w-[85vw] bg-surface-900 flex flex-col lg:hidden',
+          'transform transition-transform duration-300 ease-out shadow-2xl',
+          mobileOpen ? 'translate-x-0' : 'translate-x-full rtl:-translate-x-full',
+        ].join(' ')}
+      >
+        <div className="flex items-center justify-between p-4 border-b border-white/10">
+          <BeewazLogo variant="light" size="sm" />
+          <button
+            onClick={() => setMobileOpen(false)}
+            className="p-2 rounded-xl text-white/60 hover:text-white hover:bg-white/10 transition-colors"
+            aria-label="بستن منو"
+          >
+            <XIcon size={18} />
+          </button>
+        </div>
+        <NavLinks onNavigate={() => setMobileOpen(false)} />
+      </aside>
+    </>
   )
 }

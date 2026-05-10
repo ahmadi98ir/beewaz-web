@@ -77,7 +77,7 @@ export default function ProfilePage() {
 
         {/* Orders Tab */}
         {activeTab === 'orders' && (
-          <div className="bg-white rounded-2xl border border-surface-200 overflow-hidden">
+          <div className="bg-white rounded-2xl border border-surface-200 overflow-hidden overflow-x-auto">
             {mockOrders.length === 0 ? (
               <div className="text-center py-16">
                 <p className="text-surface-400 text-sm mb-4">هنوز سفارشی ثبت نکرده‌اید</p>
