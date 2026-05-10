@@ -62,12 +62,8 @@ export function MobileMenu({ items }: Props) {
         role="dialog"
         aria-modal="true"
         aria-label="منوی ناوبری"
-        className={[
-          'fixed inset-y-0 right-0 z-50 w-80 max-w-[90vw] bg-white flex flex-col',
-          'transition-transform duration-300 ease-out lg:hidden',
-          'shadow-xl',
-          open ? 'translate-x-0' : 'translate-x-full',
-        ].join(' ')}
+        style={{ transform: open ? 'translateX(0)' : 'translateX(-100%)' }}
+        className="fixed inset-y-0 end-0 z-[60] w-80 max-w-[90vw] bg-white flex flex-col transition-transform duration-300 ease-out lg:hidden shadow-2xl"
       >
         {/* هدر drawer */}
         <div className="flex items-center justify-between p-4 border-b border-surface-100">
