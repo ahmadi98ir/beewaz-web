@@ -1,5 +1,5 @@
 # ─── Stage 1: Dependencies ────────────────────────────────────────────────────
-FROM node:22-alpine AS deps
+FROM docker.arvancloud.ir/library/node:22-alpine AS deps
 WORKDIR /app
 
 # نصب ابزارهای لازم برای build native packages
@@ -9,7 +9,7 @@ COPY package*.json ./
 RUN npm ci
 
 # ─── Stage 2: Builder ─────────────────────────────────────────────────────────
-FROM node:22-alpine AS builder
+FROM docker.arvancloud.ir/library/node:22-alpine AS builder
 WORKDIR /app
 
 COPY --from=deps /app/node_modules ./node_modules
@@ -23,7 +23,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
 
 # ─── Stage 3: Runner ──────────────────────────────────────────────────────────
-FROM node:22-alpine AS runner
+FROM docker.arvancloud.ir/library/node:22-alpine AS runner
 WORKDIR /app
 
 RUN apk upgrade --no-cache
