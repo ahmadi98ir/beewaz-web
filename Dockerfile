@@ -2,8 +2,9 @@
 FROM docker.arvancloud.ir/library/node:22-alpine AS deps
 WORKDIR /app
 
-# نصب ابزارهای لازم برای build native packages
-RUN apk add --no-cache libc6-compat
+# تغییر Alpine mirror به ArvanCloud (دسترسی از ایران)
+RUN sed -i 's|https://dl-cdn.alpinelinux.org|https://mirror.arvancloud.ir|g' /etc/apk/repositories \
+ && apk add --no-cache libc6-compat
 
 COPY package*.json ./
 RUN npm ci --include=dev
@@ -26,7 +27,8 @@ RUN npm run build
 FROM docker.arvancloud.ir/library/node:22-alpine AS runner
 WORKDIR /app
 
-RUN apk upgrade --no-cache
+RUN sed -i 's|https://dl-cdn.alpinelinux.org|https://mirror.arvancloud.ir|g' /etc/apk/repositories \
+ && apk upgrade --no-cache
 
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
