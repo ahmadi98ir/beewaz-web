@@ -2,7 +2,8 @@
 FROM node:22-alpine AS deps
 WORKDIR /app
 
-RUN apk add --no-cache libc6-compat
+RUN sed -i 's|https://dl-cdn.alpinelinux.org|https://mirror.arvancloud.ir|g' /etc/apk/repositories \
+ && apk add --no-cache libc6-compat
 
 COPY package*.json ./
 RUN npm ci --include=dev
@@ -24,6 +25,9 @@ RUN npm run build
 # ─── Stage 3: Runner ──────────────────────────────────────────────────────────
 FROM node:22-alpine AS runner
 WORKDIR /app
+
+RUN sed -i 's|https://dl-cdn.alpinelinux.org|https://mirror.arvancloud.ir|g' /etc/apk/repositories \
+ && apk upgrade --no-cache
 
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
