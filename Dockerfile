@@ -1,16 +1,14 @@
 # ─── Stage 1: Dependencies ────────────────────────────────────────────────────
-FROM docker.arvancloud.ir/library/node:22-alpine AS deps
+FROM node:22-alpine AS deps
 WORKDIR /app
 
-# تغییر Alpine mirror به ArvanCloud (دسترسی از ایران)
-RUN sed -i 's|https://dl-cdn.alpinelinux.org|https://mirror.arvancloud.ir|g' /etc/apk/repositories \
- && apk add --no-cache libc6-compat
+RUN apk add --no-cache libc6-compat
 
 COPY package*.json ./
 RUN npm ci --include=dev
 
 # ─── Stage 2: Builder ─────────────────────────────────────────────────────────
-FROM docker.arvancloud.ir/library/node:22-alpine AS builder
+FROM node:22-alpine AS builder
 WORKDIR /app
 
 COPY --from=deps /app/node_modules ./node_modules
@@ -24,11 +22,8 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
 
 # ─── Stage 3: Runner ──────────────────────────────────────────────────────────
-FROM docker.arvancloud.ir/library/node:22-alpine AS runner
+FROM node:22-alpine AS runner
 WORKDIR /app
-
-RUN sed -i 's|https://dl-cdn.alpinelinux.org|https://mirror.arvancloud.ir|g' /etc/apk/repositories \
- && apk upgrade --no-cache
 
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
