@@ -1,6 +1,5 @@
 services:
 
-  # ── PostgreSQL ───────────────────────────────────────────────────────────────
   postgres:
     image: postgres:16-alpine
     container_name: beewaz-db
@@ -16,23 +15,24 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-    networks:
-      - internal
+    ports:
+      - "5432:5432"
 
-  # ── Next.js App ──────────────────────────────────────────────────────────────
   app:
     build:
       context: .
       dockerfile: Dockerfile
       args:
-        NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-https://beewaz.ir}
+        NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
     container_name: beewaz-app
     restart: unless-stopped
+    ports:
+      - "3000:3000"
     environment:
       DATABASE_URL:          postgresql://beewaz:${POSTGRES_PASSWORD}@postgres:5432/beewaz
       AUTH_SECRET:           ${AUTH_SECRET}
-      NEXTAUTH_URL:          ${NEXTAUTH_URL:-https://beewaz.ir}
-      NEXT_PUBLIC_APP_URL:   ${NEXT_PUBLIC_APP_URL:-https://beewaz.ir}
+      NEXTAUTH_URL:          ${NEXTAUTH_URL:-http://localhost:3000}
+      NEXT_PUBLIC_APP_URL:   ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
       ADMIN_PHONE:           ${ADMIN_PHONE}
       ADMIN_PASSWORD:        ${ADMIN_PASSWORD}
       ADMIN_NAME:            ${ADMIN_NAME:-مدیر سیستم}
@@ -40,33 +40,6 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    networks:
-      - internal
-      - external
-
-  # ── Nginx Reverse Proxy ──────────────────────────────────────────────────────
-  nginx:
-    image: nginx:1.27-alpine
-    container_name: beewaz-nginx
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
-      - ./nginx/certs:/etc/nginx/certs:ro
-      - nginx-logs:/var/log/nginx
-    depends_on:
-      - app
-    networks:
-      - external
 
 volumes:
   pgdata:
-  nginx-logs:
-
-networks:
-  internal:
-    driver: bridge
-  external:
-    driver: bridge
