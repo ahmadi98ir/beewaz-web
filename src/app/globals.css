@@ -40,10 +40,10 @@
   --color-surface-900: #0f172a;
   --color-surface-950: #080e1d;
 
-  /* Typography — از next/font توسط layout تزریق می‌شود */
-  --font-sans:    var(--font-vazirmatn), "IRANSans", system-ui, sans-serif;
-  --font-display: var(--font-vazirmatn), system-ui, sans-serif;
-  --font-mono:    var(--font-vazirmatn), ui-monospace, monospace;
+  /* Typography — Vazirmatn از CDN در layout بارگیری می‌شود */
+  --font-sans:    "Vazirmatn", "IRANSans", system-ui, sans-serif;
+  --font-display: "Vazirmatn", system-ui, sans-serif;
+  --font-mono:    "Vazirmatn", ui-monospace, monospace;
 
   /* Spacing extras */
   --spacing-18: 4.5rem;

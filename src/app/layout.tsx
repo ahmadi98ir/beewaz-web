@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from 'next'
-import { Vazirmatn } from 'next/font/google'
 import { Header } from '@/components/layout/header'
 import { Footer } from '@/components/layout/footer'
 import { ChatWidget } from '@/components/chat/chat-widget'
@@ -7,13 +6,6 @@ import { ToastContainer } from '@/components/ui/toast'
 import { PageTransition } from '@/components/ui/page-transition'
 import { QuickViewModal } from '@/components/shop/quick-view-modal'
 import './globals.css'
-
-const vazirmatn = Vazirmatn({
-  subsets: ['arabic', 'latin'],
-  weight: ['400', '500', '600', '700', '900'],
-  display: 'swap',
-  variable: '--font-vazirmatn',
-})
 
 export const metadata: Metadata = {
   title: {
@@ -51,7 +43,18 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="fa" dir="rtl" className={vazirmatn.variable}>
+    <html lang="fa" dir="rtl">
+      <head>
+        <link
+          rel="preconnect"
+          href="https://cdn.jsdelivr.net"
+          crossOrigin="anonymous"
+        />
+        <link
+          rel="stylesheet"
+          href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css"
+        />
+      </head>
       <body className="min-h-screen flex flex-col bg-surface-50 antialiased font-sans">
         <a
           href="#main-content"
