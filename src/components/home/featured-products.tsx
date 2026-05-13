@@ -77,12 +77,26 @@ export async function FeaturedProducts() {
           </div>
         </AnimateIn>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+        {/* دسکتاپ: گرید */}
+        <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
           {featuredProducts.map((product, i) => (
             <AnimateIn key={product.id} delay={i * 80}>
               <ProductCard product={product} />
             </AnimateIn>
           ))}
+        </div>
+
+        {/* موبایل: کاروسل افقی سینماتیک */}
+        <div className="sm:hidden -mx-4 px-4">
+          <div className="cards-carousel">
+            {featuredProducts.map((product) => (
+              <div key={product.id} className="flex-shrink-0" style={{ width: '76vw', maxWidth: '300px' }}>
+                <ProductCard product={product} />
+              </div>
+            ))}
+          </div>
+          {/* نشانگر اسکرول */}
+          <p className="text-center text-xs text-surface-400 mt-3">← بکشید برای دیدن بیشتر →</p>
         </div>
 
       </div>
