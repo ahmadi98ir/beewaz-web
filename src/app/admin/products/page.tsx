@@ -176,8 +176,8 @@ export default function AdminProductsPage() {
                         </button>
                       </td>
                       <td className="px-5 py-4">
-                        <span className={`inline-flex px-2.5 py-1 rounded-lg text-xs font-semibold border ${statusLabel[product.status].cls}`}>
-                          {statusLabel[product.status].text}
+                        <span className={`inline-flex px-2.5 py-1 rounded-lg text-xs font-semibold border ${(statusLabel[product.status]?.cls ?? '')}`}>
+                          {(statusLabel[product.status]?.text ?? product.status)}
                         </span>
                       </td>
                       <td className="px-5 py-4">
