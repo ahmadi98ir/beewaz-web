@@ -37,7 +37,7 @@ RUN addgroup --system --gid 1001 nodejs \
  && adduser  --system --uid 1001 nextjs
 
 # کپی فایل‌های استاتیک
-COPY --from=builder /app/public ./public
+COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 
 # کپی standalone output
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
@@ -45,6 +45,9 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
 # کپی migration files (توسط instrumentation.ts در startup اجرا می‌شن)
 COPY --from=builder --chown=nextjs:nodejs /app/src/lib/db/migrations ./migrations
+
+# دایرکتوری آپلود — با Volume در Coolify mount می‌شه
+RUN mkdir -p ./public/uploads/products && chown -R nextjs:nodejs ./public/uploads
 
 USER nextjs
 
