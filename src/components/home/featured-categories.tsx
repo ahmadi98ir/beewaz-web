@@ -96,35 +96,50 @@ export async function FeaturedCategories() {
           </p>
         </AnimateIn>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+        {/* دسکتاپ: گرید */}
+        <div className="hidden sm:grid sm:grid-cols-3 lg:grid-cols-6 gap-4">
           {dbCategories.slice(0, 6).map((cat, i) => {
             const bgColor = BG_COLORS[i % BG_COLORS.length]!
             const iconColor = ICON_COLORS[i % ICON_COLORS.length]!
             const icon = categoryIcons[cat.slug] ?? categoryIcons.default
-
             return (
               <AnimateIn key={cat.id} delay={i * 80} direction="scale">
-                <Link
-                  href={`/shop?category=${cat.slug}`}
+                <Link href={`/shop?category=${cat.slug}`}
                   className="group block rounded-2xl p-5 text-center transition-all duration-300 hover:-translate-y-2 hover:shadow-lg cursor-pointer border border-transparent hover:border-accent-200"
-                  style={{ background: bgColor }}
-                >
-                  <div
-                    className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-3 transition-all duration-300 group-hover:scale-110 group-hover:rotate-3"
-                    style={{ background: iconColor + '20', color: iconColor }}
-                  >
+                  style={{ background: bgColor }}>
+                  <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-3 transition-all duration-300 group-hover:scale-110 group-hover:rotate-3"
+                    style={{ background: iconColor + '20', color: iconColor }}>
                     {icon}
                   </div>
-                  <p className="text-sm font-bold text-surface-800 mb-1 group-hover:text-surface-900 transition-colors">
-                    {cat.nameFa}
-                  </p>
-                  <p className="text-xs font-semibold transition-colors group-hover:text-accent-500" style={{ color: iconColor }}>
-                    {cat.productCount} محصول
-                  </p>
+                  <p className="text-sm font-bold text-surface-800 mb-1 group-hover:text-surface-900 transition-colors">{cat.nameFa}</p>
+                  <p className="text-xs font-semibold transition-colors group-hover:text-accent-500" style={{ color: iconColor }}>{cat.productCount} محصول</p>
                 </Link>
               </AnimateIn>
             )
           })}
+        </div>
+
+        {/* موبایل: کاروسل افقی */}
+        <div className="sm:hidden -mx-4 px-4">
+          <div className="cards-carousel" style={{ '--card-width': '42vw' } as React.CSSProperties}>
+            {dbCategories.slice(0, 6).map((cat, i) => {
+              const bgColor = BG_COLORS[i % BG_COLORS.length]!
+              const iconColor = ICON_COLORS[i % ICON_COLORS.length]!
+              const icon = categoryIcons[cat.slug] ?? categoryIcons.default
+              return (
+                <Link key={cat.id} href={`/shop?category=${cat.slug}`}
+                  className="flex-shrink-0 rounded-2xl p-4 text-center border border-transparent active:border-accent-200"
+                  style={{ background: bgColor, width: '42vw', maxWidth: '180px', scrollSnapAlign: 'start' }}>
+                  <div className="w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-2"
+                    style={{ background: iconColor + '20', color: iconColor }}>
+                    {icon}
+                  </div>
+                  <p className="text-xs font-bold text-surface-800 mb-0.5">{cat.nameFa}</p>
+                  <p className="text-xs font-semibold" style={{ color: iconColor }}>{cat.productCount} محصول</p>
+                </Link>
+              )
+            })}
+          </div>
         </div>
 
         <AnimateIn className="text-center mt-10">
