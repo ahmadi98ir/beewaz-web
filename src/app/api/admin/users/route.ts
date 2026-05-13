@@ -14,6 +14,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Check admin role
+    // @ts-expect-error — custom role field on session.user
     if (session.user.role !== 'admin') {
       return NextResponse.json(
         { error: 'Forbidden' },
