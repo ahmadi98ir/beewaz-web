@@ -1,27 +1,42 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useSession } from 'next-auth/react'
 import Link from 'next/link'
 import { formatPrice } from '@/lib/utils'
 
-const mockUser = {
-  fullName: 'مهدی احمدی',
-  phone: '09120000000',
-  email: 'mehdi@example.com',
-  joinedAt: '1402/08/15',
+type ProfileData = {
+  id: string
+  fullName: string | null
+  phone: string
+  email: string | null
+  createdAt: string
 }
 
-const mockOrders = [
-  { id: 'BW-10021', date: '۱۴۰۳/۰۲/۱۲', total: 2_850_000, status: 'delivered', items: 3 },
-  { id: 'BW-10018', date: '۱۴۰۳/۰۱/۲۵', total: 450_000, status: 'shipped', items: 1 },
-  { id: 'BW-10009', date: '۱۴۰۲/۱۱/۰۵', total: 1_200_000, status: 'delivered', items: 2 },
-]
+type OrderRow = {
+  id: string
+  status: string
+  totalAmount: number
+  createdAt: string
+  itemCount: number
+}
 
 const statusMap: Record<string, { label: string; cls: string }> = {
-  pending:   { label: 'در انتظار پرداخت', cls: 'bg-amber-50 text-amber-700 border-amber-200' },
-  paid:      { label: 'پرداخت شده',       cls: 'bg-blue-50 text-blue-700 border-blue-200' },
-  shipped:   { label: 'ارسال شده',        cls: 'bg-indigo-50 text-indigo-700 border-indigo-200' },
-  delivered: { label: 'تحویل شده',       cls: 'bg-green-50 text-green-700 border-green-200' },
+  pending:    { label: 'در انتظار پرداخت', cls: 'bg-amber-50 text-amber-700 border-amber-200' },
+  paid:       { label: 'پرداخت شده',       cls: 'bg-blue-50 text-blue-700 border-blue-200' },
+  processing: { label: 'در حال پردازش',    cls: 'bg-purple-50 text-purple-700 border-purple-200' },
+  shipped:    { label: 'ارسال شده',        cls: 'bg-indigo-50 text-indigo-700 border-indigo-200' },
+  delivered:  { label: 'تحویل شده',        cls: 'bg-green-50 text-green-700 border-green-200' },
+  cancelled:  { label: 'لغو شده',          cls: 'bg-red-50 text-red-700 border-red-200' },
+  refunded:   { label: 'مسترد شده',        cls: 'bg-surface-100 text-surface-600 border-surface-200' },
+}
+
+function formatJalaliDate(iso: string) {
+  try {
+    return new Intl.DateTimeFormat('fa-IR', { year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(iso))
+  } catch {
+    return iso
+  }
 }
 
 const tabs = [
@@ -30,14 +45,52 @@ const tabs = [
 ]
 
 export default function ProfilePage() {
+  const { data: session } = useSession()
   const [activeTab, setActiveTab] = useState('orders')
-  const [form, setForm] = useState({ fullName: mockUser.fullName, email: mockUser.email })
+  const [user, setUser] = useState<ProfileData | null>(null)
+  const [userOrders, setUserOrders] = useState<OrderRow[]>([])
+  const [loading, setLoading] = useState(true)
+  const [form, setForm] = useState({ fullName: '', email: '' })
   const [saved, setSaved] = useState(false)
+  const [saving, setSaving] = useState(false)
 
-  const onSave = (e: React.FormEvent) => {
+  useEffect(() => {
+    fetch('/api/profile')
+      .then((r) => r.json())
+      .then((data: { user: ProfileData; orders: OrderRow[] }) => {
+        setUser(data.user)
+        setUserOrders(data.orders ?? [])
+        setForm({ fullName: data.user?.fullName ?? '', email: data.user?.email ?? '' })
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [])
+
+  const onSave = async (e: React.FormEvent) => {
     e.preventDefault()
-    setSaved(true)
-    setTimeout(() => setSaved(false), 2000)
+    setSaving(true)
+    try {
+      await fetch('/api/profile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fullName: form.fullName, email: form.email }),
+      })
+      setUser((u) => u ? { ...u, fullName: form.fullName, email: form.email || null } : u)
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2000)
+    } catch {}
+    setSaving(false)
+  }
+
+  const displayName = user?.fullName ?? session?.user?.name ?? '—'
+  const phone = user?.phone ?? (session?.user as { phone?: string })?.phone ?? '—'
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-surface-50 flex items-center justify-center">
+        <div className="text-surface-400 text-sm">در حال بارگذاری...</div>
+      </div>
+    )
   }
 
   return (
@@ -46,18 +99,22 @@ export default function ProfilePage() {
 
         {/* Header */}
         <div className="bg-white rounded-2xl border border-surface-200 p-6 mb-6 flex items-center gap-5">
-          <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-white text-2xl font-black flex-shrink-0"
-            style={{ background: 'linear-gradient(135deg, #1B3A8A, #F97316)' }}>
-            {mockUser.fullName[0]}
+          <div
+            className="w-16 h-16 rounded-2xl flex items-center justify-center text-white text-2xl font-black flex-shrink-0"
+            style={{ background: 'linear-gradient(135deg, #1B3A8A, #F97316)' }}
+          >
+            {displayName[0] ?? '؟'}
           </div>
           <div className="flex-1 min-w-0">
-            <h1 className="text-xl font-black text-surface-900">{mockUser.fullName}</h1>
-            <p className="text-sm text-surface-400 font-mono mt-0.5" dir="ltr">{mockUser.phone}</p>
-            <p className="text-xs text-surface-400 mt-1">عضو از {mockUser.joinedAt}</p>
+            <h1 className="text-xl font-black text-surface-900">{displayName}</h1>
+            <p className="text-sm text-surface-400 font-mono mt-0.5" dir="ltr">{phone}</p>
+            {user?.createdAt && (
+              <p className="text-xs text-surface-400 mt-1">عضو از {formatJalaliDate(user.createdAt)}</p>
+            )}
           </div>
           <div className="text-end">
             <p className="text-xs text-surface-400">مجموع سفارشات</p>
-            <p className="text-lg font-black text-surface-900">{mockOrders.length}</p>
+            <p className="text-lg font-black text-surface-900">{userOrders.length}</p>
           </div>
         </div>
 
@@ -78,7 +135,7 @@ export default function ProfilePage() {
         {/* Orders Tab */}
         {activeTab === 'orders' && (
           <div className="bg-white rounded-2xl border border-surface-200 overflow-hidden overflow-x-auto">
-            {mockOrders.length === 0 ? (
+            {userOrders.length === 0 ? (
               <div className="text-center py-16">
                 <p className="text-surface-400 text-sm mb-4">هنوز سفارشی ثبت نکرده‌اید</p>
                 <Link href="/shop" className="btn btn-accent py-2.5 px-6 text-sm">رفتن به فروشگاه</Link>
@@ -93,18 +150,18 @@ export default function ProfilePage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-surface-100">
-                  {mockOrders.map((order) => {
+                  {userOrders.map((order) => {
                     const sc = statusMap[order.status] ?? { label: order.status, cls: 'bg-surface-100 text-surface-600 border-surface-200' }
                     return (
                       <tr key={order.id} className="hover:bg-surface-50 transition-colors">
-                        <td className="px-5 py-4 font-mono text-xs font-bold text-surface-600">{order.id}</td>
-                        <td className="px-5 py-4 text-surface-500 text-xs">{order.date}</td>
+                        <td className="px-5 py-4 font-mono text-xs font-bold text-surface-600">{order.id.slice(0, 8).toUpperCase()}</td>
+                        <td className="px-5 py-4 text-surface-500 text-xs">{formatJalaliDate(order.createdAt)}</td>
                         <td className="px-5 py-4">
                           <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-surface-100 text-surface-700 text-xs font-bold">
-                            {order.items}
+                            {order.itemCount}
                           </span>
                         </td>
-                        <td className="px-5 py-4 font-bold text-surface-900 whitespace-nowrap">{formatPrice(order.total)}</td>
+                        <td className="px-5 py-4 font-bold text-surface-900 whitespace-nowrap">{formatPrice(order.totalAmount)}</td>
                         <td className="px-5 py-4">
                           <span className={`inline-flex px-2.5 py-1 rounded-lg text-xs font-semibold border ${sc.cls}`}>
                             {sc.label}
@@ -137,7 +194,7 @@ export default function ProfilePage() {
                 <label className="block text-sm font-semibold text-surface-700 mb-1.5">شماره موبایل</label>
                 <input
                   type="tel"
-                  value={mockUser.phone}
+                  value={phone}
                   disabled
                   className="input w-full bg-surface-50 text-surface-400 cursor-not-allowed"
                   dir="ltr"
@@ -155,8 +212,8 @@ export default function ProfilePage() {
                 />
               </div>
               <div className="flex items-center gap-3 pt-2">
-                <button type="submit" className="btn btn-accent py-2.5 px-6 text-sm">
-                  ذخیره تغییرات
+                <button type="submit" disabled={saving} className="btn btn-accent py-2.5 px-6 text-sm">
+                  {saving ? 'در حال ذخیره...' : 'ذخیره تغییرات'}
                 </button>
                 {saved && (
                   <span className="text-green-600 text-sm font-semibold flex items-center gap-1">
