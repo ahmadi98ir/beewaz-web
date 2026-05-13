@@ -21,9 +21,26 @@ export default function LoginForm() {
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
-    setLoading(true)
 
-    const res = await signIn('credentials', { phone, password, redirect: false })
+    // normalize phone — حذف فاصله، +98، و رقم‌های فارسی
+    const normalizedPhone = phone
+      .replace(/[۰-۹]/g, (d) => String.fromCharCode(d.charCodeAt(0) - 0x06f0 + 0x30))
+      .replace(/[٠-٩]/g, (d) => String.fromCharCode(d.charCodeAt(0) - 0x0660 + 0x30))
+      .replace(/\s|-/g, '')
+      .replace(/^\+98/, '0')
+      .replace(/^98/, '0')
+
+    if (!/^09\d{9}$/.test(normalizedPhone)) {
+      setError('شماره موبایل معتبر نیست. مثال: ۰۹۱۲۳۴۵۶۷۸۹')
+      return
+    }
+
+    setLoading(true)
+    const res = await signIn('credentials', {
+      phone: normalizedPhone,
+      password,
+      redirect: false,
+    })
     setLoading(false)
 
     if (res?.error) {
@@ -62,7 +79,9 @@ export default function LoginForm() {
                 dir="ltr"
                 className="input w-full text-center tracking-widest"
                 required
-                maxLength={11}
+                maxLength={14}
+                inputMode="numeric"
+                autoComplete="tel"
               />
             </div>
 
@@ -80,12 +99,14 @@ export default function LoginForm() {
                   className="input w-full pe-10"
                   required
                   minLength={6}
+                  autoComplete="current-password"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPass((v) => !v)}
-                  className="absolute end-3 top-1/2 -translate-y-1/2 text-surface-400 hover:text-surface-600"
+                  className="absolute end-3 top-1/2 -translate-y-1/2 text-surface-400 hover:text-surface-600 transition-colors"
                   tabIndex={-1}
+                  aria-label={showPass ? 'پنهان کردن رمز' : 'نمایش رمز'}
                 >
                   {showPass ? (
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -102,7 +123,11 @@ export default function LoginForm() {
             </div>
 
             {error && (
-              <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700 text-center">
+              <div
+                className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700 text-center animate-slide-down"
+                role="alert"
+                aria-live="polite"
+              >
                 {error}
               </div>
             )}
@@ -145,17 +170,6 @@ export default function LoginForm() {
         <div className="mt-6 flex items-center justify-center gap-2 text-xs text-surface-400">
           <ShieldIcon size={14} className="text-green-500" />
           <span>اطلاعات شما با رمزگذاری SSL محافظت می‌شود</span>
-        </div>
-
-        {/* Demo hint */}
-        <div className="mt-4 bg-amber-50 border border-amber-200 rounded-2xl p-4 text-center">
-          <p className="text-xs text-amber-700 font-semibold mb-2">حساب آزمایشی پنل مدیریت</p>
-          <button
-            onClick={() => { setPhone('09120000000'); setPassword('admin123') }}
-            className="text-xs text-amber-600 underline hover:text-amber-700"
-          >
-            پر کردن خودکار اطلاعات آزمایشی
-          </button>
         </div>
       </div>
     </div>

@@ -8,6 +8,7 @@ import {
   timestamp,
 } from 'drizzle-orm/pg-core'
 import { relations } from 'drizzle-orm'
+import { orders } from './orders'
 
 // ─── Enums ────────────────────────────────────────────────────────────────────
 
@@ -42,11 +43,7 @@ export const users = pgTable('users', {
 // ─── Relations ────────────────────────────────────────────────────────────────
 
 export const usersRelations = relations(users, ({ many }) => ({
-  orders: many(
-    // import در فاز بعد اضافه می‌شود (جلوگیری از circular import)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    {} as any,
-  ),
+  orders: many(orders),
 }))
 
 // ─── Types ────────────────────────────────────────────────────────────────────

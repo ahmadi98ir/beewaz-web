@@ -1,10 +1,11 @@
 import NextAuth from 'next-auth'
 import Credentials from 'next-auth/providers/credentials'
 import { eq } from 'drizzle-orm'
-import { db } from './db'
-import { users } from './db/schema'
 import { compareSync } from 'bcryptjs'
 import { z } from 'zod'
+import { db } from './db'
+import { users } from './db/schema'
+import { authConfig } from './auth.config'
 
 const loginSchema = z.object({
   phone: z.string().regex(/^09\d{9}$/, 'شماره موبایل معتبر نیست'),
@@ -12,6 +13,7 @@ const loginSchema = z.object({
 })
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  ...authConfig,
   providers: [
     Credentials({
       name: 'credentials',
@@ -25,10 +27,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         // ادمین موقت از env — بدون نیاز به دیتابیس
         const adminPhone = process.env.ADMIN_PHONE
-        const adminPass  = process.env.ADMIN_PASSWORD
-        if (adminPhone && adminPass &&
-            parsed.data.phone === adminPhone &&
-            parsed.data.password === adminPass) {
+        const adminPass = process.env.ADMIN_PASSWORD
+        if (
+          adminPhone &&
+          adminPass &&
+          parsed.data.phone === adminPhone &&
+          parsed.data.password === adminPass
+        ) {
           return {
             id: 'admin-env',
             name: process.env.ADMIN_NAME ?? 'ادمین',
@@ -52,35 +57,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             phone: user.phone,
             role: user.role,
           }
-        } catch {
+        } catch (err) {
+          console.error('[auth] DB lookup failed:', err)
           return null
         }
       },
     }),
   ],
-  callbacks: {
-    jwt({ token, user }) {
-      if (user) {
-        token.id = user.id
-        // @ts-expect-error — custom fields
-        token.phone = user.phone
-        // @ts-expect-error
-        token.role = user.role
-      }
-      return token
-    },
-    session({ session, token }) {
-      session.user.id = token.id as string
-      // @ts-expect-error
-      session.user.phone = token.phone
-      // @ts-expect-error
-      session.user.role = token.role
-      return session
-    },
-  },
-  pages: {
-    signIn: '/login',
-    error: '/login',
-  },
-  session: { strategy: 'jwt' },
 })

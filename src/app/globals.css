@@ -1,4 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;900&display=swap');
 @import "tailwindcss";
 
 /* ─── Design Tokens ──────────────────────────────────────────────────────────
@@ -41,10 +40,10 @@
   --color-surface-900: #0f172a;
   --color-surface-950: #080e1d;
 
-  /* Typography */
-  --font-sans:    "Vazirmatn", "IRANSans", system-ui, sans-serif;
-  --font-display: "Vazirmatn", system-ui, sans-serif;
-  --font-mono:    "Vazirmatn", ui-monospace, monospace;
+  /* Typography — از next/font توسط layout تزریق می‌شود */
+  --font-sans:    var(--font-vazirmatn), "IRANSans", system-ui, sans-serif;
+  --font-display: var(--font-vazirmatn), system-ui, sans-serif;
+  --font-mono:    var(--font-vazirmatn), ui-monospace, monospace;
 
   /* Spacing extras */
   --spacing-18: 4.5rem;

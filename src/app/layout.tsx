@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next'
+import { Vazirmatn } from 'next/font/google'
 import { Header } from '@/components/layout/header'
 import { Footer } from '@/components/layout/footer'
 import { ChatWidget } from '@/components/chat/chat-widget'
@@ -6,6 +7,13 @@ import { ToastContainer } from '@/components/ui/toast'
 import { PageTransition } from '@/components/ui/page-transition'
 import { QuickViewModal } from '@/components/shop/quick-view-modal'
 import './globals.css'
+
+const vazirmatn = Vazirmatn({
+  subsets: ['arabic', 'latin'],
+  weight: ['400', '500', '600', '700', '900'],
+  display: 'swap',
+  variable: '--font-vazirmatn',
+})
 
 export const metadata: Metadata = {
   title: {
@@ -43,8 +51,14 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="fa" dir="rtl">
-      <body className="min-h-screen flex flex-col bg-surface-50 antialiased">
+    <html lang="fa" dir="rtl" className={vazirmatn.variable}>
+      <body className="min-h-screen flex flex-col bg-surface-50 antialiased font-sans">
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:start-4 focus:z-50 focus:px-4 focus:py-2 focus:rounded-lg focus:bg-brand-600 focus:text-white focus:font-semibold focus:shadow-lg"
+        >
+          پرش به محتوای اصلی
+        </a>
         <Header />
         <main className="flex-1" id="main-content">
           <PageTransition>{children}</PageTransition>

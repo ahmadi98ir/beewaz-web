@@ -1,6 +1,6 @@
 'use client'
 
-import { useActionState, useState } from 'react'
+import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { signIn } from 'next-auth/react'
 import Link from 'next/link'
@@ -10,24 +10,47 @@ import { registerAction } from './actions'
 
 export default function RegisterForm() {
   const router = useRouter()
-  const [state, action, pending] = useActionState(registerAction, {})
+  const [isPending, startTransition] = useTransition()
   const [phone, setPhone] = useState('')
   const [password, setPassword] = useState('')
   const [showPass, setShowPass] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [signingIn, setSigningIn] = useState(false)
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
+    setError(null)
     const fd = new FormData(e.currentTarget)
-    const result = await registerAction({}, fd)
 
-    if (result.success) {
-      setSigningIn(true)
-      await signIn('credentials', { phone, password, redirect: false })
-      router.push('/')
-      router.refresh()
-    }
+    startTransition(async () => {
+      const result = await registerAction({}, fd)
+
+      if (result.error) {
+        setError(result.error)
+        return
+      }
+
+      if (result.success) {
+        setSigningIn(true)
+        const signInRes = await signIn('credentials', {
+          phone,
+          password,
+          redirect: false,
+        })
+
+        if (signInRes?.error) {
+          setError('ثبت‌نام موفق بود اما ورود خودکار با خطا مواجه شد. لطفاً وارد شوید.')
+          setSigningIn(false)
+          return
+        }
+
+        router.push('/')
+        router.refresh()
+      }
+    })
   }
+
+  const busy = isPending || signingIn
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-surface-50 to-surface-100 flex items-center justify-center p-4">
@@ -42,7 +65,7 @@ export default function RegisterForm() {
         </div>
 
         <div className="bg-white rounded-3xl border border-surface-200 shadow-card p-7">
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-5" noValidate>
             {/* Full Name */}
             <div>
               <label className="block text-sm font-semibold text-surface-700 mb-1.5">نام و نام‌خانوادگی</label>
@@ -53,6 +76,7 @@ export default function RegisterForm() {
                 className="input w-full"
                 required
                 minLength={2}
+                autoComplete="name"
               />
             </div>
 
@@ -63,13 +87,15 @@ export default function RegisterForm() {
                 name="phone"
                 type="tel"
                 value={phone}
-                onChange={(e) => setPhone(e.target.value)}
+                onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 11))}
                 placeholder="09123456789"
                 dir="ltr"
                 className="input w-full text-center tracking-widest"
                 required
                 maxLength={11}
                 pattern="09[0-9]{9}"
+                autoComplete="tel"
+                inputMode="numeric"
               />
             </div>
 
@@ -86,12 +112,14 @@ export default function RegisterForm() {
                   className="input w-full pe-10"
                   required
                   minLength={6}
+                  autoComplete="new-password"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPass((v) => !v)}
-                  className="absolute end-3 top-1/2 -translate-y-1/2 text-surface-400 hover:text-surface-600"
+                  className="absolute end-3 top-1/2 -translate-y-1/2 text-surface-400 hover:text-surface-600 transition-colors"
                   tabIndex={-1}
+                  aria-label={showPass ? 'پنهان کردن رمز' : 'نمایش رمز'}
                 >
                   {showPass ? (
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -119,18 +147,18 @@ export default function RegisterForm() {
               </span>
             </label>
 
-            {state.error && (
-              <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700 text-center">
-                {state.error}
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700 text-center animate-slide-down">
+                {error}
               </div>
             )}
 
             <button
               type="submit"
-              disabled={pending || signingIn}
+              disabled={busy}
               className="btn btn-primary w-full py-3 text-base"
             >
-              {pending || signingIn ? (
+              {busy ? (
                 <span className="flex items-center justify-center gap-2">
                   <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
