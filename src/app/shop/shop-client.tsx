@@ -7,7 +7,7 @@ import { SortBar } from '@/components/shop/sort-bar'
 import { ProductCard } from '@/components/shop/product-card'
 import { AnimateIn } from '@/components/ui/animate-in'
 import { XIcon, MenuIcon } from '@/components/ui/icons'
-import { mockProducts } from '@/lib/mock-data'
+import type { ShopProduct, ShopCategory } from '@/lib/shop-product'
 
 type Filters = {
   categories: string[]
@@ -17,7 +17,7 @@ type Filters = {
   isNew: boolean
 }
 
-type SortOption = 'newest' | 'price_asc' | 'price_desc' | 'rating'
+type SortOption = 'newest' | 'price_asc' | 'price_desc' | 'featured'
 type ViewMode = 'grid' | 'list'
 
 const INITIAL_FILTERS: Filters = {
@@ -33,9 +33,11 @@ const ITEMS_PER_PAGE = 12
 type Props = {
   initialQuery?: string
   initialCategory?: string
+  products: ShopProduct[]
+  categories: ShopCategory[]
 }
 
-export function ShopClient({ initialQuery = '', initialCategory }: Props) {
+export function ShopClient({ initialQuery = '', initialCategory, products, categories }: Props) {
   const [searchQuery, setSearchQuery] = useState(initialQuery)
   const [filters, setFilters] = useState<Filters>({
     ...INITIAL_FILTERS,
@@ -56,11 +58,9 @@ export function ShopClient({ initialQuery = '', initialCategory }: Props) {
     setPage(1)
   }, [])
 
-  // فیلتر و مرتب‌سازی محصولات
   const filtered = useMemo(() => {
-    let list = [...mockProducts]
+    let list = [...products]
 
-    // جستجوی متنی
     if (searchQuery.trim().length >= 1) {
       const q = searchQuery.trim().toLowerCase()
       list = list.filter(
@@ -71,28 +71,23 @@ export function ShopClient({ initialQuery = '', initialCategory }: Props) {
           p.descriptionFa.includes(q),
       )
     }
-    // دسته‌بندی
     if (filters.categories.length > 0) {
       list = list.filter((p) => filters.categories.includes(p.categorySlug))
     }
-    // بازه قیمت
     if (filters.minPrice) list = list.filter((p) => p.price >= Number(filters.minPrice))
     if (filters.maxPrice) list = list.filter((p) => p.price <= Number(filters.maxPrice))
-    // موجودی
     if (filters.inStock) list = list.filter((p) => p.stock > 0)
-    // جدید
     if (filters.isNew) list = list.filter((p) => p.isNew)
 
-    // مرتب‌سازی
     switch (sort) {
       case 'price_asc':  list.sort((a, b) => a.price - b.price); break
       case 'price_desc': list.sort((a, b) => b.price - a.price); break
-      case 'rating':     list.sort((a, b) => b.rating - a.rating); break
+      case 'featured':   list.sort((a, b) => (b.isFeatured ? 1 : 0) - (a.isFeatured ? 1 : 0)); break
       default:           list.sort((a, b) => (b.isNew ? 1 : 0) - (a.isNew ? 1 : 0))
     }
 
     return list
-  }, [filters, sort])
+  }, [products, filters, sort, searchQuery])
 
   const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE)
   const paginated = filtered.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE)
@@ -108,13 +103,10 @@ export function ShopClient({ initialQuery = '', initialCategory }: Props) {
   return (
     <div className="min-h-screen bg-surface-50">
 
-      {/* ── Breadcrumb ────────────────────────────────────────────────────── */}
       <div className="bg-white border-b border-surface-200">
         <div className="container-main py-3">
           <nav className="flex items-center gap-2 text-sm" aria-label="مسیر صفحه">
-            <Link href="/" className="text-surface-500 hover:text-brand-600 transition-colors">
-              خانه
-            </Link>
+            <Link href="/" className="text-surface-500 hover:text-brand-600 transition-colors">خانه</Link>
             <span className="text-surface-300">/</span>
             <span className="text-surface-900 font-medium">فروشگاه</span>
           </nav>
@@ -123,7 +115,6 @@ export function ShopClient({ initialQuery = '', initialCategory }: Props) {
 
       <div className="container-main py-8">
 
-        {/* ── Page Header ───────────────────────────────────────────────────── */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
           <div>
             <h1 className="text-2xl sm:text-3xl font-black text-surface-900">فروشگاه بیواز</h1>
@@ -131,7 +122,6 @@ export function ShopClient({ initialQuery = '', initialCategory }: Props) {
           </div>
 
           <div className="flex items-center gap-3">
-            {/* جستجوی inline */}
             <div className="relative flex-1 sm:w-64 sm:flex-none">
               <input
                 type="search"
@@ -151,7 +141,6 @@ export function ShopClient({ initialQuery = '', initialCategory }: Props) {
               </svg>
             </div>
 
-            {/* دکمه فیلتر موبایل */}
             <button
               onClick={() => setMobileFilterOpen(true)}
               className="lg:hidden btn btn-outline py-2.5 px-4 text-sm gap-2 flex-shrink-0"
@@ -169,41 +158,38 @@ export function ShopClient({ initialQuery = '', initialCategory }: Props) {
 
         <div className="flex gap-6">
 
-          {/* ── Sidebar — دسکتاپ ──────────────────────────────────────────────── */}
           <aside className="hidden lg:block w-64 flex-shrink-0">
             <div className="sticky top-24">
               <FiltersSidebar
                 filters={filters}
+                categories={categories}
                 onChange={handleFiltersChange}
                 onReset={handleReset}
               />
             </div>
           </aside>
 
-          {/* ── محتوای اصلی ───────────────────────────────────────────────────── */}
           <main className="flex-1 min-w-0 space-y-5">
 
-            {/* Sort Bar */}
             <SortBar
               total={filtered.length}
               sort={sort}
               view={view}
-              onSortChange={(s) => { setSort(s); setPage(1) }}
+              onSortChange={(s) => { setSort(s as SortOption); setPage(1) }}
               onViewChange={setView}
             />
 
-            {/* Active Filter Tags */}
             {activeFiltersCount > 0 && (
               <div className="flex flex-wrap gap-2" aria-label="فیلترهای فعال">
                 {filters.categories.map((slug) => {
-                  const cat = mockProducts.find((p) => p.categorySlug === slug)
+                  const cat = categories.find((c) => c.slug === slug)
                   return (
                     <button
                       key={slug}
                       onClick={() => handleFiltersChange({ ...filters, categories: filters.categories.filter((c) => c !== slug) })}
                       className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-brand-50 border border-brand-200 text-brand-700 text-xs font-semibold hover:bg-brand-100 transition-colors"
                     >
-                      {cat?.categoryName}
+                      {cat?.nameFa ?? slug}
                       <XIcon size={12} />
                     </button>
                   )
@@ -213,8 +199,7 @@ export function ShopClient({ initialQuery = '', initialCategory }: Props) {
                     onClick={() => handleFiltersChange({ ...filters, inStock: false })}
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-green-50 border border-green-200 text-green-700 text-xs font-semibold hover:bg-green-100 transition-colors"
                   >
-                    موجود
-                    <XIcon size={12} />
+                    موجود <XIcon size={12} />
                   </button>
                 )}
                 {filters.isNew && (
@@ -222,22 +207,14 @@ export function ShopClient({ initialQuery = '', initialCategory }: Props) {
                     onClick={() => handleFiltersChange({ ...filters, isNew: false })}
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-50 border border-blue-200 text-blue-700 text-xs font-semibold hover:bg-blue-100 transition-colors"
                   >
-                    جدید
-                    <XIcon size={12} />
+                    جدید <XIcon size={12} />
                   </button>
                 )}
               </div>
             )}
 
-            {/* Product Grid */}
             {paginated.length > 0 ? (
-              <div
-                className={
-                  view === 'grid'
-                    ? 'grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4'
-                    : 'flex flex-col gap-4'
-                }
-              >
+              <div className={view === 'grid' ? 'grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4' : 'flex flex-col gap-4'}>
                 {paginated.map((product, i) => (
                   <AnimateIn key={product.id} delay={i * 50}>
                     <ProductCard product={product} view={view} />
@@ -245,7 +222,6 @@ export function ShopClient({ initialQuery = '', initialCategory }: Props) {
                 ))}
               </div>
             ) : (
-              /* Empty State */
               <div className="flex flex-col items-center justify-center py-24 text-center">
                 <div className="w-20 h-20 rounded-3xl bg-surface-100 flex items-center justify-center mb-5">
                   <svg viewBox="0 0 40 40" className="w-9 h-9 text-surface-300" fill="none" stroke="currentColor" strokeWidth="2">
@@ -255,13 +231,10 @@ export function ShopClient({ initialQuery = '', initialCategory }: Props) {
                 </div>
                 <p className="text-lg font-bold text-surface-700 mb-2">محصولی یافت نشد</p>
                 <p className="text-sm text-surface-400 mb-6">فیلترها را تغییر دهید یا پاک کنید</p>
-                <button onClick={handleReset} className="btn btn-primary px-6">
-                  پاک کردن فیلترها
-                </button>
+                <button onClick={handleReset} className="btn btn-primary px-6">پاک کردن فیلترها</button>
               </div>
             )}
 
-            {/* Pagination */}
             {totalPages > 1 && (
               <div className="flex items-center justify-center gap-1 pt-4">
                 <button
@@ -269,9 +242,7 @@ export function ShopClient({ initialQuery = '', initialCategory }: Props) {
                   disabled={page === 1}
                   className="btn btn-ghost py-2 px-3 text-sm disabled:opacity-40"
                   aria-label="صفحه قبل"
-                >
-                  ‹
-                </button>
+                >‹</button>
 
                 {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
                   <button
@@ -280,9 +251,7 @@ export function ShopClient({ initialQuery = '', initialCategory }: Props) {
                     aria-current={page === p ? 'page' : undefined}
                     className={[
                       'min-w-[36px] h-9 rounded-xl text-sm font-semibold transition-all',
-                      page === p
-                        ? 'bg-brand-600 text-white shadow-sm'
-                        : 'btn btn-ghost py-2 px-3 text-surface-600',
+                      page === p ? 'bg-brand-600 text-white shadow-sm' : 'btn btn-ghost py-2 px-3 text-surface-600',
                     ].join(' ')}
                   >
                     {new Intl.NumberFormat('fa-IR').format(p)}
@@ -294,9 +263,7 @@ export function ShopClient({ initialQuery = '', initialCategory }: Props) {
                   disabled={page === totalPages}
                   className="btn btn-ghost py-2 px-3 text-sm disabled:opacity-40"
                   aria-label="صفحه بعد"
-                >
-                  ›
-                </button>
+                >›</button>
               </div>
             )}
 
@@ -304,7 +271,6 @@ export function ShopClient({ initialQuery = '', initialCategory }: Props) {
         </div>
       </div>
 
-      {/* ── Mobile Filter Drawer ──────────────────────────────────────────── */}
       {mobileFilerOpen && (
         <>
           <div
@@ -320,33 +286,26 @@ export function ShopClient({ initialQuery = '', initialCategory }: Props) {
           >
             <div className="flex items-center justify-between p-4 bg-white border-b border-surface-200">
               <h2 className="font-bold text-surface-900">فیلترها</h2>
-              <button
-                onClick={() => setMobileFilterOpen(false)}
-                className="btn btn-ghost p-2"
-                aria-label="بستن"
-              >
+              <button onClick={() => setMobileFilterOpen(false)} className="btn btn-ghost p-2" aria-label="بستن">
                 <XIcon size={18} />
               </button>
             </div>
             <div className="flex-1 overflow-y-auto p-4">
               <FiltersSidebar
                 filters={filters}
+                categories={categories}
                 onChange={handleFiltersChange}
                 onReset={handleReset}
               />
             </div>
             <div className="p-4 border-t border-surface-200 bg-white">
-              <button
-                onClick={() => setMobileFilterOpen(false)}
-                className="btn btn-primary w-full"
-              >
+              <button onClick={() => setMobileFilterOpen(false)} className="btn btn-primary w-full">
                 نمایش {filtered.length} محصول
               </button>
             </div>
           </aside>
         </>
       )}
-
     </div>
   )
 }

@@ -1,9 +1,9 @@
 import { create } from 'zustand'
-import type { MockProduct } from '@/lib/mock-data'
+import type { ShopProduct } from '@/lib/shop-product'
 
 type QuickViewStore = {
-  product: MockProduct | null
-  show: (product: MockProduct) => void
+  product: ShopProduct | null
+  show: (product: ShopProduct) => void
   hide: () => void
 }
 

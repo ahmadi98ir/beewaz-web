@@ -1,8 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { mockCategories } from '@/lib/mock-data'
 import { ChevronDownIcon, XIcon } from '@/components/ui/icons'
+import type { ShopCategory } from '@/lib/shop-product'
 
 type Filters = {
   categories: string[]
@@ -14,6 +14,7 @@ type Filters = {
 
 type Props = {
   filters: Filters
+  categories: ShopCategory[]
   onChange: (filters: Filters) => void
   onReset: () => void
 }
@@ -46,7 +47,7 @@ function FilterSection({
   )
 }
 
-export function FiltersSidebar({ filters, onChange, onReset }: Props) {
+export function FiltersSidebar({ filters, categories, onChange, onReset }: Props) {
   const hasActiveFilters =
     filters.categories.length > 0 ||
     filters.minPrice ||
@@ -63,8 +64,6 @@ export function FiltersSidebar({ filters, onChange, onReset }: Props) {
 
   return (
     <aside className="w-full" aria-label="فیلترهای جستجو">
-
-      {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-base font-bold text-surface-900">فیلترها</h2>
         {hasActiveFilters && (
@@ -81,41 +80,43 @@ export function FiltersSidebar({ filters, onChange, onReset }: Props) {
       <div className="bg-white rounded-2xl border border-surface-200 divide-y divide-surface-100 overflow-hidden">
 
         {/* دسته‌بندی */}
-        <FilterSection title="دسته‌بندی">
-          <ul className="space-y-1" role="list">
-            {mockCategories.map((cat) => {
-              const checked = filters.categories.includes(cat.slug)
-              return (
-                <li key={cat.slug}>
-                  <label className="flex items-center gap-3 cursor-pointer py-1.5 px-1 rounded-lg hover:bg-surface-50 transition-colors group">
-                    <div className="relative flex-shrink-0">
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={() => toggleCategory(cat.slug)}
-                        className="peer sr-only"
-                        aria-label={cat.nameFa}
-                      />
-                      <div className={`w-4.5 h-4.5 rounded-md border-2 flex items-center justify-center transition-all ${checked ? 'bg-brand-600 border-brand-600' : 'border-surface-300 bg-white'}`}>
-                        {checked && (
-                          <svg viewBox="0 0 10 8" className="w-2.5" fill="none">
-                            <path d="M1 4l3 3 5-6" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                          </svg>
-                        )}
+        {categories.length > 0 && (
+          <FilterSection title="دسته‌بندی">
+            <ul className="space-y-1" role="list">
+              {categories.map((cat) => {
+                const checked = filters.categories.includes(cat.slug)
+                return (
+                  <li key={cat.slug}>
+                    <label className="flex items-center gap-3 cursor-pointer py-1.5 px-1 rounded-lg hover:bg-surface-50 transition-colors group">
+                      <div className="relative flex-shrink-0">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleCategory(cat.slug)}
+                          className="peer sr-only"
+                          aria-label={cat.nameFa}
+                        />
+                        <div className={`w-4.5 h-4.5 rounded-md border-2 flex items-center justify-center transition-all ${checked ? 'bg-brand-600 border-brand-600' : 'border-surface-300 bg-white'}`}>
+                          {checked && (
+                            <svg viewBox="0 0 10 8" className="w-2.5" fill="none">
+                              <path d="M1 4l3 3 5-6" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex items-center justify-between flex-1 min-w-0">
-                      <span className={`text-sm truncate transition-colors ${checked ? 'font-semibold text-brand-700' : 'text-surface-700'}`}>
-                        {cat.nameFa}
-                      </span>
-                      <span className="text-xs text-surface-400 flex-shrink-0 ms-2">{cat.productCount}</span>
-                    </div>
-                  </label>
-                </li>
-              )
-            })}
-          </ul>
-        </FilterSection>
+                      <div className="flex items-center justify-between flex-1 min-w-0">
+                        <span className={`text-sm truncate transition-colors ${checked ? 'font-semibold text-brand-700' : 'text-surface-700'}`}>
+                          {cat.nameFa}
+                        </span>
+                        <span className="text-xs text-surface-400 flex-shrink-0 ms-2">{cat.productCount}</span>
+                      </div>
+                    </label>
+                  </li>
+                )
+              })}
+            </ul>
+          </FilterSection>
+        )}
 
         {/* بازه قیمت */}
         <FilterSection title="بازه قیمت">
@@ -144,7 +145,6 @@ export function FiltersSidebar({ filters, onChange, onReset }: Props) {
                 />
               </div>
             </div>
-            {/* Quick price ranges */}
             <div className="flex flex-wrap gap-2">
               {[
                 { label: 'تا ۵۰۰ هزار', min: '0', max: '500000' },

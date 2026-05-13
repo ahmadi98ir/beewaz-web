@@ -1,20 +1,62 @@
 import Link from 'next/link'
 import { AnimateIn } from '@/components/ui/animate-in'
 import { ProductCard } from '@/components/shop/product-card'
-import { featuredProducts } from '@/lib/mock-data'
 import { ArrowLeftIcon } from '@/components/ui/icons'
+import { db } from '@/lib/db'
+import { products, categories } from '@/lib/db/schema'
+import { eq, and, desc } from 'drizzle-orm'
+import { dbProductToShop } from '@/lib/shop-product'
 
-export function FeaturedProducts() {
+async function getFeatured() {
+  try {
+    const rows = await db
+      .select({
+        id: products.id,
+        slug: products.slug,
+        sku: products.sku,
+        nameFa: products.nameFa,
+        descriptionFa: products.descriptionFa,
+        price: products.price,
+        comparePrice: products.comparePrice,
+        stock: products.stock,
+        isFeatured: products.isFeatured,
+        createdAt: products.createdAt,
+        categorySlug: categories.slug,
+        categoryName: categories.nameFa,
+      })
+      .from(products)
+      .leftJoin(categories, eq(products.categoryId, categories.id))
+      .where(and(eq(products.isFeatured, true), eq(products.status, 'active')))
+      .orderBy(desc(products.createdAt))
+      .limit(8)
+
+    return rows.map((r) =>
+      dbProductToShop({
+        ...r,
+        category: r.categorySlug ? { slug: r.categorySlug, nameFa: r.categoryName ?? '' } : null,
+      }),
+    )
+  } catch {
+    return []
+  }
+}
+
+export async function FeaturedProducts() {
+  const featuredProducts = await getFeatured()
+
+  if (featuredProducts.length === 0) return null
+
   return (
     <section className="py-16 lg:py-24" aria-label="محصولات ویژه">
       <div className="container-main">
 
-        {/* Header */}
         <AnimateIn>
           <div className="flex items-end justify-between mb-10 gap-4 flex-wrap">
             <div>
-              <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border text-sm font-semibold mb-3"
-                style={{ background: 'rgb(249 115 22 / 0.08)', borderColor: 'rgb(249 115 22 / 0.3)', color: '#EA6C00' }}>
+              <div
+                className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border text-sm font-semibold mb-3"
+                style={{ background: 'rgb(249 115 22 / 0.08)', borderColor: 'rgb(249 115 22 / 0.3)', color: '#EA6C00' }}
+              >
                 <span className="w-2 h-2 rounded-full bg-accent-500 animate-pulse" />
                 پرفروش‌ترین‌ها
               </div>
@@ -35,7 +77,6 @@ export function FeaturedProducts() {
           </div>
         </AnimateIn>
 
-        {/* Product Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
           {featuredProducts.map((product, i) => (
             <AnimateIn key={product.id} delay={i * 80}>

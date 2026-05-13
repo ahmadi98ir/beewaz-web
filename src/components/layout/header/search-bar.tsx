@@ -1,18 +1,30 @@
 'use client'
 
-import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { SearchIcon, XIcon } from '@/components/ui/icons'
-import { mockProducts } from '@/lib/mock-data'
 import { formatPrice } from '@/lib/utils'
 import { ProductSvgIcon } from '@/components/shop/product-svg-icon'
+import type { ShopProduct } from '@/lib/shop-product'
+
+function useDebounce<T>(value: T, delay: number): T {
+  const [debounced, setDebounced] = useState(value)
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(value), delay)
+    return () => clearTimeout(t)
+  }, [value, delay])
+  return debounced
+}
 
 export function SearchBar() {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
+  const [results, setResults] = useState<ShopProduct[]>([])
+  const [loading, setLoading] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
+  const debouncedQuery = useDebounce(query, 300)
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -33,22 +45,22 @@ export function SearchBar() {
     } else {
       document.body.style.overflow = ''
       setQuery('')
+      setResults([])
     }
   }, [open])
 
-  const results = useMemo(() => {
-    if (query.trim().length < 2) return []
-    const q = query.trim().toLowerCase()
-    return mockProducts
-      .filter(
-        (p) =>
-          p.nameFa.includes(q) ||
-          p.sku.toLowerCase().includes(q) ||
-          p.categoryName.includes(q) ||
-          p.descriptionFa.includes(q),
-      )
-      .slice(0, 6)
-  }, [query])
+  useEffect(() => {
+    if (debouncedQuery.trim().length < 2) {
+      setResults([])
+      return
+    }
+    setLoading(true)
+    fetch(`/api/products?search=${encodeURIComponent(debouncedQuery.trim())}`)
+      .then((r) => r.json())
+      .then((data) => setResults((data.products ?? []).slice(0, 6)))
+      .catch(() => setResults([]))
+      .finally(() => setLoading(false))
+  }, [debouncedQuery])
 
   const handleSubmit = useCallback(
     (e: React.FormEvent) => {
@@ -89,7 +101,6 @@ export function SearchBar() {
               className="bg-white rounded-2xl mx-auto max-w-2xl overflow-hidden"
               style={{ boxShadow: 'var(--shadow-modal)' }}
             >
-              {/* Input */}
               <form onSubmit={handleSubmit} className="flex items-center gap-3 p-4 border-b border-surface-100">
                 <SearchIcon size={20} className="text-surface-400 flex-shrink-0" />
                 <input
@@ -102,12 +113,7 @@ export function SearchBar() {
                   autoComplete="off"
                 />
                 {query && (
-                  <button
-                    type="button"
-                    onClick={() => setQuery('')}
-                    className="text-surface-400 hover:text-surface-700 transition-colors"
-                    aria-label="پاک کردن"
-                  >
+                  <button type="button" onClick={() => setQuery('')} className="text-surface-400 hover:text-surface-700 transition-colors" aria-label="پاک کردن">
                     <XIcon size={16} />
                   </button>
                 )}
@@ -120,27 +126,24 @@ export function SearchBar() {
                 </button>
               </form>
 
-              {/* نتایج live */}
-              {results.length > 0 && (
+              {loading && (
+                <div className="px-4 py-6 text-center text-sm text-surface-400">در حال جستجو...</div>
+              )}
+
+              {!loading && results.length > 0 && (
                 <ul role="listbox" className="py-2 max-h-80 overflow-y-auto">
                   {results.map((product) => (
                     <li key={product.id}>
                       <Link
-                        href={`/shop/${product.categorySlug}/${product.slug}`}
+                        href={product.categorySlug ? `/shop/${product.categorySlug}/${product.slug}` : `/shop/${product.slug}`}
                         onClick={() => setOpen(false)}
                         className="flex items-center gap-3 px-4 py-2.5 hover:bg-surface-50 transition-colors group"
                       >
                         <div
                           className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-                          style={{
-                            background: `linear-gradient(135deg, ${product.placeholderFrom}, ${product.placeholderTo})`,
-                          }}
+                          style={{ background: `linear-gradient(135deg, ${product.placeholderFrom}, ${product.placeholderTo})` }}
                         >
-                          <ProductSvgIcon
-                            categorySlug={product.categorySlug}
-                            size={22}
-                            className="text-surface-500/70"
-                          />
+                          <ProductSvgIcon categorySlug={product.categorySlug} size={22} className="text-surface-500/70" />
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-semibold text-surface-800 group-hover:text-brand-600 transition-colors truncate">
@@ -148,36 +151,30 @@ export function SearchBar() {
                           </p>
                           <p className="text-xs text-surface-400">{product.categoryName} · {product.sku}</p>
                         </div>
-                        <span className="text-sm font-bold text-surface-700 flex-shrink-0">
-                          {formatPrice(product.price)}
-                        </span>
+                        <span className="text-sm font-bold text-surface-700 flex-shrink-0">{formatPrice(product.price)}</span>
                       </Link>
                     </li>
                   ))}
 
-                  {query.trim().length >= 2 && (
-                    <li className="border-t border-surface-100 mt-1 pt-1">
-                      <button
-                        onClick={handleSubmit as unknown as React.MouseEventHandler}
-                        className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-brand-600 font-semibold hover:bg-brand-50 transition-colors"
-                      >
-                        <SearchIcon size={15} />
-                        مشاهده همه نتایج برای «{query}»
-                      </button>
-                    </li>
-                  )}
+                  <li className="border-t border-surface-100 mt-1 pt-1">
+                    <button
+                      onClick={handleSubmit as unknown as React.MouseEventHandler}
+                      className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-brand-600 font-semibold hover:bg-brand-50 transition-colors"
+                    >
+                      <SearchIcon size={15} />
+                      مشاهده همه نتایج برای «{query}»
+                    </button>
+                  </li>
                 </ul>
               )}
 
-              {/* Empty state */}
-              {query.trim().length >= 2 && results.length === 0 && (
+              {!loading && query.trim().length >= 2 && results.length === 0 && (
                 <div className="px-4 py-8 text-center">
                   <p className="text-sm font-semibold text-surface-700 mb-1">نتیجه‌ای یافت نشد</p>
                   <p className="text-xs text-surface-400">عبارت دیگری امتحان کنید</p>
                 </div>
               )}
 
-              {/* پیشنهادات سریع */}
               {query.trim().length < 2 && (
                 <div className="border-t border-surface-100 px-4 py-3">
                   <p className="text-xs text-surface-400 mb-2">جستجوهای پرتکرار:</p>
@@ -185,10 +182,7 @@ export function SearchBar() {
                     {['دزدگیر خانگی', 'حسگر حرکتی', 'سیرن خارجی', 'ریموت دزدگیر'].map((term) => (
                       <button
                         key={term}
-                        onClick={() => {
-                          setQuery(term)
-                          inputRef.current?.focus()
-                        }}
+                        onClick={() => { setQuery(term); inputRef.current?.focus() }}
                         className="text-xs px-3 py-1.5 rounded-full bg-surface-100 text-surface-700 hover:bg-brand-50 hover:text-brand-700 transition-colors"
                       >
                         {term}

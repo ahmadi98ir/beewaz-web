@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 
-type SortOption = 'newest' | 'price_asc' | 'price_desc' | 'rating'
+type SortOption = 'newest' | 'price_asc' | 'price_desc' | 'featured'
 type ViewMode = 'grid' | 'list'
 
 type Props = {
@@ -17,7 +17,7 @@ const sortOptions: { value: SortOption; label: string }[] = [
   { value: 'newest', label: 'جدیدترین' },
   { value: 'price_asc', label: 'ارزان‌ترین' },
   { value: 'price_desc', label: 'گران‌ترین' },
-  { value: 'rating', label: 'پربازدیدترین' },
+  { value: 'featured', label: 'ویژه‌ها' },
 ]
 
 export function SortBar({ total, sort, view, onSortChange, onViewChange }: Props) {
