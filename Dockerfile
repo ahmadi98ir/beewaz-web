@@ -27,7 +27,8 @@ FROM docker.arvancloud.ir/library/node:22-alpine AS runner
 WORKDIR /app
 
 RUN sed -i 's|https://dl-cdn.alpinelinux.org|https://mirror.arvancloud.ir|g' /etc/apk/repositories \
- && apk upgrade --no-cache
+ && apk upgrade --no-cache \
+ && apk add --no-cache su-exec
 
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
@@ -46,13 +47,12 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 # کپی migration files (توسط instrumentation.ts در startup اجرا می‌شن)
 COPY --from=builder --chown=nextjs:nodejs /app/src/lib/db/migrations ./migrations
 
-# دایرکتوری آپلود — با Volume در Coolify mount می‌شه
-RUN mkdir -p ./public/uploads/products && chown -R nextjs:nodejs ./public/uploads
-
-USER nextjs
+# entrypoint — permission را روی volume mount تنظیم می‌کند
+COPY entrypoint.sh ./entrypoint.sh
+RUN chmod +x ./entrypoint.sh
 
 EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
-CMD ["node", "server.js"]
+CMD ["./entrypoint.sh"]
