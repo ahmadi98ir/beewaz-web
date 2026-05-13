@@ -1,110 +1,129 @@
 'use client'
 
-import { useState, useTransition } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState } from 'react'
 import { signIn } from 'next-auth/react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { BeewazLogo } from '@/components/ui/logo'
 import { ShieldIcon } from '@/components/ui/icons'
-import { registerAction } from './actions'
+
+function normalizePhone(raw: string) {
+  return raw
+    .replace(/[۰-۹]/g, (d) => String.fromCharCode(d.charCodeAt(0) - 0x06f0 + 0x30))
+    .replace(/[٠-٩]/g, (d) => String.fromCharCode(d.charCodeAt(0) - 0x0660 + 0x30))
+    .replace(/\s|-/g, '')
+    .replace(/^\+98/, '0')
+    .replace(/^98/, '0')
+}
 
 export default function RegisterForm() {
   const router = useRouter()
-  const [isPending, startTransition] = useTransition()
+
   const [phone, setPhone] = useState('')
+  const [fullName, setFullName] = useState('')
   const [password, setPassword] = useState('')
   const [showPass, setShowPass] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [signingIn, setSigningIn] = useState(false)
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError(null)
-    const fd = new FormData(e.currentTarget)
+    setError('')
 
-    startTransition(async () => {
-      const result = await registerAction({}, fd)
+    const normalizedPhone = normalizePhone(phone)
+    if (!/^09\d{9}$/.test(normalizedPhone)) {
+      setError('شماره موبایل معتبر نیست. مثال: ۰۹۱۲۳۴۵۶۷۸۹')
+      return
+    }
 
-      if (result.error) {
-        setError(result.error)
+    setLoading(true)
+    try {
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: normalizedPhone, password, fullName }),
+      })
+      const data = await res.json() as { ok?: boolean; error?: string }
+
+      if (!res.ok) {
+        setError(data.error ?? 'خطا در ثبت‌نام')
+        setLoading(false)
         return
       }
 
-      if (result.success) {
-        setSigningIn(true)
-        const signInRes = await signIn('credentials', {
-          phone,
-          password,
-          redirect: false,
-        })
+      const signInRes = await signIn('credentials', {
+        phone: normalizedPhone,
+        password,
+        redirect: false,
+      })
 
-        if (signInRes?.error) {
-          setError('ثبت‌نام موفق بود اما ورود خودکار با خطا مواجه شد. لطفاً وارد شوید.')
-          setSigningIn(false)
-          return
-        }
-
-        router.push('/')
-        router.refresh()
+      if (signInRes?.error) {
+        router.push('/login')
+        return
       }
-    })
-  }
 
-  const busy = isPending || signingIn
+      router.push('/profile')
+      router.refresh()
+    } catch {
+      setError('خطای شبکه. لطفاً دوباره تلاش کنید')
+      setLoading(false)
+    }
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-surface-50 to-surface-100 flex items-center justify-center p-4">
       <div className="w-full max-w-sm">
-        {/* Logo */}
         <div className="text-center mb-8">
           <div className="flex justify-center mb-4">
             <BeewazLogo />
           </div>
-          <h1 className="text-xl font-black text-surface-900">ثبت‌نام در بیواز</h1>
-          <p className="text-sm text-surface-400 mt-1">حساب جدید بسازید</p>
+          <h1 className="text-xl font-black text-surface-900">ایجاد حساب کاربری</h1>
+          <p className="text-sm text-surface-400 mt-1">برای خرید و پیگیری سفارش ثبت‌نام کنید</p>
         </div>
 
         <div className="bg-white rounded-3xl border border-surface-200 shadow-card p-7">
-          <form onSubmit={handleSubmit} className="space-y-5" noValidate>
-            {/* Full Name */}
+          <form onSubmit={onSubmit} className="space-y-5">
             <div>
-              <label className="block text-sm font-semibold text-surface-700 mb-1.5">نام و نام‌خانوادگی</label>
+              <label className="block text-sm font-semibold text-surface-700 mb-1.5">
+                نام و نام خانوادگی
+              </label>
               <input
-                name="fullName"
                 type="text"
-                placeholder="مهدی احمدی"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                placeholder="علی احمدی"
                 className="input w-full"
                 required
                 minLength={2}
+                maxLength={100}
                 autoComplete="name"
               />
             </div>
 
-            {/* Phone */}
             <div>
-              <label className="block text-sm font-semibold text-surface-700 mb-1.5">شماره موبایل</label>
+              <label className="block text-sm font-semibold text-surface-700 mb-1.5">
+                شماره موبایل
+              </label>
               <input
-                name="phone"
                 type="tel"
                 value={phone}
-                onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 11))}
+                onChange={(e) => setPhone(e.target.value)}
                 placeholder="09123456789"
                 dir="ltr"
                 className="input w-full text-center tracking-widest"
                 required
-                maxLength={11}
-                pattern="09[0-9]{9}"
-                autoComplete="tel"
+                maxLength={14}
                 inputMode="numeric"
+                autoComplete="tel"
               />
             </div>
 
-            {/* Password */}
             <div>
-              <label className="block text-sm font-semibold text-surface-700 mb-1.5">رمز عبور</label>
+              <label className="block text-sm font-semibold text-surface-700 mb-1.5">
+                رمز عبور
+              </label>
               <div className="relative">
                 <input
-                  name="password"
                   type={showPass ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -135,44 +154,47 @@ export default function RegisterForm() {
               </div>
             </div>
 
-            {/* Terms */}
-            <label className="flex items-start gap-2.5 cursor-pointer">
-              <input type="checkbox" required className="mt-0.5 w-4 h-4 accent-brand-600 flex-shrink-0" />
-              <span className="text-xs text-surface-500 leading-relaxed">
-                با{' '}
-                <Link href="/terms" className="text-brand-600 hover:text-brand-700 underline">شرایط استفاده</Link>
-                {' '}و{' '}
-                <Link href="/privacy" className="text-brand-600 hover:text-brand-700 underline">حریم خصوصی</Link>
-                {' '}بیواز موافقم
-              </span>
-            </label>
-
             {error && (
-              <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700 text-center animate-slide-down">
+              <div
+                className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700 text-center animate-slide-down"
+                role="alert"
+                aria-live="polite"
+              >
                 {error}
               </div>
             )}
 
             <button
               type="submit"
-              disabled={busy}
-              className="btn btn-primary w-full py-3 text-base"
+              disabled={loading}
+              className="btn btn-accent w-full py-3 text-base"
             >
-              {busy ? (
+              {loading ? (
                 <span className="flex items-center justify-center gap-2">
                   <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                   </svg>
-                  {signingIn ? 'در حال ورود...' : 'در حال ثبت‌نام...'}
+                  در حال ثبت‌نام...
                 </span>
               ) : 'ثبت‌نام'}
             </button>
           </form>
 
-          <div className="mt-6 text-center text-sm text-surface-500">
-            حساب دارید؟{' '}
-            <Link href="/login" className="text-brand-600 font-bold hover:text-brand-700">وارد شوید</Link>
+          <div className="relative my-6">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-surface-100" />
+            </div>
+            <div className="relative flex justify-center">
+              <span className="bg-white px-3 text-xs text-surface-400">یا</span>
+            </div>
+          </div>
+
+          <div className="text-center text-sm text-surface-500">
+            حساب کاربری دارید؟{' '}
+            <Link href="/login" className="text-brand-600 font-bold hover:text-brand-700">
+              وارد شوید
+            </Link>
           </div>
         </div>
 

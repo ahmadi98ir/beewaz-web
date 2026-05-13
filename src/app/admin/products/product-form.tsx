@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { ImageUploader } from './image-uploader'
 
 interface Category {
   id: string
@@ -276,6 +277,11 @@ export function ProductForm({ initial, mode }: Props) {
             <span className="text-sm font-medium text-surface-700">محصول ویژه (نمایش در صفحه اصلی)</span>
           </label>
         </div>
+
+        {/* Images — edit mode only */}
+        {mode === 'edit' && form.id && (
+          <ImageUploader productId={form.id} />
+        )}
 
         {/* SEO */}
         <div className="bg-white rounded-2xl border border-surface-200 p-6 space-y-4">
