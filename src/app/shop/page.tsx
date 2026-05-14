@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { ShopClient } from './shop-client'
 import { db } from '@/lib/db'
-import { products, categories } from '@/lib/db/schema'
+import { products, categories, productImages } from '@/lib/db/schema'
 import { eq, and, desc, sql } from 'drizzle-orm'
 import { dbProductToShop } from '@/lib/shop-product'
 import type { ShopCategory } from '@/lib/shop-product'
@@ -24,7 +24,7 @@ export default async function ShopPage({ searchParams }: Props) {
   let shopCategories: ShopCategory[] = []
 
   try {
-    const [productRows, categoryRows] = await Promise.all([
+    const [productRows, categoryRows, imageRows] = await Promise.all([
       db
         .select({
           id: products.id,
@@ -57,12 +57,32 @@ export default async function ShopPage({ searchParams }: Props) {
         .leftJoin(products, and(eq(products.categoryId, categories.id), eq(products.status, 'active')))
         .groupBy(categories.id)
         .orderBy(categories.sortOrder, categories.nameFa),
+
+      db
+        .select({
+          productId: productImages.productId,
+          url: productImages.url,
+          alt: productImages.alt,
+          sortOrder: productImages.sortOrder,
+        })
+        .from(productImages)
+        .orderBy(productImages.sortOrder),
     ])
+
+    const imagesByProduct = imageRows.reduce<Record<string, { url: string; alt: string | null }[]>>(
+      (acc, img) => {
+        if (!acc[img.productId]) acc[img.productId] = []
+        acc[img.productId]!.push({ url: img.url, alt: img.alt })
+        return acc
+      },
+      {},
+    )
 
     shopProducts = productRows.map((r) =>
       dbProductToShop({
         ...r,
         category: r.categorySlug ? { slug: r.categorySlug, nameFa: r.categoryName ?? '' } : null,
+        images: imagesByProduct[r.id] ?? [],
       }),
     )
 

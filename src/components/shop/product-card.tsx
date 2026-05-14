@@ -249,6 +249,23 @@ export function ProductCard({ product, view = 'grid' }: Props) {
 }
 
 function ProductImage({ product, className = '' }: { product: ShopProduct; className?: string }) {
+  const firstImage = product.images?.[0]
+
+  if (firstImage) {
+    return (
+      <div
+        className={`w-full relative overflow-hidden transition-transform duration-500 group-hover:scale-105 ${className}`}
+        style={{ background: `linear-gradient(135deg, ${product.placeholderFrom} 0%, ${product.placeholderTo} 100%)` }}
+      >
+        <img
+          src={firstImage.url}
+          alt={firstImage.alt ?? product.nameFa}
+          className="absolute inset-0 w-full h-full object-contain p-3"
+        />
+      </div>
+    )
+  }
+
   return (
     <div
       className={`w-full relative transition-transform duration-500 group-hover:scale-105 ${className}`}
