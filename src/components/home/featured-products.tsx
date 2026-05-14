@@ -3,37 +3,54 @@ import { AnimateIn } from '@/components/ui/animate-in'
 import { ProductCard } from '@/components/shop/product-card'
 import { ArrowLeftIcon } from '@/components/ui/icons'
 import { db } from '@/lib/db'
-import { products, categories } from '@/lib/db/schema'
+import { products, categories, productImages } from '@/lib/db/schema'
 import { eq, and, desc } from 'drizzle-orm'
 import { dbProductToShop } from '@/lib/shop-product'
 
 async function getFeatured() {
   try {
-    const rows = await db
-      .select({
-        id: products.id,
-        slug: products.slug,
-        sku: products.sku,
-        nameFa: products.nameFa,
-        descriptionFa: products.descriptionFa,
-        price: products.price,
-        comparePrice: products.comparePrice,
-        stock: products.stock,
-        isFeatured: products.isFeatured,
-        createdAt: products.createdAt,
-        categorySlug: categories.slug,
-        categoryName: categories.nameFa,
-      })
-      .from(products)
-      .leftJoin(categories, eq(products.categoryId, categories.id))
-      .where(and(eq(products.isFeatured, true), eq(products.status, 'active')))
-      .orderBy(desc(products.createdAt))
-      .limit(8)
+    const [rows, imageRows] = await Promise.all([
+      db
+        .select({
+          id: products.id,
+          slug: products.slug,
+          sku: products.sku,
+          nameFa: products.nameFa,
+          descriptionFa: products.descriptionFa,
+          price: products.price,
+          comparePrice: products.comparePrice,
+          stock: products.stock,
+          isFeatured: products.isFeatured,
+          createdAt: products.createdAt,
+          categorySlug: categories.slug,
+          categoryName: categories.nameFa,
+        })
+        .from(products)
+        .leftJoin(categories, eq(products.categoryId, categories.id))
+        .where(and(eq(products.isFeatured, true), eq(products.status, 'active')))
+        .orderBy(desc(products.createdAt))
+        .limit(8),
+
+      db
+        .select({ productId: productImages.productId, url: productImages.url, alt: productImages.alt })
+        .from(productImages)
+        .orderBy(productImages.sortOrder),
+    ])
+
+    const imagesByProduct = imageRows.reduce<Record<string, { url: string; alt: string | null }[]>>(
+      (acc, img) => {
+        if (!acc[img.productId]) acc[img.productId] = []
+        acc[img.productId]!.push({ url: img.url, alt: img.alt })
+        return acc
+      },
+      {},
+    )
 
     return rows.map((r) =>
       dbProductToShop({
         ...r,
         category: r.categorySlug ? { slug: r.categorySlug, nameFa: r.categoryName ?? '' } : null,
+        images: imagesByProduct[r.id] ?? [],
       }),
     )
   } catch {

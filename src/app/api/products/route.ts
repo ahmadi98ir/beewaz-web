@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { eq, and, ilike, desc } from 'drizzle-orm'
 import { db } from '@/lib/db'
-import { products, categories } from '@/lib/db/schema'
+import { products, categories, productImages } from '@/lib/db/schema'
 import { dbProductToShop } from '@/lib/shop-product'
 
 export async function GET(req: NextRequest) {
@@ -21,26 +21,42 @@ export async function GET(req: NextRequest) {
       conditions.push(ilike(products.nameFa, `%${search.trim()}%`))
     }
 
-    const rows = await db
-      .select({
-        id: products.id,
-        slug: products.slug,
-        sku: products.sku,
-        nameFa: products.nameFa,
-        descriptionFa: products.descriptionFa,
-        price: products.price,
-        comparePrice: products.comparePrice,
-        stock: products.stock,
-        isFeatured: products.isFeatured,
-        createdAt: products.createdAt,
-        categorySlug: categories.slug,
-        categoryName: categories.nameFa,
-      })
-      .from(products)
-      .leftJoin(categories, eq(products.categoryId, categories.id))
-      .where(and(...conditions))
-      .orderBy(desc(products.isFeatured), desc(products.createdAt))
-      .limit(200)
+    const [rows, imageRows] = await Promise.all([
+      db
+        .select({
+          id: products.id,
+          slug: products.slug,
+          sku: products.sku,
+          nameFa: products.nameFa,
+          descriptionFa: products.descriptionFa,
+          price: products.price,
+          comparePrice: products.comparePrice,
+          stock: products.stock,
+          isFeatured: products.isFeatured,
+          createdAt: products.createdAt,
+          categorySlug: categories.slug,
+          categoryName: categories.nameFa,
+        })
+        .from(products)
+        .leftJoin(categories, eq(products.categoryId, categories.id))
+        .where(and(...conditions))
+        .orderBy(desc(products.isFeatured), desc(products.createdAt))
+        .limit(200),
+
+      db
+        .select({ productId: productImages.productId, url: productImages.url, alt: productImages.alt })
+        .from(productImages)
+        .orderBy(productImages.sortOrder),
+    ])
+
+    const imagesByProduct = imageRows.reduce<Record<string, { url: string; alt: string | null }[]>>(
+      (acc, img) => {
+        if (!acc[img.productId]) acc[img.productId] = []
+        acc[img.productId]!.push({ url: img.url, alt: img.alt })
+        return acc
+      },
+      {},
+    )
 
     // filter by category after join (simpler than a subquery)
     const filtered = categorySlug
@@ -51,6 +67,7 @@ export async function GET(req: NextRequest) {
       dbProductToShop({
         ...r,
         category: r.categorySlug ? { slug: r.categorySlug, nameFa: r.categoryName ?? '' } : null,
+        images: imagesByProduct[r.id] ?? [],
       }),
     )
 
