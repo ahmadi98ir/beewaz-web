@@ -39,6 +39,24 @@ export function ProductForm({ initial, mode }: Props) {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
 
+
+  const [specs, setSpecs] = useState<{ keyFa: string; valueFa: string }[]>([])
+
+  // بارگذاری specs در حالت ویرایش
+  useEffect(() => {
+    if (mode === 'edit' && initial?.id) {
+      fetch(`/api/admin/products/${initial.id}/specs`)
+        .then((r) => r.json())
+        .then((d) => setSpecs((d.specs || []).map((s: { keyFa: string; valueFa: string }) => ({ keyFa: s.keyFa, valueFa: s.valueFa }))))
+        .catch(() => {})
+    }
+  }, [mode, initial?.id])
+
+  const addSpec = () => setSpecs((p) => [...p, { keyFa: '', valueFa: '' }])
+  const removeSpec = (i: number) => setSpecs((p) => p.filter((_, idx) => idx !== i))
+  const updateSpec = (i: number, field: 'keyFa' | 'valueFa', val: string) =>
+    setSpecs((p) => p.map((s, idx) => idx === i ? { ...s, [field]: val } : s))
+
   const [form, setForm] = useState<ProductFormData>({
     sku: '',
     nameFa: '',
@@ -97,6 +115,16 @@ export function ProductForm({ initial, mode }: Props) {
       if (!res.ok) {
         setError(data.error || 'خطا رخ داد')
         return
+      }
+
+      // ذخیره specs
+      const productId = data.product?.id ?? form.id
+      if (productId && specs.length >= 0) {
+        await fetch(`/api/admin/products/${productId}/specs`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ specs }),
+        })
       }
 
       setSuccess(true)
@@ -282,6 +310,58 @@ export function ProductForm({ initial, mode }: Props) {
         {mode === 'edit' && form.id && (
           <ImageUploader productId={form.id} />
         )}
+
+
+        {/* Specs */}
+        <div className="bg-white rounded-2xl border border-surface-200 p-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="font-bold text-surface-900">مشخصات فنی</h3>
+            <button
+              type="button"
+              onClick={addSpec}
+              className="text-sm font-semibold text-brand-600 hover:text-brand-700 px-3 py-1.5 rounded-lg hover:bg-brand-50 transition-colors"
+            >
+              + افزودن ردیف
+            </button>
+          </div>
+
+          {specs.length === 0 ? (
+            <p className="text-sm text-surface-400 text-center py-4">
+              هنوز مشخصاتی اضافه نشده — روی «افزودن ردیف» کلیک کنید
+            </p>
+          ) : (
+            <div className="space-y-2">
+              <div className="grid grid-cols-[1fr_1fr_auto] gap-2 text-xs font-semibold text-surface-500 px-1">
+                <span>ویژگی</span><span>مقدار</span><span></span>
+              </div>
+              {specs.map((s, i) => (
+                <div key={i} className="grid grid-cols-[1fr_1fr_auto] gap-2 items-center">
+                  <input
+                    type="text"
+                    value={s.keyFa}
+                    onChange={(e) => updateSpec(i, 'keyFa', e.target.value)}
+                    placeholder="مثال: باتری"
+                    className="input text-sm"
+                  />
+                  <input
+                    type="text"
+                    value={s.valueFa}
+                    onChange={(e) => updateSpec(i, 'valueFa', e.target.value)}
+                    placeholder="مثال: ۶ ماه"
+                    className="input text-sm"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeSpec(i)}
+                    className="w-8 h-8 flex items-center justify-center text-surface-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
 
         {/* SEO */}
         <div className="bg-white rounded-2xl border border-surface-200 p-6 space-y-4">

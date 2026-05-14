@@ -116,7 +116,42 @@ export default async function ProductPage({ params }: Props) {
       )
     }
 
-    return <ProductDetailClient product={product} related={related} />
+
+    // ── Schema.org Product JSON-LD ────────────────────────────────────────────
+    const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://bz360.ir'
+    const productUrl = `${BASE_URL}/shop/${productRow.categorySlug ?? 'products'}/${productRow.slug}`
+    const firstImage = imgs[0]?.url ?? null
+
+    const jsonLd = {
+      '@context': 'https://schema.org',
+      '@type': 'Product',
+      name: productRow.nameFa,
+      description: productRow.descriptionFa ?? undefined,
+      sku: productRow.sku,
+      url: productUrl,
+      ...(firstImage ? { image: firstImage.startsWith('http') ? firstImage : `${BASE_URL}${firstImage}` } : {}),
+      brand: { '@type': 'Brand', name: 'بیواز' },
+      offers: {
+        '@type': 'Offer',
+        priceCurrency: 'IRR',
+        price: (productRow.price * 10).toString(), // تومان → ریال
+        availability: productRow.stock > 0
+          ? 'https://schema.org/InStock'
+          : 'https://schema.org/OutOfStock',
+        url: productUrl,
+        seller: { '@type': 'Organization', name: 'بیواز' },
+      },
+    }
+
+    return (
+      <>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
+        <ProductDetailClient product={product} related={related} />
+      </>
+    )
   } catch {
     notFound()
   }

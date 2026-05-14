@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { formatPrice } from '@/lib/utils'
 import { SearchIcon } from '@/components/ui/icons'
 
@@ -153,9 +154,9 @@ export default function OrdersPage() {
                     {filtered.map((order) => {
                       const sc = statusConfig[order.status]
                       return (
-                        <tr key={order.id} className="hover:bg-surface-50 transition-colors">
+                        <tr key={order.id} className="hover:bg-surface-50 transition-colors cursor-pointer">
                           <td className="px-5 py-4 font-mono text-xs font-bold text-surface-600">
-                            {order.id.slice(0, 8).toUpperCase()}
+                            <Link href={`/admin/orders/${order.id}`} className="font-mono text-brand-600 hover:underline">{order.id.slice(0, 8).toUpperCase()}</Link>
                           </td>
                           <td className="px-5 py-4">
                             <p className="font-semibold text-surface-900">

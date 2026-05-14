@@ -1,6 +1,6 @@
-import type { MetadataRoute } from 'next'
+import { MetadataRoute } from 'next'
 
-const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://bz360.ir'
+const BASE = process.env.NEXT_PUBLIC_APP_URL ?? 'https://bz360.ir'
 
 export default function robots(): MetadataRoute.Robots {
   return {
@@ -8,10 +8,9 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: '*',
         allow: '/',
-        disallow: ['/admin', '/api', '/profile', '/checkout', '/cart', '/login', '/register'],
+        disallow: ['/admin', '/api/', '/checkout'],
       },
     ],
-    sitemap: `${BASE_URL}/sitemap.xml`,
-    host: BASE_URL,
+    sitemap: `${BASE}/sitemap.xml`,
   }
 }
