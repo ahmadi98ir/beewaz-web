@@ -24,6 +24,7 @@ const config: NextConfig = {
       { protocol: 'https', hostname: 'cdn.beewaz.ir' },
       { protocol: 'https', hostname: 'bz360.ir' },
       { protocol: 'https', hostname: '**.bz360.ir' },
+      { protocol: 'https', hostname: 'beewaz-co.com' },
     ],
     formats: ['image/avif', 'image/webp'],
     minimumCacheTTL: 60 * 60 * 24 * 7,

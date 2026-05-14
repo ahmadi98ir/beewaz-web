@@ -24,13 +24,23 @@ export async function POST(req: Request) {
 
   const ext = file.name.split('.').pop()?.toLowerCase() ?? 'jpg'
   const filename = `${randomUUID()}.${ext}`
-  const uploadDir = join(process.cwd(), 'public', 'uploads', 'products')
+  // در standalone Docker از /app/public/uploads استفاده می‌کنیم (volume mount)
+  const uploadDir = join('/app/public/uploads/products')
 
-  await mkdir(uploadDir, { recursive: true })
+  await mkdir(uploadDir, { recursive: true }).catch(() => {
+    // fallback برای dev محلی
+    return mkdir(join(process.cwd(), 'public', 'uploads', 'products'), { recursive: true })
+  })
 
   const bytes = await file.arrayBuffer()
   const buffer = Buffer.from(bytes)
-  await writeFile(join(uploadDir, filename), buffer)
 
-  return NextResponse.json({ url: `/uploads/products/${filename}` })
+  // سعی می‌کنیم در مسیر Docker بنویسیم، اگر نشد مسیر dev
+  try {
+    await writeFile(join('/app/public/uploads/products', filename), buffer)
+  } catch {
+    await writeFile(join(process.cwd(), 'public', 'uploads', 'products', filename), buffer)
+  }
+
+  return NextResponse.json({ url: `/api/serve/products/${filename}` })
 }
