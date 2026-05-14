@@ -92,4 +92,11 @@ export const DEFAULT_PAGE_CONTENT: NewPageContent[] = [
   { page: 'contact', key: 'hero_title',     type: 'text',    label: 'عنوان صفحه تماس',    valueFa: 'چطور می‌توانیم کمک کنیم؟', position: 1 },
   { page: 'contact', key: 'hero_subtitle',  type: 'text',    label: 'زیرعنوان تماس',      valueFa: 'تیم پشتیبانی بیواز آماده پاسخگویی است', position: 2 },
   { page: 'contact', key: 'map_embed',      type: 'text',    label: 'کد Embed نقشه',       valueFa: '', hint: 'کد iframe گوگل‌مپ', position: 3 },
+  // ── Chatbot ──
+  { page: 'chatbot', key: 'bot_name',      type: 'text',     label: 'نام دستیار',                   valueFa: 'دستیار هوشمند بیواز', position: 1 },
+  { page: 'chatbot', key: 'bot_status',    type: 'text',     label: 'وضعیت نمایشی',                valueFa: 'آنلاین — پاسخگو ۲۴ ساعته', position: 2 },
+  { page: 'chatbot', key: 'welcome_msg',   type: 'richtext', label: 'پیام خوش‌آمد',                valueFa: 'سلام! 👋 چطور می‌تونم کمکتون کنم؟\n\nبرای شروع مشاوره رایگان، روی دکمه زیر بزنید.', hint: 'اولین پیامی که کاربر می‌بیند', position: 3 },
+  { page: 'chatbot', key: 'quick_replies', type: 'richtext', label: 'دکمه‌های سریع خوش‌آمد',       valueFa: 'شروع مشاوره رایگان', hint: 'هر خط یک دکمه (max 4)', position: 4 },
+  { page: 'chatbot', key: 'footer_text',   type: 'text',     label: 'متن پاورقی چت',               valueFa: 'بیواز — مشاوره رایگان ۲۴/۷', position: 5 },
+  { page: 'chatbot', key: 'system_prompt', type: 'richtext', label: 'پرامپت سیستم (برای AI)',       valueFa: 'شما دستیار هوشمند بیواز هستید. محصولات ما شامل دزدگیرهای BH10 و BH11 است. با لحن دوستانه و حرفه‌ای به فارسی پاسخ دهید.', hint: 'این پرامپت هنگام اتصال به Claude/GPT استفاده می‌شود', position: 6 },
 ]
