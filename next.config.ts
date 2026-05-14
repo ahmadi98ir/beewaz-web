@@ -33,6 +33,7 @@ const config: NextConfig = {
   typedRoutes: false,
 
   experimental: {
+    instrumentationHook: true,
     optimizePackageImports: ['drizzle-orm', 'zustand'],
   },
 
