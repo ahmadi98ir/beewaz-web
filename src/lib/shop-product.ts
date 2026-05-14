@@ -17,6 +17,7 @@ export type ShopProduct = {
   isNew: boolean
   descriptionFa: string
   specs: { key: string; value: string }[]
+  images: { url: string; alt: string | null }[]
   placeholderFrom: string
   placeholderTo: string
 }
@@ -61,6 +62,7 @@ type DbProductForShop = {
   createdAt: Date | string
   category?: { nameFa: string; slug: string } | null
   specs?: { keyFa: string; valueFa: string }[]
+  images?: { url: string; alt: string | null }[]
 }
 
 const THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000
@@ -84,6 +86,7 @@ export function dbProductToShop(p: DbProductForShop): ShopProduct {
     isNew: Date.now() - createdAt.getTime() < THIRTY_DAYS,
     descriptionFa: p.descriptionFa ?? '',
     specs: p.specs?.map((s) => ({ key: s.keyFa, value: s.valueFa })) ?? [],
+    images: p.images ?? [],
     placeholderFrom: from,
     placeholderTo: to,
   }

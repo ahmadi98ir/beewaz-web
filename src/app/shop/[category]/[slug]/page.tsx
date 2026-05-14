@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import { db } from '@/lib/db'
-import { products, categories, productSpecs } from '@/lib/db/schema'
+import { products, categories, productSpecs, productImages } from '@/lib/db/schema'
 import { eq, and, ne } from 'drizzle-orm'
 import { dbProductToShop } from '@/lib/shop-product'
 import { ProductDetailClient } from './product-detail-client'
@@ -56,12 +56,19 @@ export default async function ProductPage({ params }: Props) {
 
     if (!productRow) notFound()
 
-    // مشخصات فنی
-    const specs = await db
-      .select({ keyFa: productSpecs.keyFa, valueFa: productSpecs.valueFa })
-      .from(productSpecs)
-      .where(eq(productSpecs.productId, productRow.id))
-      .orderBy(productSpecs.sortOrder)
+    // مشخصات فنی و تصاویر
+    const [specs, imgs] = await Promise.all([
+      db
+        .select({ keyFa: productSpecs.keyFa, valueFa: productSpecs.valueFa })
+        .from(productSpecs)
+        .where(eq(productSpecs.productId, productRow.id))
+        .orderBy(productSpecs.sortOrder),
+      db
+        .select({ url: productImages.url, alt: productImages.alt })
+        .from(productImages)
+        .where(eq(productImages.productId, productRow.id))
+        .orderBy(productImages.sortOrder),
+    ])
 
     const product = dbProductToShop({
       ...productRow,
@@ -69,6 +76,7 @@ export default async function ProductPage({ params }: Props) {
         ? { slug: productRow.categorySlug, nameFa: productRow.categoryName ?? '' }
         : null,
       specs,
+      images: imgs,
     })
 
     // محصولات مشابه از همان دسته

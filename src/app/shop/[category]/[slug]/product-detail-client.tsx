@@ -19,12 +19,46 @@ type Props = {
 function ProductGallery({ product }: { product: ShopProduct }) {
   const [selected, setSelected] = useState(0)
 
+  if (product.images.length > 0) {
+    return (
+      <div className="flex gap-4">
+        {product.images.length > 1 && (
+          <div className="flex flex-col gap-2 w-16 flex-shrink-0">
+            {product.images.map((img, i) => (
+              <button
+                key={i}
+                onClick={() => setSelected(i)}
+                className={`w-16 h-16 rounded-xl border-2 overflow-hidden transition-all duration-150 ${
+                  selected === i ? 'border-brand-600 shadow-sm shadow-brand-600/20' : 'border-surface-200 hover:border-surface-300'
+                }`}
+              >
+                <img src={img.url} alt={img.alt ?? product.nameFa} className="w-full h-full object-cover" />
+              </button>
+            ))}
+          </div>
+        )}
+        <div className="flex-1 aspect-square rounded-2xl overflow-hidden relative bg-white border border-surface-100">
+          <img
+            src={product.images[selected]?.url ?? product.images[0]!.url}
+            alt={product.images[selected]?.alt ?? product.nameFa}
+            className="w-full h-full object-contain p-4"
+          />
+          {product.isNew && (
+            <div className="absolute top-4 start-4 px-3 py-1.5 rounded-lg bg-surface-900 text-white text-xs font-bold">
+              جدید
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  // fallback gradient
   const variants = [
     { from: product.placeholderFrom, to: product.placeholderTo },
     { from: product.placeholderTo, to: product.placeholderFrom },
     { from: '#f8fafc', to: product.placeholderFrom },
   ]
-
   return (
     <div className="flex gap-4">
       <div className="flex flex-col gap-2 w-16 flex-shrink-0">
@@ -35,29 +69,23 @@ function ProductGallery({ product }: { product: ShopProduct }) {
             className={`w-16 h-16 rounded-xl border-2 overflow-hidden transition-all duration-150 ${
               selected === i ? 'border-brand-600 shadow-sm shadow-brand-600/20' : 'border-surface-200 hover:border-surface-300'
             }`}
-            aria-label={`تصویر ${i + 1}`}
           >
             <div className="w-full h-full" style={{ background: `linear-gradient(135deg, ${v.from}, ${v.to})` }} />
           </button>
         ))}
       </div>
-
       <div
         className="flex-1 aspect-square rounded-2xl overflow-hidden relative"
         style={{ background: `linear-gradient(135deg, ${variants[selected]!.from}, ${variants[selected]!.to})` }}
       >
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-4">
           <div className="w-28 h-28 rounded-3xl bg-white/50 backdrop-blur-sm flex items-center justify-center shadow-lg">
-            <span className="text-4xl font-black text-surface-400 select-none">
-              {product.sku.replace('BW-', '')}
-            </span>
+            <span className="text-4xl font-black text-surface-400 select-none">{product.sku.replace('BW-', '')}</span>
           </div>
           <span className="text-sm font-mono text-surface-400/80">{product.sku}</span>
         </div>
         {product.isNew && (
-          <div className="absolute top-4 start-4 px-3 py-1.5 rounded-lg bg-surface-900 text-white text-xs font-bold">
-            جدید
-          </div>
+          <div className="absolute top-4 start-4 px-3 py-1.5 rounded-lg bg-surface-900 text-white text-xs font-bold">جدید</div>
         )}
       </div>
     </div>
