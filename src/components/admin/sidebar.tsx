@@ -160,4 +160,13 @@ export function AdminSidebar() {
           <button
             onClick={() => setMobileOpen(false)}
             className="p-2 rounded-xl text-white/60 hover:text-white hover:bg-white/10 transition-colors"
-            ari
+            aria-label="بستن منو"
+          >
+            <XIcon size={18} />
+          </button>
+        </div>
+        <NavLinks onNavigate={() => setMobileOpen(false)} />
+      </aside>
+    </>
+  )
+}

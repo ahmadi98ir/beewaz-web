@@ -15,7 +15,7 @@ import { DEFAULT_PAGE_CONTENT } from '@/lib/db/schema/cms-seed'
 
 export async function GET(req: Request) {
   const auth = await requireAdmin()
-  if (!auth.ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if ('error' in auth) return auth.error
 
   const { searchParams } = new URL(req.url)
   const page = searchParams.get('page') ?? 'home'
@@ -38,7 +38,7 @@ export async function GET(req: Request) {
 
 export async function PUT(req: Request) {
   const auth = await requireAdmin()
-  if (!auth.ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if ('error' in auth) return auth.error
 
   try {
     const body = await req.json() as {
@@ -82,7 +82,7 @@ export async function PUT(req: Request) {
 
 export async function POST() {
   const auth = await requireAdmin()
-  if (!auth.ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if ('error' in auth) return auth.error
 
   try {
     await db

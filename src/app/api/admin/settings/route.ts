@@ -14,7 +14,7 @@ import { DEFAULT_SITE_SETTINGS } from '@/lib/db/schema/cms-seed'
 
 export async function GET() {
   const auth = await requireAdmin()
-  if (!auth.ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if ('error' in auth) return auth.error
 
   try {
     const rows = await db.select().from(siteSettings).orderBy(siteSettings.group, siteSettings.key)
@@ -23,7 +23,7 @@ export async function GET() {
     const grouped: Record<string, typeof rows> = {}
     for (const row of rows) {
       if (!grouped[row.group]) grouped[row.group] = []
-      grouped[row.group].push(row)
+      grouped[row.group]!.push(row)
     }
 
     return NextResponse.json({ settings: rows, grouped })
@@ -37,7 +37,7 @@ export async function GET() {
 
 export async function PUT(req: Request) {
   const auth = await requireAdmin()
-  if (!auth.ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if ('error' in auth) return auth.error
 
   try {
     const body = await req.json() as Record<string, string>
@@ -71,7 +71,7 @@ export async function PUT(req: Request) {
 
 export async function POST() {
   const auth = await requireAdmin()
-  if (!auth.ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if ('error' in auth) return auth.error
 
   try {
     await db

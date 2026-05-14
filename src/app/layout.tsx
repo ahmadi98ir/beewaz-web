@@ -69,4 +69,10 @@ export default function RootLayout({
         </main>
         <Footer />
         <ChatWidget />
-        <QuickViewMo
+        <QuickViewModal />
+        <ToastContainer />
+        <PageTracker />
+      </body>
+    </html>
+  )
+}

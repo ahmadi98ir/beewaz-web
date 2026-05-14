@@ -54,7 +54,7 @@ export default async function AdminDashboard() {
   let newLeadsCount = 0
   let totalLeads = 0
 
-  // Analytics
+  // Analytics — ۷ روز گذشته
   let totalViewsWeek = 0
   let uniqueVisitorsWeek = 0
   let topPages: { path: string; views: number }[] = []
@@ -96,49 +96,6 @@ export default async function AdminDashboard() {
         .from(orders),
     ])
 
-    // Analytics — ۷ روز گذشته (جداگانه تا خطا کل بلاک را خراب نکند)
-    try {
-      const weekAgo = new Date()
-      weekAgo.setDate(weekAgo.getDate() - 7)
-
-      const [viewStats, pagesStats, devicesStats] = await Promise.all([
-        db
-          .select({
-            total: sql<number>`count(*)::int`,
-            unique: sql<number>`count(distinct ${pageViews.sessionId})::int`,
-          })
-          .from(pageViews)
-          .where(gte(pageViews.createdAt, weekAgo)),
-
-        db
-          .select({
-            path: pageViews.path,
-            views: sql<number>`count(*)::int`,
-          })
-          .from(pageViews)
-          .where(gte(pageViews.createdAt, weekAgo))
-          .groupBy(pageViews.path)
-          .orderBy(desc(sql`count(*)`))
-          .limit(5),
-
-        db
-          .select({
-            device: pageViews.device,
-            count: sql<number>`count(*)::int`,
-          })
-          .from(pageViews)
-          .where(gte(pageViews.createdAt, weekAgo))
-          .groupBy(pageViews.device),
-      ])
-
-      totalViewsWeek = viewStats[0]?.total ?? 0
-      uniqueVisitorsWeek = viewStats[0]?.unique ?? 0
-      topPages = pagesStats
-      deviceBreakdown = devicesStats
-    } catch {
-      // جدول page_views هنوز ایجاد نشده — داده‌ها صفر می‌مانند
-    }
-
     recentOrders = ordersResult
     recentLeads = leadsResult
 
@@ -148,6 +105,27 @@ export default async function AdminDashboard() {
       totalRevenueThisMonth = Number(s.revenue ?? 0)
       newLeadsCount = s.newLeads ?? 0
       totalLeads = s.totalLeads ?? 0
+    }
+
+    // Analytics — جداگانه تا خطا کل بلاک را متوقف نکند
+    try {
+      const weekAgo = new Date()
+      weekAgo.setDate(weekAgo.getDate() - 7)
+      const [viewStats, pagesStats, devicesStats] = await Promise.all([
+        db.select({ total: sql<number>`count(*)::int`, unique: sql<number>`count(distinct ${pageViews.sessionId})::int` })
+          .from(pageViews).where(gte(pageViews.createdAt, weekAgo)),
+        db.select({ path: pageViews.path, views: sql<number>`count(*)::int` })
+          .from(pageViews).where(gte(pageViews.createdAt, weekAgo))
+          .groupBy(pageViews.path).orderBy(desc(sql`count(*)`)).limit(5),
+        db.select({ device: pageViews.device, count: sql<number>`count(*)::int` })
+          .from(pageViews).where(gte(pageViews.createdAt, weekAgo)).groupBy(pageViews.device),
+      ])
+      totalViewsWeek = viewStats[0]?.total ?? 0
+      uniqueVisitorsWeek = viewStats[0]?.unique ?? 0
+      topPages = pagesStats
+      deviceBreakdown = devicesStats
+    } catch {
+      // جدول page_views هنوز ساخته نشده
     }
   } catch {
     // DB might not be available during SSR — show zeros gracefully
@@ -208,9 +186,8 @@ export default async function AdminDashboard() {
           />
         </div>
 
-        {/* ── Analytics Row ─────────────────────────────────────────────── */}
+        {/* ── Analytics ─────────────────────────────────────────────── */}
         <div className="grid lg:grid-cols-3 gap-6">
-          {/* بازدید ۷ روز */}
           <div className="bg-white rounded-2xl border border-surface-200 p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-bold text-surface-900">بازدید سایت</h3>
@@ -226,7 +203,6 @@ export default async function AdminDashboard() {
                 <p className="text-xs text-green-600 mt-1">بازدیدکنندگان یکتا</p>
               </div>
             </div>
-            {/* دستگاه‌ها */}
             {deviceBreakdown.length > 0 && (
               <div className="space-y-2">
                 <p className="text-xs font-semibold text-surface-500 mb-2">تفکیک دستگاه</p>
@@ -241,7 +217,7 @@ export default async function AdminDashboard() {
                       <div key={key} className="flex items-center gap-2">
                         <span className="text-xs text-surface-600 w-20 flex-shrink-0">{labels[key] ?? key}</span>
                         <div className="flex-1 h-1.5 bg-surface-100 rounded-full overflow-hidden">
-                          <div className={`h-full rounded-full ${colors[key] ?? 'bg-surface-400'}`} style={{ width: `${pct}%` }} />
+                          <div className={`h-full rounded-full \${colors[key] ?? 'bg-surface-400'}`} style={{ width: `\${pct}%` }} />
                         </div>
                         <span className="text-xs text-surface-500 w-9 text-end">{pct}٪</span>
                       </div>
@@ -250,9 +226,120 @@ export default async function AdminDashboard() {
                 })()}
               </div>
             )}
-            {totalViewsWeek === 0 && (
-              <p className="text-xs text-surface-400 text-center py-2">هنوز بازدیدی ثبت نشده</p>
+            {totalViewsWeek === 0 && <p className="text-xs text-surface-400 text-center py-2">هنوز بازدیدی ثبت نشده</p>}
+          </div>
+          <div className="lg:col-span-2 bg-white rounded-2xl border border-surface-200 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-bold text-surface-900">صفحات پربازدید</h3>
+              <span className="text-xs text-surface-400 bg-surface-50 px-2.5 py-1 rounded-full border border-surface-100">۷ روز گذشته</span>
+            </div>
+            {topPages.length === 0 ? (
+              <p className="text-sm text-surface-400 text-center py-8">داده‌ای موجود نیست</p>
+            ) : (
+              <div className="space-y-3">
+                {(() => {
+                  const maxViews = topPages[0]?.views ?? 1
+                  return topPages.map((p, i) => (
+                    <div key={p.path} className="flex items-center gap-3">
+                      <span className="w-5 text-xs text-surface-400 text-center flex-shrink-0">{(i + 1).toLocaleString('fa-IR')}</span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-xs font-mono text-surface-700 truncate" dir="ltr">{p.path}</span>
+                          <span className="text-xs font-bold text-surface-900 flex-shrink-0 ms-2">{p.views.toLocaleString('fa-IR')}</span>
+                        </div>
+                        <div className="h-1.5 bg-surface-100 rounded-full overflow-hidden">
+                          <div className="h-full rounded-full bg-brand-400" style={{ width: `\${Math.round((p.views / maxViews) * 100)}%` }} />
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                })()}
+              </div>
             )}
           </div>
+        </div>
 
-   
+        {/* Recent Leads + Orders grid */}
+        <div className="grid lg:grid-cols-3 gap-6">
+          {/* لیدهای جدید */}
+          <div className="bg-white rounded-2xl border border-surface-200 p-6 flex flex-col">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-bold text-surface-900">لیدهای جدید</h3>
+              <Link href="/admin/leads" className="text-xs font-semibold text-brand-600 hover:text-brand-700 transition-colors">
+                مشاهده همه
+              </Link>
+            </div>
+            <div className="flex-1 space-y-3">
+              {recentLeads.length === 0 ? (
+                <p className="text-sm text-surface-400 text-center py-6">لید جدیدی وجود ندارد</p>
+              ) : (
+                recentLeads.map((lead) => (
+                  <div key={lead.id} className="flex items-center gap-3 p-3 rounded-xl bg-surface-50 hover:bg-surface-100 transition-colors">
+                    <div className="w-9 h-9 rounded-xl bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-sm flex-shrink-0">
+                      {(lead.fullName ?? lead.phone)[0]}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-surface-900 truncate">
+                        {lead.fullName ?? 'ناشناس'}
+                      </p>
+                      <p className="text-xs text-surface-400 font-mono" dir="ltr">{lead.phone}</p>
+                    </div>
+                    <span className="text-xs text-surface-400 flex-shrink-0">{lead.inquiryType?.split('/')[0] ?? ''}</span>
+                  </div>
+                ))
+              )}
+            </div>
+            <Link href="/admin/leads" className="btn btn-outline w-full text-sm py-2.5 mt-4">
+              مدیریت لیدها
+            </Link>
+          </div>
+
+          {/* Recent Orders */}
+          <div className="lg:col-span-2 bg-white rounded-2xl border border-surface-200 overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-surface-100">
+              <h3 className="font-bold text-surface-900">آخرین سفارشات</h3>
+              <Link href="/admin/orders" className="text-xs font-semibold text-brand-600 hover:text-brand-700 transition-colors">
+                مشاهده همه
+              </Link>
+            </div>
+            {recentOrders.length === 0 ? (
+              <div className="py-12 text-center text-surface-400 text-sm">هنوز سفارشی ثبت نشده</div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-surface-50 text-surface-500 text-xs">
+                    <tr>
+                      {['شناسه', 'مشتری', 'شهر', 'مبلغ', 'وضعیت', 'تاریخ'].map((h) => (
+                        <th key={h} className="text-start px-5 py-3 font-semibold">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-surface-100">
+                    {recentOrders.map((order) => (
+                      <tr key={order.id} className="hover:bg-surface-50 transition-colors">
+                        <td className="px-5 py-3.5 font-mono text-xs text-surface-500">
+                          {order.id.slice(0, 8).toUpperCase()}
+                        </td>
+                        <td className="px-5 py-3.5 font-semibold text-surface-900">
+                          {(order.shippingAddress as { fullName?: string } | null)?.fullName ?? '—'}
+                        </td>
+                        <td className="px-5 py-3.5 text-surface-500">
+                          {(order.shippingAddress as { city?: string } | null)?.city ?? '—'}
+                        </td>
+                        <td className="px-5 py-3.5 font-bold text-surface-900">{formatPrice(order.totalAmount)}</td>
+                        <td className="px-5 py-3.5"><OrderBadge status={order.status} /></td>
+                        <td className="px-5 py-3.5 text-surface-400 text-xs">
+                          {new Intl.DateTimeFormat('fa-IR', { month: 'short', day: 'numeric' }).format(new Date(order.createdAt))}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
