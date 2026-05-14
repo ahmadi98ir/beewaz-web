@@ -22,7 +22,6 @@ export default function LoginForm() {
     e.preventDefault()
     setError('')
 
-    // normalize phone — حذف فاصله، +98، و رقم‌های فارسی
     const normalizedPhone = phone
       .replace(/[۰-۹]/g, (d) => String.fromCharCode(d.charCodeAt(0) - 0x06f0 + 0x30))
       .replace(/[٠-٩]/g, (d) => String.fromCharCode(d.charCodeAt(0) - 0x0660 + 0x30))
@@ -48,6 +47,16 @@ export default function LoginForm() {
       return
     }
 
+    // بررسی نقش کاربر برای ریدایرکت هوشمند
+    try {
+      const session = await fetch('/api/auth/session').then((r) => r.json())
+      if (session?.user?.role === 'admin') {
+        router.push('/admin')
+        router.refresh()
+        return
+      }
+    } catch { /* در صورت خطا به callbackUrl برو */ }
+
     router.push(callbackUrl)
     router.refresh()
   }
@@ -55,7 +64,6 @@ export default function LoginForm() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-surface-50 to-surface-100 flex items-center justify-center p-4">
       <div className="w-full max-w-sm">
-        {/* Logo */}
         <div className="text-center mb-8">
           <div className="flex justify-center mb-4">
             <BeewazLogo />
@@ -66,7 +74,6 @@ export default function LoginForm() {
 
         <div className="bg-white rounded-3xl border border-surface-200 shadow-card p-7">
           <form onSubmit={onSubmit} className="space-y-5">
-            {/* Phone */}
             <div>
               <label className="block text-sm font-semibold text-surface-700 mb-1.5">
                 شماره موبایل
@@ -85,7 +92,6 @@ export default function LoginForm() {
               />
             </div>
 
-            {/* Password */}
             <div>
               <label className="block text-sm font-semibold text-surface-700 mb-1.5">
                 رمز عبور
@@ -166,7 +172,6 @@ export default function LoginForm() {
           </div>
         </div>
 
-        {/* Trust signals */}
         <div className="mt-6 flex items-center justify-center gap-2 text-xs text-surface-400">
           <ShieldIcon size={14} className="text-green-500" />
           <span>اطلاعات شما با رمزگذاری SSL محافظت می‌شود</span>
