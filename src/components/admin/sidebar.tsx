@@ -28,6 +28,7 @@ const navItems: NavItem[] = [
   { href: '/admin/products', label: 'محصولات',   icon: <NavIcon d="M20 7H4a2 2 0 00-2 2v10a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2zM16 3H8M12 12v4M10 14h4" /> },
   { href: '/admin/articles', label: 'مقالات',    icon: <NavIcon d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zM14 2v6h6M16 13H8M16 17H8M10 9H8" /> },
   { href: '/admin/users',    label: 'کاربران',   icon: <NavIcon d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8zM23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" /> },
+  { href: '/admin/content',  label: 'محتوای صفحات', icon: <NavIcon d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" /> },
 ]
 
 const bottomItems: NavItem[] = [
@@ -159,13 +160,4 @@ export function AdminSidebar() {
           <button
             onClick={() => setMobileOpen(false)}
             className="p-2 rounded-xl text-white/60 hover:text-white hover:bg-white/10 transition-colors"
-            aria-label="بستن منو"
-          >
-            <XIcon size={18} />
-          </button>
-        </div>
-        <NavLinks onNavigate={() => setMobileOpen(false)} />
-      </aside>
-    </>
-  )
-}
+            ari

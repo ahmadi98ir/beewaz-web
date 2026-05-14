@@ -1,0 +1,95 @@
+/**
+ * داده‌های اولیه CMS
+ * اجرا: این فایل از migrate.ts صدا زده می‌شود
+ * یا مستقل: tsx scripts/seed-cms.ts
+ */
+
+import type { NewSiteSetting, NewPageContent } from './cms'
+
+// ─── Site Settings defaults ───────────────────────────────────────────────────
+
+export const DEFAULT_SITE_SETTINGS: NewSiteSetting[] = [
+  // ── General ──
+  { key: 'site_name',        value: 'بیواز',                    type: 'text',    label: 'نام سایت',             group: 'general', isRequired: true },
+  { key: 'site_tagline',     value: 'دزدگیر اماکن و منزل',      type: 'text',    label: 'شعار سایت',            group: 'general' },
+  { key: 'site_description', value: 'خرید آنلاین سیستم دزدگیر حرفه‌ای برای خانه و کسب‌وکار', type: 'text', label: 'توضیح سایت (SEO)', group: 'seo' },
+  { key: 'site_keywords',    value: 'دزدگیر اماکن,دزدگیر منزل,سیستم امنیتی,بیواز,BH10,BH11', type: 'text', label: 'کلمات کلیدی SEO', group: 'seo', hint: 'با کاما جدا کنید' },
+  { key: 'logo_url',         value: '/images/logo.png',          type: 'image',   label: 'لوگو',                 group: 'general' },
+  { key: 'favicon_url',      value: '/favicon.ico',              type: 'image',   label: 'فاوآیکون',             group: 'general' },
+  { key: 'og_image_url',     value: '/images/og-image.jpg',      type: 'image',   label: 'تصویر اشتراک‌گذاری (OG)', group: 'seo' },
+
+  // ── Contact ──
+  { key: 'contact_phone',    value: '021-00000000',              type: 'text',    label: 'شماره تماس',           group: 'contact' },
+  { key: 'contact_phone2',   value: '0910-0000000',              type: 'text',    label: 'شماره موبایل',         group: 'contact' },
+  { key: 'contact_email',    value: 'info@beewaz.ir',            type: 'text',    label: 'ایمیل',                group: 'contact', isRequired: true },
+  { key: 'contact_address',  value: 'تهران، ...',                type: 'text',    label: 'آدرس',                 group: 'contact' },
+  { key: 'contact_hours',    value: 'شنبه تا چهارشنبه ۸ تا ۱۷', type: 'text',    label: 'ساعت کاری',            group: 'contact' },
+  { key: 'whatsapp_number',  value: '',                          type: 'text',    label: 'شماره واتساپ',         group: 'contact', hint: 'مثال: 989121234567' },
+
+  // ── Social ──
+  { key: 'social_instagram', value: 'https://instagram.com/beewaz.ir', type: 'url', label: 'اینستاگرام',     group: 'social' },
+  { key: 'social_telegram',  value: '',                          type: 'url',     label: 'تلگرام',               group: 'social' },
+  { key: 'social_youtube',   value: '',                          type: 'url',     label: 'یوتیوب',               group: 'social' },
+  { key: 'social_linkedin',  value: '',                          type: 'url',     label: 'لینکدین',              group: 'social' },
+
+  // ── Commerce ──
+  { key: 'free_shipping_threshold', value: '500000',             type: 'number',  label: 'حد نصاب ارسال رایگان (تومان)', group: 'commerce' },
+  { key: 'default_warranty_months', value: '18',                 type: 'number',  label: 'ماه‌های گارانتی پیش‌فرض', group: 'commerce' },
+  { key: 'shop_enabled',     value: 'true',                      type: 'boolean', label: 'فروشگاه فعال است',     group: 'commerce' },
+  { key: 'checkout_notes',   value: '',                          type: 'text',    label: 'توضیح صفحه پرداخت',   group: 'commerce' },
+
+  // ── Notification ──
+  { key: 'admin_order_notify_phone', value: '', type: 'text', label: 'شماره اطلاع‌رسانی سفارش جدید', group: 'notification', hint: 'SMS هنگام ثبت سفارش' },
+]
+
+// ─── Page Content defaults ────────────────────────────────────────────────────
+
+export const DEFAULT_PAGE_CONTENT: NewPageContent[] = [
+  // ── Home — Announcement Bar ──
+  { page: 'global', key: 'announcement_active', type: 'boolean', label: 'نوار اطلاع‌رسانی فعال', valueFa: 'true', position: 1 },
+  { page: 'global', key: 'announcement_text',   type: 'text',    label: 'متن نوار اطلاع‌رسانی', valueFa: '🎉 ارسال رایگان برای سفارش‌های بالای ۵۰۰ هزار تومان', position: 2 },
+  { page: 'global', key: 'announcement_url',    type: 'url',     label: 'لینک نوار اطلاع‌رسانی', valueFa: '/shop', position: 3 },
+  { page: 'global', key: 'announcement_color',  type: 'color',   label: 'رنگ نوار اطلاع‌رسانی', valueFa: '#f59e0b', position: 4 },
+
+  // ── Home — Hero ──
+  { page: 'home', key: 'hero_badge',        type: 'text',    label: 'بج روی عنوان hero',   valueFa: '🔒 بیش از ۱۵,۰۰۰ مشتری راضی', position: 1 },
+  { page: 'home', key: 'hero_title',        type: 'text',    label: 'عنوان اصلی hero',     valueFa: 'امنیت خانه و کسب‌وکار\nرا به بیواز بسپارید', position: 2 },
+  { page: 'home', key: 'hero_subtitle',     type: 'text',    label: 'زیرعنوان hero',       valueFa: 'سیستم‌های دزدگیر هوشمند ایرانی با ۱۰ سال سابقه، گارانتی ۱۸ ماهه و پشتیبانی ۲۴ ساعته', position: 3 },
+  { page: 'home', key: 'hero_cta_primary',  type: 'text',    label: 'دکمه اول hero',       valueFa: 'مشاوره رایگان', position: 4 },
+  { page: 'home', key: 'hero_cta_primary_url', type: 'url', label: 'لینک دکمه اول',       valueFa: '/contact', position: 5 },
+  { page: 'home', key: 'hero_cta_secondary',  type: 'text', label: 'دکمه دوم hero',       valueFa: 'مشاهده محصولات', position: 6 },
+  { page: 'home', key: 'hero_cta_secondary_url', type: 'url', label: 'لینک دکمه دوم',    valueFa: '/shop', position: 7 },
+  { page: 'home', key: 'hero_image',        type: 'image',   label: 'تصویر hero',          valueFa: '', position: 8 },
+
+  // ── Home — Featured Section ──
+  { page: 'home', key: 'featured_title',    type: 'text',    label: 'عنوان بخش محصولات ویژه', valueFa: 'هر آنچه برای امنیت نیاز دارید', position: 10 },
+  { page: 'home', key: 'featured_subtitle', type: 'text',    label: 'زیرعنوان بخش محصولات',  valueFa: 'از دزدگیر تا حسگر، همه‌چیز با گارانتی اصالت', position: 11 },
+
+  // ── Home — CTA Section ──
+  { page: 'home', key: 'cta_title',         type: 'text',    label: 'عنوان بخش CTA',      valueFa: 'نمی‌دانید چه دزدگیری برای شما مناسب است؟', position: 20 },
+  { page: 'home', key: 'cta_subtitle',      type: 'text',    label: 'زیرعنوان CTA',       valueFa: 'کارشناسان بیواز رایگان راهنمایی می‌کنند', position: 21 },
+  { page: 'home', key: 'cta_button',        type: 'text',    label: 'دکمه CTA',            valueFa: 'مشاوره رایگان', position: 22 },
+  { page: 'home', key: 'cta_button_url',    type: 'url',     label: 'لینک CTA',            valueFa: '/contact', position: 23 },
+
+  // ── Home — How It Works ──
+  { page: 'home', key: 'how_title',         type: 'text',    label: 'عنوان «چطور کار می‌کند»', valueFa: '۴ گام تا امنیت کامل', position: 30 },
+  { page: 'home', key: 'how_steps',         type: 'json',    label: 'مراحل (JSON)',        valueFa: JSON.stringify([
+    { icon: '📞', title: 'مشاوره رایگان', desc: 'با کارشناسان ما تماس بگیرید' },
+    { icon: '🎯', title: 'انتخاب محصول', desc: 'بهترین دزدگیر برای فضای شما' },
+    { icon: '🔧', title: 'نصب تخصصی', desc: 'تیم فنی در محل شما نصب می‌کند' },
+    { icon: '🛡️', title: 'پشتیبانی دائمی', desc: 'گارانتی ۱۸ ماهه و پشتیبانی ۲۴/۷' },
+  ]), position: 31 },
+
+  // ── About ──
+  { page: 'about', key: 'hero_title',       type: 'text',    label: 'عنوان صفحه درباره ما', valueFa: 'درباره بیواز', position: 1 },
+  { page: 'about', key: 'story_title',      type: 'text',    label: 'عنوان داستان',        valueFa: 'از یک ایده تا ۱۵ هزار مشتری', position: 2 },
+  { page: 'about', key: 'story_text',       type: 'richtext',label: 'متن داستان شرکت',     valueFa: '<p>بیواز در سال ۱۳۹۳ با هدف تولید دزدگیرهای باکیفیت و اقتصادی برای بازار ایران تأسیس شد...</p>', position: 3 },
+  { page: 'about', key: 'founded_year',     type: 'text',    label: 'سال تأسیس',           valueFa: '۱۳۹۳', position: 4 },
+  { page: 'about', key: 'customers_count',  type: 'text',    label: 'تعداد مشتریان',       valueFa: '+۱۵,۰۰۰', position: 5 },
+  { page: 'about', key: 'experience_years', type: 'text',    label: 'سال‌های تجربه',       valueFa: '+۱۰', position: 6 },
+
+  // ── Contact ──
+  { page: 'contact', key: 'hero_title',     type: 'text',    label: 'عنوان صفحه تماس',    valueFa: 'چطور می‌توانیم کمک کنیم؟', position: 1 },
+  { page: 'contact', key: 'hero_subtitle',  type: 'text',    label: 'زیرعنوان تماس',      valueFa: 'تیم پشتیبانی بیواز آماده پاسخگویی است', position: 2 },
+  { page: 'contact', key: 'map_embed',      type: 'text',    label: 'کد Embed نقشه',       valueFa: '', hint: 'کد iframe گوگل‌مپ', position: 3 },
+]

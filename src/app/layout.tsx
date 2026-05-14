@@ -5,6 +5,7 @@ import { ChatWidget } from '@/components/chat/chat-widget'
 import { ToastContainer } from '@/components/ui/toast'
 import { PageTransition } from '@/components/ui/page-transition'
 import { QuickViewModal } from '@/components/shop/quick-view-modal'
+import { PageTracker } from '@/components/analytics/page-tracker'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -68,9 +69,4 @@ export default function RootLayout({
         </main>
         <Footer />
         <ChatWidget />
-        <QuickViewModal />
-        <ToastContainer />
-      </body>
-    </html>
-  )
-}
+        <QuickViewMo

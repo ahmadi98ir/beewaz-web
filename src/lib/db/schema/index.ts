@@ -81,3 +81,17 @@ export {
   type NewLead,
   type LeadStatus,
 } from './chat'
+
+// ─── CMS ──────────────────────────────────────────────────────────────────────
+export {
+  contentTypeEnum,
+  siteSettings,
+  pageContent,
+  pageViews,
+  type SiteSetting,
+  type NewSiteSetting,
+  type PageContent,
+  type NewPageContent,
+  type PageView,
+  type NewPageView,
+} from './cms'
