@@ -1,10 +1,28 @@
 'use client'
 
-import { useState, useRef, useEffect, useCallback, useId } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { XIcon, PhoneIcon } from '@/components/ui/icons'
 import type { ChatMessage, ChatStep, SessionData } from '@/types/chat'
 import { MessageBubble } from './message-bubble'
 import { TypingIndicator } from './typing-indicator'
+
+// ── Types ─────────────────────────────────────────────────────────────────────
+
+interface ChatConfig {
+  bot_name: string
+  bot_status: string
+  welcome_msg: string
+  quickReplies: string[]
+  footer_text: string
+}
+
+const CONFIG_DEFAULTS: ChatConfig = {
+  bot_name: 'دستیار هوشمند بیواز',
+  bot_status: 'آنلاین — پاسخگو ۲۴ ساعته',
+  welcome_msg: 'سلام! 👋 چطور می‌تونم کمکتون کنم؟\n\nبرای شروع مشاوره رایگان، روی دکمه زیر بزنید.',
+  quickReplies: ['شروع مشاوره رایگان'],
+  footer_text: 'بیواز — مشاوره رایگان ۲۴/۷',
+}
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -22,19 +40,23 @@ function makeVisitorToken() {
   return id
 }
 
-const INITIAL_BOT_MSG: ChatMessage = {
-  id: 'init',
-  role: 'bot',
-  content: 'سلام! 👋 چطور می‌تونم کمکتون کنم؟\n\nبرای شروع مشاوره رایگان، روی دکمه زیر بزنید.',
-  timestamp: Date.now(),
-  quickReplies: ['شروع مشاوره رایگان'],
+function buildWelcomeMessage(config: ChatConfig): ChatMessage {
+  return {
+    id: 'init',
+    role: 'bot',
+    content: config.welcome_msg,
+    timestamp: Date.now(),
+    quickReplies: config.quickReplies,
+  }
 }
 
 // ── Main Widget ────────────────────────────────────────────────────────────
 
 export function ChatWidget() {
+  const [config, setConfig] = useState<ChatConfig>(CONFIG_DEFAULTS)
+  const [configLoaded, setConfigLoaded] = useState(false)
   const [open, setOpen] = useState(false)
-  const [messages, setMessages] = useState<ChatMessage[]>([INITIAL_BOT_MSG])
+  const [messages, setMessages] = useState<ChatMessage[]>([])
   const [step, setStep] = useState<ChatStep>('GREETING')
   const [sessionData, setSessionData] = useState<SessionData>({})
   const [inputValue, setInputValue] = useState('')
@@ -47,16 +69,29 @@ export function ChatWidget() {
   const inputRef = useRef<HTMLInputElement>(null)
   const visitorToken = useRef('')
 
+  // بارگذاری تنظیمات از CMS
+  useEffect(() => {
+    fetch('/api/chat/config')
+      .then((r) => r.json())
+      .then((data: ChatConfig) => {
+        setConfig(data)
+        setMessages([buildWelcomeMessage(data)])
+        setConfigLoaded(true)
+      })
+      .catch(() => {
+        setMessages([buildWelcomeMessage(CONFIG_DEFAULTS)])
+        setConfigLoaded(true)
+      })
+  }, [])
+
   useEffect(() => {
     visitorToken.current = makeVisitorToken()
   }, [])
 
-  // اسکرول به آخرین پیام
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, isTyping])
 
-  // فوکوس روی input پس از باز شدن
   useEffect(() => {
     if (open && requirePhoneInput) {
       setTimeout(() => inputRef.current?.focus(), 300)
@@ -72,7 +107,6 @@ export function ChatWidget() {
     async (text: string) => {
       if (!text.trim() || isTyping) return
 
-      // پیام کاربر
       const userMsg: ChatMessage = {
         id: makeId(),
         role: 'user',
@@ -108,7 +142,6 @@ export function ChatWidget() {
         setSessionData(data.sessionData ?? {})
         setRequirePhoneInput(!!data.requirePhoneInput)
 
-        // ذخیره lead در CRM
         if (data.leadCaptured && data.sessionData?.phone && !leadSaved) {
           setLeadSaved(true)
           fetch('/api/leads', {
@@ -148,6 +181,9 @@ export function ChatWidget() {
     setHasNewMsg(false)
   }
 
+  // نمایش نده تا config بارگذاری شود
+  if (!configLoaded) return null
+
   return (
     <>
       {/* ── Chat Window ──────────────────────────────────────────────────── */}
@@ -167,19 +203,16 @@ export function ChatWidget() {
 
           {/* Header */}
           <div className="bg-gradient-to-l from-brand-700 to-brand-600 px-4 py-3.5 flex items-center gap-3 flex-shrink-0">
-            {/* آواتار */}
             <div className="relative flex-shrink-0">
               <div className="w-10 h-10 rounded-2xl bg-white/20 flex items-center justify-center">
                 <PhoneIcon size={18} className="text-white" />
               </div>
               <span className="absolute -bottom-0.5 -end-0.5 w-3 h-3 rounded-full bg-green-400 border-2 border-brand-600" />
             </div>
-
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-bold text-white leading-tight">دستیار هوشمند بیواز</p>
-              <p className="text-xs text-white/70">آنلاین — پاسخگو ۲۴ ساعته</p>
+              <p className="text-sm font-bold text-white leading-tight">{config.bot_name}</p>
+              <p className="text-xs text-white/70">{config.bot_status}</p>
             </div>
-
             <button
               onClick={() => setOpen(false)}
               className="p-1.5 rounded-xl hover:bg-white/15 transition-colors text-white/80 hover:text-white"
@@ -192,13 +225,8 @@ export function ChatWidget() {
           {/* Messages */}
           <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 scroll-smooth">
             {messages.map((msg) => (
-              <MessageBubble
-                key={msg.id}
-                message={msg}
-                onQuickReply={sendMessage}
-              />
+              <MessageBubble key={msg.id} message={msg} onQuickReply={sendMessage} />
             ))}
-
             {isTyping && <TypingIndicator />}
             <div ref={messagesEndRef} />
           </div>
@@ -211,11 +239,7 @@ export function ChatWidget() {
                 type={requirePhoneInput ? 'tel' : 'text'}
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
-                placeholder={
-                  requirePhoneInput
-                    ? 'شماره موبایل: ۰۹۱۲...'
-                    : 'پیام بنویسید...'
-                }
+                placeholder={requirePhoneInput ? 'شماره موبایل: ۰۹۱۲...' : 'پیام بنویسید...'}
                 disabled={isTyping}
                 dir={requirePhoneInput ? 'ltr' : 'rtl'}
                 className="flex-1 input text-sm py-2.5 px-3.5 disabled:opacity-50"
@@ -228,17 +252,12 @@ export function ChatWidget() {
                 aria-label="ارسال پیام"
               >
                 <svg viewBox="0 0 20 20" className="w-4 h-4" fill="currentColor" aria-hidden="true">
-                  {/* آیکون ارسال — مناسب RTL (چرخش ۱۸۰ درجه) */}
                   <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" />
                 </svg>
               </button>
             </form>
-
-            <p className="text-center text-xs text-surface-400 mt-2">
-              بیواز — مشاوره رایگان ۲۴/۷
-            </p>
+            <p className="text-center text-xs text-surface-400 mt-2">{config.footer_text}</p>
           </div>
-
         </div>
       </div>
 
@@ -248,21 +267,17 @@ export function ChatWidget() {
         className={[
           'fixed bottom-4 right-4 sm:right-6 z-50 w-14 h-14 rounded-2xl shadow-xl',
           'flex items-center justify-center transition-all duration-300',
-          open
-            ? 'bg-surface-700 rotate-0'
-            : 'bg-brand-600 hover:bg-brand-700 hover:scale-105',
+          open ? 'bg-surface-700 rotate-0' : 'bg-brand-600 hover:bg-brand-700 hover:scale-105',
         ].join(' ')}
         aria-label={open ? 'بستن چت' : 'باز کردن چت'}
         aria-expanded={open}
       >
-        {/* Pulse ring — فقط وقتی بسته است */}
         {!open && (
           <>
             <span className="absolute inset-0 rounded-2xl bg-brand-600 animate-ping opacity-30" />
             <span className="absolute inset-0 rounded-2xl bg-brand-600 animate-ping opacity-20 animation-delay-500" />
           </>
         )}
-
         {open ? (
           <XIcon size={22} className="text-white" />
         ) : (
@@ -270,8 +285,6 @@ export function ChatWidget() {
             <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z" />
           </svg>
         )}
-
-        {/* Badge پیام جدید */}
         {hasNewMsg && !open && (
           <span className="absolute -top-1 -start-1 w-4 h-4 rounded-full bg-green-400 border-2 border-white animate-bounce" />
         )}
