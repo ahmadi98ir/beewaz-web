@@ -22,6 +22,7 @@ const PAGE_LABELS: Record<string, { label: string; icon: string; desc: string }>
   about:   { label: 'درباره ما',   icon: '🏢', desc: 'داستان، تیم، آمار شرکت' },
   contact: { label: 'تماس با ما', icon: '📞', desc: 'اطلاعات تماس، فرم پیام' },
   shop:    { label: 'فروشگاه',     icon: '🛒', desc: 'بنرها، دسته‌بندی‌های ویژه' },
+  chatbot: { label: 'چت‌بات',        icon: '🤖', desc: 'پیام خوش‌آمد، سوالات پیشنهادی، پرامپت هوش مصنوعی' },
 }
 
 // ── Field ─────────────────────────────────────────────────────────────────────
