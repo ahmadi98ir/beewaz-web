@@ -2,8 +2,7 @@
 FROM node:22-alpine AS deps
 WORKDIR /app
 
-RUN sed -i 's|https://dl-cdn.alpinelinux.org|https://mirror.arvancloud.ir|g' /etc/apk/repositories \
- && apk add --no-cache libc6-compat
+RUN apk add --no-cache libc6-compat
 
 COPY package*.json ./
 RUN npm ci --include=dev
@@ -26,8 +25,7 @@ RUN npm run build
 FROM node:22-alpine AS runner
 WORKDIR /app
 
-RUN sed -i 's|https://dl-cdn.alpinelinux.org|https://mirror.arvancloud.ir|g' /etc/apk/repositories \
- && apk upgrade --no-cache \
+RUN apk upgrade --no-cache \
  && apk add --no-cache su-exec
 
 ENV NODE_ENV=production
