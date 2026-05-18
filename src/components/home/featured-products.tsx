@@ -1,121 +1,130 @@
 import Link from 'next/link'
-import { AnimateIn } from '@/components/ui/animate-in'
-import { ProductCard } from '@/components/shop/product-card'
-import { ArrowLeftIcon } from '@/components/ui/icons'
 import { db } from '@/lib/db'
 import { products, categories, productImages } from '@/lib/db/schema'
-import { eq, and, desc } from 'drizzle-orm'
-import { dbProductToShop } from '@/lib/shop-product'
-
-async function getFeatured() {
-  try {
-    const [rows, imageRows] = await Promise.all([
-      db
-        .select({
-          id: products.id,
-          slug: products.slug,
-          sku: products.sku,
-          nameFa: products.nameFa,
-          descriptionFa: products.descriptionFa,
-          price: products.price,
-          comparePrice: products.comparePrice,
-          stock: products.stock,
-          isFeatured: products.isFeatured,
-          createdAt: products.createdAt,
-          categorySlug: categories.slug,
-          categoryName: categories.nameFa,
-        })
-        .from(products)
-        .leftJoin(categories, eq(products.categoryId, categories.id))
-        .where(and(eq(products.isFeatured, true), eq(products.status, 'active')))
-        .orderBy(desc(products.createdAt))
-        .limit(8),
-
-      db
-        .select({ productId: productImages.productId, url: productImages.url, alt: productImages.alt })
-        .from(productImages)
-        .orderBy(productImages.sortOrder),
-    ])
-
-    const imagesByProduct = imageRows.reduce<Record<string, { url: string; alt: string | null }[]>>(
-      (acc, img) => {
-        if (!acc[img.productId]) acc[img.productId] = []
-        acc[img.productId]!.push({ url: img.url, alt: img.alt })
-        return acc
-      },
-      {},
-    )
-
-    return rows.map((r) =>
-      dbProductToShop({
-        ...r,
-        category: r.categorySlug ? { slug: r.categorySlug, nameFa: r.categoryName ?? '' } : null,
-        images: imagesByProduct[r.id] ?? [],
-      }),
-    )
-  } catch {
-    return []
-  }
-}
+import { eq, asc, desc } from 'drizzle-orm'
+import { formatPrice } from '@/lib/utils'
 
 export async function FeaturedProducts() {
-  const featuredProducts = await getFeatured()
+  let items: {
+    id: string
+    name: string
+    slug: string
+    price: number
+    comparePrice: number | null
+    categorySlug: string | null
+    imageUrl: string | null
+  }[] = []
 
-  if (featuredProducts.length === 0) return null
+  try {
+    const rows = await db
+      .select({
+        id: products.id,
+        name: products.name,
+        slug: products.slug,
+        price: products.price,
+        comparePrice: products.comparePrice,
+        categorySlug: categories.slug,
+        imageUrl: productImages.url,
+      })
+      .from(products)
+      .leftJoin(categories, eq(products.categoryId, categories.id))
+      .leftJoin(
+        productImages,
+        eq(productImages.productId, products.id),
+      )
+      .where(eq(products.status, 'published'))
+      .orderBy(desc(products.createdAt))
+      .limit(8)
+
+    // حذف تکراری (به‌خاطر join تصویر)
+    const seen = new Set<string>()
+    for (const row of rows) {
+      if (!seen.has(row.id)) {
+        seen.add(row.id)
+        items.push(row)
+      }
+    }
+  } catch {
+    return null
+  }
+
+  if (items.length === 0) return null
 
   return (
-    <section className="py-16 lg:py-24" aria-label="محصولات ویژه">
-      <div className="container-main">
+    <section className="py-14 sm:py-20 bg-surface-50">
+      <div className="container-page">
+        <div className="flex items-end justify-between mb-8">
+          <div>
+            <h2 className="text-2xl sm:text-3xl font-black text-surface-900 mb-1">محصولات برتر</h2>
+            <p className="text-surface-400 text-sm">محبوب‌ترین دزدگیرهای بیواز</p>
+          </div>
+          <Link
+            href="/shop"
+            className="text-sm font-semibold text-brand-600 hover:text-brand-700 flex items-center gap-1 transition-colors"
+          >
+            همه محصولات
+            <svg viewBox="0 0 20 20" className="w-4 h-4 rotate-180" fill="currentColor">
+              <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+            </svg>
+          </Link>
+        </div>
 
-        <AnimateIn>
-          <div className="flex items-end justify-between mb-10 gap-4 flex-wrap">
-            <div>
-              <div
-                className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border text-sm font-semibold mb-3"
-                style={{ background: 'rgb(249 115 22 / 0.08)', borderColor: 'rgb(249 115 22 / 0.3)', color: '#EA6C00' }}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+          {items.map((item) => {
+            const href = item.categorySlug
+              ? `/shop/${item.categorySlug}/${item.slug}`
+              : `/shop/${item.slug}`
+            const discount = item.comparePrice && item.comparePrice > item.price
+              ? Math.round(((item.comparePrice - item.price) / item.comparePrice) * 100)
+              : 0
+
+            return (
+              <Link
+                key={item.id}
+                href={href}
+                className="group bg-white rounded-2xl border border-surface-100 overflow-hidden hover:shadow-md hover:border-brand-200 transition-all"
               >
-                <span className="w-2 h-2 rounded-full bg-accent-500 animate-pulse" />
-                پرفروش‌ترین‌ها
-              </div>
-              <h2 className="text-3xl sm:text-4xl font-black text-surface-900">
-                محصولات ویژه{' '}
-                <span className="text-gradient-brand">بیواز</span>
-              </h2>
-            </div>
+                {/* Image */}
+                <div className="relative aspect-square bg-surface-50 overflow-hidden">
+                  {item.imageUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={item.imageUrl}
+                      alt={item.name}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-5xl opacity-30">
+                      📦
+                    </div>
+                  )}
+                  {discount > 0 && (
+                    <span className="absolute top-2 start-2 bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
+                      {discount}٪ تخفیف
+                    </span>
+                  )}
+                </div>
 
-            <Link
-              href="/shop"
-              className="inline-flex items-center gap-2 text-sm font-semibold transition-colors group"
-              style={{ color: '#F97316' }}
-            >
-              مشاهده همه
-              <ArrowLeftIcon size={16} className="transition-transform group-hover:-translate-x-1" />
-            </Link>
-          </div>
-        </AnimateIn>
-
-        {/* دسکتاپ: گرید */}
-        <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-          {featuredProducts.map((product, i) => (
-            <AnimateIn key={product.id} delay={i * 80}>
-              <ProductCard product={product} />
-            </AnimateIn>
-          ))}
+                {/* Info */}
+                <div className="p-4">
+                  <h3 className="text-sm font-semibold text-surface-800 line-clamp-2 mb-3 group-hover:text-brand-700 transition-colors leading-relaxed">
+                    {item.name}
+                  </h3>
+                  <div className="flex items-baseline gap-2">
+                    <span className="font-black text-surface-900 text-base">
+                      {formatPrice(item.price)}
+                    </span>
+                    {item.comparePrice && item.comparePrice > item.price && (
+                      <span className="text-xs text-surface-400 line-through">
+                        {formatPrice(item.comparePrice)}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </Link>
+            )
+          })}
         </div>
-
-        {/* موبایل: کاروسل افقی سینماتیک */}
-        <div className="sm:hidden -mx-4 px-4">
-          <div className="cards-carousel">
-            {featuredProducts.map((product) => (
-              <div key={product.id} className="flex-shrink-0" style={{ width: '76vw', maxWidth: '300px' }}>
-                <ProductCard product={product} />
-              </div>
-            ))}
-          </div>
-          {/* نشانگر اسکرول */}
-          <p className="text-center text-xs text-surface-400 mt-3">← بکشید برای دیدن بیشتر →</p>
-        </div>
-
       </div>
     </section>
   )
