@@ -1,6 +1,6 @@
 /**
- * GET /api/chat/config — تنظیمات عمومی چت‌بات (بدون احراز هویت)
- * مقادیر پیش‌فرض در صورت نبود داده در DB برگردانده می‌شوند
+ * GET /api/chat/config
+ * تنظیمات عمومی چت‌بات از CMS — بدون نیاز به احراز هویت
  */
 
 import { NextResponse } from 'next/server'
@@ -9,12 +9,11 @@ import { pageContent } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 
 const DEFAULTS = {
-  bot_name:       'دستیار هوشمند بیواز',
-  bot_status:     'آنلاین — پاسخگو ۲۴ ساعته',
-  welcome_msg:    'سلام! 👋 چطور می‌تونم کمکتون کنم؟\n\nبرای شروع مشاوره رایگان، روی دکمه زیر بزنید.',
-  quick_replies:  'شروع مشاوره رایگان',
-  footer_text:    'بیواز — مشاوره رایگان ۲۴/۷',
-  system_prompt:  'شما دستیار هوشمند بیواز هستید. به فارسی پاسخ دهید.',
+  bot_name:       'پشتیبان بیواز',
+  bot_status:     'آنلاین',
+  welcome_msg:    'سلام! 👋 من دستیار هوشمند بیواز هستم. چطور می‌تونم کمکتون کنم؟',
+  quick_replies:  JSON.stringify(['قیمت محصولات', 'مشاوره خرید', 'پشتیبانی فنی', 'ارسال سفارش']),
+  footer_text:    'پاسخگوی ۲۴ ساعته | بیواز',
 }
 
 export async function GET() {
@@ -26,21 +25,13 @@ export async function GET() {
 
     const config: Record<string, string> = { ...DEFAULTS }
     for (const row of rows) {
-      if (row.valueFa !== null) config[row.key] = row.valueFa
+      if (row.valueFa) config[row.key] = row.valueFa
     }
 
-    // quick_replies را به آرایه تبدیل می‌کنیم
-    const quickReplies = (config.quick_replies ?? DEFAULTS.quick_replies)
-      .split('\n')
-      .map((s) => s.trim())
-      .filter(Boolean)
-
-    return NextResponse.json({ ...config, quickReplies })
-  } catch {
-    // در صورت خطای DB، مقادیر پیش‌فرض برمی‌گردد
-    return NextResponse.json({
-      ...DEFAULTS,
-      quickReplies: ['شروع مشاوره رایگان'],
+    return NextResponse.json(config, {
+      headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300' },
     })
+  } catch {
+    return NextResponse.json(DEFAULTS)
   }
 }
