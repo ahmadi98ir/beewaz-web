@@ -1,272 +1,92 @@
-'use client'
-
 import Link from 'next/link'
-import { useEffect, useRef, useState } from 'react'
-import { ShieldIcon, CheckIcon } from '@/components/ui/icons'
+import type { CmsContent } from '@/lib/cms'
 
-const stats = [
-  { value: 15000, suffix: '+', label: 'مشتری راضی' },
-  { value: 10,    suffix: '+', label: 'سال تجربه' },
-  { value: 80,    suffix: '+', label: 'محصول انحصاری' },
-  { value: 18,    suffix: ' ماه', label: 'گارانتی رسمی' },
-]
+// ویژگی‌های پیش‌فرض Hero
+const DEFAULT_FEATURES = ['گارانتی ۱۸ ماهه', 'نصب رایگان', 'پشتیبانی ۲۴/۷']
 
-const features = [
-  'نصب رایگان در تهران',
-  'پشتیبانی ۲۴/۷',
-  'ضمانت بازگشت وجه',
-]
-
-function CountUp({ target, suffix }: { target: number; suffix: string }) {
-  const [count, setCount] = useState(0)
-  const ref = useRef<HTMLSpanElement>(null)
-  const started = useRef(false)
-
-  useEffect(() => {
-    const el = ref.current
-    if (!el) return
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry?.isIntersecting && !started.current) {
-          started.current = true
-          const duration = 1800
-          const steps = 60
-          const increment = target / steps
-          let current = 0
-          const timer = setInterval(() => {
-            current += increment
-            if (current >= target) { setCount(target); clearInterval(timer) }
-            else setCount(Math.floor(current))
-          }, duration / steps)
-        }
-      },
-      { threshold: 0.5 },
-    )
-    observer.observe(el)
-    return () => observer.disconnect()
-  }, [target])
-
-  return (
-    <span ref={ref} className="tabular-nums">
-      {new Intl.NumberFormat('fa-IR').format(count)}{suffix}
-    </span>
-  )
+interface HeroProps {
+  cms?: CmsContent
 }
 
-export function Hero() {
-  const bgRef = useRef<HTMLDivElement>(null)
+export function Hero({ cms = {} }: HeroProps) {
+  const badge        = cms.hero_badge        ?? '🔒 بیش از ۱۵,۰۰۰ مشتری راضی'
+  const title        = cms.hero_title        ?? 'امنیت خانه و کسب‌وکار\nرا به بیواز بسپارید'
+  const subtitle     = cms.hero_subtitle     ?? 'سیستم‌های دزدگیر هوشمند ایرانی با ۱۰ سال سابقه، گارانتی ۱۸ ماهه و پشتیبانی ۲۴ ساعته'
+  const ctaPrimary   = cms.hero_cta_primary  ?? 'مشاوره رایگان'
+  const ctaPrimaryUrl= cms.hero_cta_primary_url ?? '/contact'
+  const ctaSecondary = cms.hero_cta_secondary ?? 'مشاهده محصولات'
+  const ctaSecondaryUrl = cms.hero_cta_secondary_url ?? '/shop'
 
-  // Parallax: بک‌گراند با سرعت ۳۵٪ اسکرول حرکت می‌کند
-  useEffect(() => {
-    const el = bgRef.current
-    if (!el) return
-    const onScroll = () => {
-      const y = window.scrollY
-      el.style.transform = `translateY(${y * 0.35}px)`
-    }
-    window.addEventListener('scroll', onScroll, { passive: true })
-    return () => window.removeEventListener('scroll', onScroll)
-  }, [])
+  // ویژگی‌ها — اگر در CMS هستند با newline جدا شده‌اند
+  const features = cms.hero_features
+    ? cms.hero_features.split('\n').filter(Boolean)
+    : DEFAULT_FEATURES
+
+  // عنوان با newline به <br> تبدیل می‌شود
+  const titleLines = title.split('\n')
 
   return (
-    <section className="relative overflow-hidden bg-surface-950 text-white" aria-label="تصویر اصلی">
-
-      {/* شبکه نقطه‌ای — parallax */}
-      <div
-        ref={bgRef}
-        className="absolute inset-0 opacity-20 will-change-transform"
-        style={{ backgroundImage: 'radial-gradient(circle, rgb(255 255 255 / 0.15) 1px, transparent 1px)', backgroundSize: '32px 32px' }}
-      />
-
-      {/* Glow‌های رنگی */}
-      <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute top-1/2 end-0 w-[500px] h-[500px] rounded-full opacity-20"
-          style={{ background: 'radial-gradient(circle, #3B5CEF 0%, transparent 70%)', transform: 'translate(40%, -50%)' }} />
-        <div className="absolute top-0 start-0 w-48 h-48 sm:w-64 sm:h-64 rounded-full opacity-25"
-          style={{ background: 'radial-gradient(circle, #F97316 0%, transparent 70%)' }} />
-        <div className="absolute bottom-0 end-1/4 w-64 h-64 sm:w-96 sm:h-96 rounded-full opacity-10"
-          style={{ background: 'radial-gradient(circle, #1B3A8A 0%, transparent 70%)' }} />
+    <section className="relative overflow-hidden bg-gradient-to-br from-brand-900 via-brand-800 to-brand-700 pt-16 pb-20 sm:pt-20 sm:pb-28">
+      {/* Background Pattern */}
+      <div className="absolute inset-0 opacity-10 pointer-events-none select-none" aria-hidden>
+        <div className="absolute top-10 right-10 w-72 h-72 rounded-full bg-white blur-3xl" />
+        <div className="absolute bottom-10 left-20 w-64 h-64 rounded-full bg-brand-300 blur-3xl" />
       </div>
 
-      {/* ── Content ───────────────────────────────────────────────── */}
-      <div className="container-main relative z-10 py-16 sm:py-20 lg:py-28">
-        <div className="grid lg:grid-cols-2 gap-10 lg:gap-8 items-center">
+      <div className="container-page relative z-10">
+        <div className="max-w-3xl mx-auto text-center">
+          {/* Badge */}
+          <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-full px-4 py-2 text-sm text-white/90 font-medium mb-6">
+            {badge}
+          </div>
 
-          {/* ستون متن */}
-          <div className="space-y-6 sm:space-y-8">
-
-            {/* Badge نارنجی */}
-            <div className="animate-bounce-in inline-flex items-center gap-2.5 px-4 py-2 rounded-full border text-sm font-semibold backdrop-blur-sm"
-              style={{ background: 'rgb(249 115 22 / 0.12)', borderColor: 'rgb(249 115 22 / 0.35)', color: '#FB923C' }}>
-              <span className="w-2 h-2 rounded-full bg-accent-400 animate-pulse flex-shrink-0" />
-              برند امنیتی پیشرو در ایران
-              <span className="px-2 py-0.5 rounded-full text-xs font-bold"
-                style={{ background: 'rgb(249 115 22 / 0.2)', color: '#FB923C' }}>
-                BEEWAZ
+          {/* Title */}
+          <h1 className="text-3xl sm:text-5xl font-black text-white leading-tight mb-5">
+            {titleLines.map((line, i) => (
+              <span key={i}>
+                {line}
+                {i < titleLines.length - 1 && <br />}
               </span>
-            </div>
-
-            {/* Headline */}
-            <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black leading-tight animate-slide-in-left">
-              امنیت خانه و{' '}
-              <span className="relative inline-block">
-                <span className="text-gradient-brand animate-shimmer-text">کسب‌وکار</span>
-                <svg className="absolute -bottom-2 start-0 w-full" viewBox="0 0 200 8" preserveAspectRatio="none" aria-hidden="true">
-                  <path d="M0 6 Q50 0 100 4 Q150 8 200 2" stroke="#F97316" strokeWidth="3" fill="none" strokeLinecap="round" />
-                </svg>
-              </span>
-              <br />را به بیواز بسپارید
-            </h1>
-
-            {/* Subheadline */}
-            <p className="text-base sm:text-lg text-white/65 leading-relaxed max-w-lg animate-fade-in" style={{ animationDelay: '200ms' }}>
-              سیستم‌های دزدگیر حرفه‌ای برای خانه، مغازه و اماکن تجاری.
-              نصب توسط تکنیسین‌های مجرب، گارانتی رسمی و پشتیبانی همیشگی.
-            </p>
-
-            {/* Features */}
-            <ul className="flex flex-wrap gap-3 sm:gap-6" role="list">
-              {features.map((f, i) => (
-                <li key={f} className="flex items-center gap-2 text-sm text-white/80 animate-slide-up"
-                  style={{ animationDelay: `${300 + i * 100}ms` }}>
-                  <span className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 animate-glow-pulse"
-                    style={{ background: 'rgb(249 115 22 / 0.2)', border: '1px solid rgb(249 115 22 / 0.5)' }}>
-                    <CheckIcon size={10} style={{ color: '#FB923C' }} />
-                  </span>
-                  {f}
-                </li>
-              ))}
-            </ul>
-
-            {/* CTAs */}
-            <div className="flex flex-col sm:flex-row gap-3 animate-slide-up" style={{ animationDelay: '500ms' }}>
-              <Link href="/shop" className="btn btn-accent px-6 sm:px-8 py-3.5 text-base shadow-lg orange-glow text-center">
-                مشاهده محصولات
-              </Link>
-              <Link href="/contact" className="btn border border-white/20 text-white hover:bg-white/10 px-6 sm:px-8 py-3.5 text-base transition-colors text-center">
-                مشاوره رایگان
-              </Link>
-            </div>
-
-          </div>
-
-          {/* ستون تصویر — فقط sm+ */}
-          <div className="relative hidden sm:flex items-center justify-center lg:justify-end">
-
-            {/* حلقه‌های pulse */}
-            <div className="absolute w-72 h-72 sm:w-80 sm:h-80 rounded-full border animate-pulse-ring"
-              style={{ borderColor: 'rgb(249 115 22 / 0.25)' }} />
-            <div className="absolute w-72 h-72 sm:w-80 sm:h-80 rounded-full border animate-pulse-ring-delay"
-              style={{ borderColor: 'rgb(249 115 22 / 0.15)' }} />
-
-            {/* کارت اصلی Shield */}
-            <div className="relative animate-float">
-              <div className="absolute inset-0 rounded-3xl blur-3xl scale-110"
-                style={{ background: 'linear-gradient(135deg, rgb(27 58 138 / 0.4), rgb(249 115 22 / 0.2))' }} />
-
-              <div className="relative w-64 h-64 sm:w-80 sm:h-80 rounded-3xl border border-white/10 flex items-center justify-center shadow-2xl overflow-hidden"
-                style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1B3A8A 100%)' }}>
-
-                <div className="relative">
-                  <div className="absolute inset-0 blur-2xl scale-150 opacity-30"
-                    style={{ background: 'radial-gradient(circle, #F97316, transparent)' }} />
-                  <ShieldIcon size={100} className="relative z-10 drop-shadow-2xl"
-                    style={{ color: '#F97316' }} />
-                </div>
-
-                <div className="absolute top-5 end-5 flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-green-400 animate-pulse shadow-lg shadow-green-400/50" />
-                  <span className="text-xs text-white/50 font-mono tracking-wider">ARMED</span>
-                </div>
-
-                <div className="absolute bottom-6 inset-x-6">
-                  <div className="flex justify-between text-xs text-white/40 mb-1.5">
-                    <span>سیگنال</span>
-                    <span className="text-accent-400 font-semibold">قوی ۸۵٪</span>
-                  </div>
-                  <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
-                    <div className="h-full rounded-full" style={{ width: '85%', background: 'linear-gradient(90deg, #1B3A8A, #F97316)' }} />
-                  </div>
-                </div>
-
-                <div className="absolute top-0 start-0 w-16 h-16 opacity-10"
-                  style={{ background: 'linear-gradient(135deg, #F97316, transparent)' }} />
-              </div>
-            </div>
-
-            {/* کارت شناور — تجربه (فقط md+) */}
-            <div className="absolute hidden md:block -top-4 -start-12 glass rounded-2xl px-4 py-3 shadow-xl border border-white/20 text-surface-900 animate-float"
-              style={{ animationDelay: '0.8s' }}>
-              <p className="text-xs text-surface-500 mb-0.5">تجربه</p>
-              <p className="text-xl font-black" style={{ color: '#1B3A8A' }}>۱۰+ سال</p>
-              <div className="orange-divider mt-1.5" />
-            </div>
-
-            {/* کارت شناور — مشتریان (فقط md+) */}
-            <div className="absolute hidden md:block -bottom-4 -end-8 glass rounded-2xl px-4 py-3 shadow-xl border border-white/20 text-surface-900 animate-float"
-              style={{ animationDelay: '1.6s' }}>
-              <div className="flex items-center gap-2">
-                <div className="flex -space-x-2 space-x-reverse">
-                  {['#1B3A8A', '#F97316', '#10B981'].map((c) => (
-                    <div key={c} className="w-7 h-7 rounded-full border-2 border-white" style={{ background: c }} />
-                  ))}
-                </div>
-                <div>
-                  <p className="text-xs text-surface-500">مشتری</p>
-                  <p className="text-sm font-bold text-surface-900">+۱۵,۰۰۰</p>
-                </div>
-              </div>
-            </div>
-
-          </div>
-
-          {/* ستون تصویر — فقط موبایل (ساده‌تر) */}
-          <div className="flex sm:hidden justify-center">
-            <div className="relative animate-float">
-              <div className="absolute inset-0 rounded-3xl blur-2xl scale-110"
-                style={{ background: 'linear-gradient(135deg, rgb(27 58 138 / 0.5), rgb(249 115 22 / 0.3))' }} />
-              <div className="relative w-52 h-52 rounded-3xl border border-white/10 flex items-center justify-center shadow-2xl overflow-hidden"
-                style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1B3A8A 100%)' }}>
-                <ShieldIcon size={80} style={{ color: '#F97316' }} />
-                <div className="absolute top-4 end-4 flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-                  <span className="text-xs text-white/50 font-mono">ARMED</span>
-                </div>
-                <div className="absolute bottom-4 inset-x-4">
-                  <div className="h-1 bg-white/10 rounded-full overflow-hidden">
-                    <div className="h-full rounded-full" style={{ width: '85%', background: 'linear-gradient(90deg, #1B3A8A, #F97316)' }} />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-        </div>
-      </div>
-
-      {/* Stats Bar */}
-      <div className="relative z-10 border-t border-white/10 bg-white/5 backdrop-blur-sm">
-        <div className="container-main py-5 sm:py-6">
-          <dl className="grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-6">
-            {stats.map(({ value, suffix, label }, i) => (
-              <div key={label} className="text-center group">
-                <dt className="text-xl sm:text-3xl font-black" style={{ color: i % 2 === 0 ? '#F97316' : '#ffffff' }}>
-                  <CountUp target={value} suffix={suffix} />
-                </dt>
-                <dd className="text-xs sm:text-sm text-white/50 mt-1">{label}</dd>
-              </div>
             ))}
-          </dl>
+          </h1>
+
+          {/* Subtitle */}
+          <p className="text-lg text-white/75 leading-relaxed mb-8 max-w-2xl mx-auto">
+            {subtitle}
+          </p>
+
+          {/* CTA Buttons */}
+          <div className="flex flex-wrap items-center justify-center gap-4 mb-10">
+            <Link
+              href={ctaPrimaryUrl}
+              className="inline-flex items-center gap-2 bg-white text-brand-800 font-bold px-7 py-3.5 rounded-xl shadow-lg hover:bg-brand-50 transition-all hover:shadow-xl hover:-translate-y-0.5"
+            >
+              {ctaPrimary}
+              <svg viewBox="0 0 20 20" className="w-4 h-4 rotate-180" fill="currentColor">
+                <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+              </svg>
+            </Link>
+            <Link
+              href={ctaSecondaryUrl}
+              className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm border border-white/30 text-white font-semibold px-7 py-3.5 rounded-xl hover:bg-white/20 transition-all"
+            >
+              {ctaSecondary}
+            </Link>
+          </div>
+
+          {/* Features */}
+          <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
+            {features.map((f, i) => (
+              <span key={i} className="flex items-center gap-1.5 text-sm text-white/70">
+                <svg viewBox="0 0 20 20" className="w-4 h-4 text-green-400 flex-shrink-0" fill="currentColor">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+                {f}
+              </span>
+            ))}
+          </div>
         </div>
       </div>
-
-      {/* Wave separator */}
-      <div className="relative z-10 -mb-px">
-        <svg viewBox="0 0 1440 40" fill="none" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none" className="w-full h-6 sm:h-10" aria-hidden="true">
-          <path d="M0 40H1440V10C1200 40 960 0 720 20C480 40 240 0 0 30V40Z" fill="var(--color-surface-50)" />
-        </svg>
-      </div>
-
     </section>
   )
 }
