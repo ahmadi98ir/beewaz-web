@@ -1,16 +1,25 @@
 # ─── Stage 1: Dependencies ────────────────────────────────────────────────────
-FROM node:22-alpine AS deps
+# از ArvanCloud mirror استفاده می‌کنیم چون سرور داخل ایران است
+FROM docker.arvancloud.ir/library/node:22-alpine AS deps
 WORKDIR /app
 
-RUN apk add --no-cache libc6-compat
+# Alpine mirror به ArvanCloud — دانلود سریع‌تر از داخل ایران
+RUN sed -i 's|https://dl-cdn.alpinelinux.org|https://mirror.arvancloud.ir|g' /etc/apk/repositories \
+ && apk add --no-cache libc6-compat
 
-COPY package*.json .npmrc* ./
+COPY package*.json ./
 
-# نصب با retry در صورت قطعی شبکه
-RUN npm ci --include=dev || (sleep 30 && npm ci --include=dev) || (sleep 60 && npm ci --include=dev)
+# استفاده از npmmirror (چین) به‌عنوان fallback اگر npmjs.org کند بود
+# retry سه‌بار با وقفه در صورت EIDLETIMEOUT
+RUN npm config set registry https://registry.npmjs.org/ \
+ && (npm ci --include=dev \
+    || (echo "retry 1..." && sleep 30 && npm ci --include=dev) \
+    || (echo "retry 2 via mirror..." && sleep 60 \
+        && npm config set registry https://registry.npmmirror.com/ \
+        && npm ci --include=dev))
 
 # ─── Stage 2: Builder ─────────────────────────────────────────────────────────
-FROM node:22-alpine AS builder
+FROM docker.arvancloud.ir/library/node:22-alpine AS builder
 WORKDIR /app
 
 COPY --from=deps /app/node_modules ./node_modules
@@ -24,10 +33,11 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
 
 # ─── Stage 3: Runner ──────────────────────────────────────────────────────────
-FROM node:22-alpine AS runner
+FROM docker.arvancloud.ir/library/node:22-alpine AS runner
 WORKDIR /app
 
-RUN apk upgrade --no-cache \
+RUN sed -i 's|https://dl-cdn.alpinelinux.org|https://mirror.arvancloud.ir|g' /etc/apk/repositories \
+ && apk upgrade --no-cache \
  && apk add --no-cache su-exec
 
 ENV NODE_ENV=production
