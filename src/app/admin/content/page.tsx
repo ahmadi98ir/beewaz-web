@@ -22,7 +22,7 @@ const PAGE_LABELS: Record<string, { label: string; icon: string; desc: string }>
   about:   { label: 'درباره ما',   icon: '🏢', desc: 'داستان، تیم، آمار شرکت' },
   contact: { label: 'تماس با ما', icon: '📞', desc: 'اطلاعات تماس، فرم پیام' },
   shop:    { label: 'فروشگاه',     icon: '🛒', desc: 'بنرها، دسته‌بندی‌های ویژه' },
-  chatbot: { label: 'چت‌بات',        icon: '🤖', desc: 'پیام خوش‌آمد، سوالات پیشنهادی، پرامپت هوش مصنوعی' },
+  chatbot: { label: 'چت‌بات',      icon: '🤖', desc: 'نام، خوش‌آمد، پاسخ‌های سریع، System Prompt' },
 }
 
 // ── Field ─────────────────────────────────────────────────────────────────────
@@ -295,13 +295,4 @@ export default function AdminContentPage() {
 
               <div className="flex justify-end pt-2">
                 <button onClick={handleSave} disabled={saving} className="btn btn-primary py-2.5 px-6">
-                  {saving ? 'در حال ذخیره...' : '💾 ذخیره تغییرات'}
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  )
-}
+                  {saving ? 'در حال ذخیره...' : '💾 ذخیره تغ
