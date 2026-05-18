@@ -1,98 +1,53 @@
 import Link from 'next/link'
-import { AnimateIn } from '@/components/ui/animate-in'
-import { PhoneIcon, ShieldIcon } from '@/components/ui/icons'
+import type { CmsContent } from '@/lib/cms'
 
-export function CtaSection() {
+interface CtaSectionProps {
+  cms?: CmsContent
+}
+
+export function CtaSection({ cms = {} }: CtaSectionProps) {
+  const title    = cms.cta_title    ?? 'نمی‌دانید چه دزدگیری برای شما مناسب است؟'
+  const subtitle = cms.cta_subtitle ?? 'کارشناسان بیواز رایگان راهنمایی می‌کنند — همین الان تماس بگیرید'
+  const button   = cms.cta_button   ?? 'مشاوره رایگان'
+  const buttonUrl= cms.cta_button_url ?? '/contact'
+  const phone    = cms.contact_phone ?? ''
+
   return (
-    <section className="py-16 lg:py-24 overflow-hidden" aria-label="فراخوان عمل">
-      <div className="container-main">
-        <AnimateIn>
-          <div className="relative rounded-3xl overflow-hidden bg-surface-900 p-10 lg:p-16">
+    <section className="py-16 sm:py-20">
+      <div className="container-page">
+        <div className="bg-gradient-to-br from-brand-700 to-brand-900 rounded-3xl px-8 py-12 sm:px-16 sm:py-16 text-center relative overflow-hidden">
+          {/* Glow */}
+          <div className="absolute inset-0 pointer-events-none" aria-hidden>
+            <div className="absolute top-0 right-1/4 w-64 h-64 rounded-full bg-brand-400 blur-3xl opacity-20" />
+            <div className="absolute bottom-0 left-1/4 w-64 h-64 rounded-full bg-white blur-3xl opacity-10" />
+          </div>
 
-            {/* Background pattern */}
-            <div
-              className="absolute inset-0 opacity-10"
-              aria-hidden="true"
-              style={{
-                backgroundImage: 'radial-gradient(circle, white 1px, transparent 1px)',
-                backgroundSize: '28px 28px',
-              }}
-            />
+          <div className="relative z-10">
+            <h2 className="text-2xl sm:text-4xl font-black text-white mb-4">{title}</h2>
+            <p className="text-white/75 text-lg mb-8 max-w-xl mx-auto">{subtitle}</p>
 
-            {/* Glow */}
-            <div className="absolute -top-20 -end-20 w-80 h-80 rounded-full opacity-25 pointer-events-none"
-              style={{ background: 'radial-gradient(circle, #F97316, transparent 70%)' }}
-            />
-            <div className="absolute -bottom-20 -start-20 w-64 h-64 rounded-full opacity-20 pointer-events-none"
-              style={{ background: 'radial-gradient(circle, #3B5CEF, transparent 70%)' }}
-            />
+            <div className="flex flex-wrap items-center justify-center gap-4">
+              <Link
+                href={buttonUrl}
+                className="inline-flex items-center gap-2 bg-white text-brand-800 font-bold px-8 py-3.5 rounded-xl shadow-lg hover:bg-brand-50 transition-all hover:shadow-xl hover:-translate-y-0.5"
+              >
+                {button}
+              </Link>
 
-            <div className="relative z-10 grid lg:grid-cols-2 gap-10 items-center">
-
-              {/* متن */}
-              <div className="space-y-6">
-                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-semibold"
-                  style={{ background: 'rgb(249 115 22 / 0.15)', borderColor: 'rgb(249 115 22 / 0.4)', color: '#FDBA74' }}>
-                  <span className="w-2 h-2 rounded-full bg-accent-400 animate-pulse" />
-                  مشاوره کاملاً رایگان
-                </div>
-
-                <h2 className="text-3xl lg:text-4xl font-black text-white leading-tight">
-                  نمی‌دانید چه دزدگیری
-                  <br />
-                  <span className="animate-shimmer-text text-gradient-brand">برای شما مناسب است؟</span>
-                </h2>
-
-                <p className="text-white/60 leading-relaxed max-w-md">
-                  کارشناسان بیواز آماده‌اند تا بر اساس متراژ، کاربری و بودجه شما،
-                  بهترین سیستم امنیتی را پیشنهاد دهند.
-                </p>
-
-                <div className="flex flex-col sm:flex-row gap-3">
-                  <Link
-                    href="/contact"
-                    className="btn btn-accent px-8 py-3.5 text-base shadow-lg orange-glow"
-                  >
-                    دریافت مشاوره رایگان
-                  </Link>
-                  <a
-                    href="tel:+982100000000"
-                    className="btn border border-white/20 text-white hover:bg-white/10 px-8 py-3.5 text-base gap-2 transition-colors"
-                  >
-                    <PhoneIcon size={18} />
-                    تماس مستقیم
-                  </a>
-                </div>
-              </div>
-
-              {/* آمار سمت راست */}
-              <div className="grid grid-cols-2 gap-4">
-                {[
-                  { value: '۱۵,۰۰۰+', label: 'مشتری راضی', sub: 'در سراسر ایران', accent: true },
-                  { value: '۱۸ ماه', label: 'گارانتی رسمی', sub: 'برای تمام محصولات', accent: false },
-                  { value: '۲۴/۷', label: 'پشتیبانی', sub: 'همیشه در دسترس', accent: false },
-                  { value: '۱۰+', label: 'سال تجربه', sub: 'در صنعت امنیت', accent: true },
-                ].map((item) => (
-                  <div
-                    key={item.label}
-                    className="rounded-2xl border p-5 backdrop-blur-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg"
-                    style={item.accent
-                      ? { background: 'rgb(249 115 22 / 0.12)', borderColor: 'rgb(249 115 22 / 0.3)' }
-                      : { background: 'rgb(255 255 255 / 0.06)', borderColor: 'rgb(255 255 255 / 0.1)' }}
-                  >
-                    <div className="text-2xl font-black mb-1"
-                      style={{ color: item.accent ? '#FB923C' : '#ffffff' }}>
-                      {item.value}
-                    </div>
-                    <div className="text-sm font-semibold text-white/80">{item.label}</div>
-                    <div className="text-xs text-white/40 mt-0.5">{item.sub}</div>
-                  </div>
-                ))}
-              </div>
-
+              {phone && (
+                <a
+                  href={`tel:${phone.replace(/\D/g, '')}`}
+                  className="inline-flex items-center gap-2 bg-white/10 border border-white/30 text-white font-semibold px-8 py-3.5 rounded-xl hover:bg-white/20 transition-all"
+                >
+                  <svg viewBox="0 0 20 20" className="w-4 h-4" fill="currentColor">
+                    <path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z" />
+                  </svg>
+                  {phone}
+                </a>
+              )}
             </div>
           </div>
-        </AnimateIn>
+        </div>
       </div>
     </section>
   )
