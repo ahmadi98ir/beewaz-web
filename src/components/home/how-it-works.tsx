@@ -1,95 +1,64 @@
-import { AnimateIn } from '@/components/ui/animate-in'
+import type { CmsContent } from '@/lib/cms'
 
-const steps = [
-  {
-    step: '۱',
-    title: 'مشاوره رایگان',
-    desc: 'با کارشناسان ما تماس بگیرید یا از چت‌بات هوشمند بپرسید. نیازتان را بشنویم و بهترین گزینه را پیشنهاد دهیم.',
-    color: 'bg-blue-50 text-blue-600 border-blue-100',
-    dotColor: 'bg-blue-500',
-    isAccent: false,
-  },
-  {
-    step: '۲',
-    title: 'انتخاب و سفارش',
-    desc: 'محصول مناسب را از فروشگاه انتخاب کنید. پرداخت امن آنلاین، تحویل سریع به سراسر ایران.',
-    color: 'border-accent-300',
-    dotColor: 'bg-accent-500',
-    isAccent: true,
-  },
-  {
-    step: '۳',
-    title: 'نصب حرفه‌ای',
-    desc: 'تکنیسین‌های مجرب ما دزدگیر را نصب و راه‌اندازی می‌کنند. آموزش استفاده ارائه می‌شود.',
-    color: 'bg-green-50 text-green-600 border-green-100',
-    dotColor: 'bg-green-500',
-    isAccent: false,
-  },
-  {
-    step: '۴',
-    title: 'پشتیبانی همیشگی',
-    desc: 'تیم پشتیبانی ۲۴ ساعته در کنار شماست. گارانتی ۱۸ ماهه و خدمات پس از فروش.',
-    color: 'bg-purple-50 text-purple-600 border-purple-100',
-    dotColor: 'bg-purple-500',
-    isAccent: false,
-  },
+interface Step {
+  icon: string
+  title: string
+  desc: string
+}
+
+const DEFAULT_STEPS: Step[] = [
+  { icon: '📞', title: 'مشاوره رایگان',  desc: 'با کارشناسان ما تماس بگیرید تا بهترین راهکار را پیشنهاد دهیم' },
+  { icon: '🎯', title: 'انتخاب محصول',  desc: 'بهترین دزدگیر برای فضا و بودجه شما را انتخاب می‌کنیم' },
+  { icon: '🔧', title: 'نصب تخصصی',    desc: 'تیم فنی ما در محل شما نصب حرفه‌ای انجام می‌دهد' },
+  { icon: '🛡️', title: 'پشتیبانی دائمی', desc: 'گارانتی ۱۸ ماهه و پشتیبانی ۲۴ ساعته در ۷ روز هفته' },
 ]
 
-export function HowItWorks() {
+interface HowItWorksProps {
+  cms?: CmsContent
+}
+
+export function HowItWorks({ cms = {} }: HowItWorksProps) {
+  const title    = cms.how_title    ?? '۴ گام تا امنیت کامل'
+  const subtitle = cms.how_subtitle ?? 'از تماس اولیه تا پشتیبانی دائمی، همه‌جا کنارتان هستیم'
+
+  let steps = DEFAULT_STEPS
+  if (cms.how_steps) {
+    try {
+      const parsed = JSON.parse(cms.how_steps) as Step[]
+      if (Array.isArray(parsed) && parsed.length > 0) steps = parsed
+    } catch {
+      // parse failed — use defaults
+    }
+  }
+
   return (
-    <section className="py-16 lg:py-24 bg-surface-50" aria-label="نحوه خرید">
-      <div className="container-main">
-
+    <section className="py-16 sm:py-24 bg-surface-50">
+      <div className="container-page">
         {/* Header */}
-        <AnimateIn className="text-center mb-14">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-surface-200/60 text-surface-700 text-sm font-semibold mb-4">
-            فرایند خرید
-          </div>
-          <h2 className="text-3xl sm:text-4xl font-black text-surface-900 mb-3">
-            ۴ گام تا امنیت کامل
-          </h2>
-          <div className="orange-divider w-16 mx-auto mb-4" />
-          <p className="text-surface-500 max-w-lg mx-auto">
-            از مشاوره تا نصب — همه چیز را به بیواز بسپارید
-          </p>
-        </AnimateIn>
-
-        {/* Steps */}
-        <div className="relative">
-          {/* خط اتصال‌دهنده — دسکتاپ */}
-          <div className="hidden lg:block absolute top-10 inset-x-0 h-0.5 bg-surface-200 mx-[12.5%]" aria-hidden="true">
-            <div className="h-full" style={{ background: 'linear-gradient(to left, #A855F7, #22C55E, #F97316, #3B82F6)' }} />
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-            {steps.map((s, i) => (
-              <AnimateIn key={s.step} delay={i * 120} direction={i % 2 === 0 ? 'up' : 'scale'}>
-                <div className="relative flex flex-col items-center text-center lg:items-start lg:text-start">
-                  {/* شماره مرحله */}
-                  {s.isAccent ? (
-                    <div className="w-20 h-20 rounded-2xl border-2 border-accent-300 flex items-center justify-center mb-5 text-3xl font-black relative z-10 shadow-md animate-glow-pulse"
-                      style={{ background: 'rgb(249 115 22 / 0.08)', color: '#F97316' }}>
-                      {s.step}
-                      <span className="absolute -bottom-1 -end-1 w-3 h-3 rounded-full bg-accent-500 border-2 border-white" />
-                    </div>
-                  ) : (
-                    <div className={`w-20 h-20 rounded-2xl border-2 flex items-center justify-center mb-5 text-3xl font-black ${s.color} relative z-10 bg-white shadow-sm`}>
-                      {s.step}
-                      <span className={`absolute -bottom-1 -end-1 w-3 h-3 rounded-full ${s.dotColor} border-2 border-white`} />
-                    </div>
-                  )}
-
-                  <h3 className={`text-lg font-bold mb-2 ${s.isAccent ? '' : 'text-surface-900'}`}
-                    style={s.isAccent ? { color: '#EA6C00' } : undefined}>
-                    {s.title}
-                  </h3>
-                  <p className="text-sm text-surface-500 leading-relaxed">{s.desc}</p>
-                </div>
-              </AnimateIn>
-            ))}
-          </div>
+        <div className="text-center mb-12">
+          <h2 className="text-2xl sm:text-4xl font-black text-surface-900 mb-3">{title}</h2>
+          <p className="text-surface-500 text-lg max-w-xl mx-auto">{subtitle}</p>
         </div>
 
+        {/* Steps */}
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          {steps.map((step, i) => (
+            <div key={i} className="relative bg-white rounded-2xl p-6 shadow-sm border border-surface-100 hover:shadow-md transition-shadow text-center group">
+              {/* Connector line (hidden on last) */}
+              {i < steps.length - 1 && (
+                <div className="hidden lg:block absolute top-10 -end-3 w-6 h-0.5 bg-surface-200 z-10" />
+              )}
+              {/* Step number */}
+              <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-brand-100 text-brand-700 text-sm font-bold mb-4">
+                {(i + 1).toLocaleString('fa-IR')}
+              </span>
+              {/* Icon */}
+              <div className="text-4xl mb-3">{step.icon}</div>
+              <h3 className="font-bold text-surface-900 mb-2">{step.title}</h3>
+              <p className="text-sm text-surface-500 leading-relaxed">{step.desc}</p>
+            </div>
+          ))}
+        </div>
       </div>
     </section>
   )
