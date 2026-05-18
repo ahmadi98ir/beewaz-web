@@ -4,8 +4,10 @@ WORKDIR /app
 
 RUN apk add --no-cache libc6-compat
 
-COPY package*.json ./
-RUN npm ci --include=dev
+COPY package*.json .npmrc* ./
+
+# نصب با retry در صورت قطعی شبکه
+RUN npm ci --include=dev || (sleep 30 && npm ci --include=dev) || (sleep 60 && npm ci --include=dev)
 
 # ─── Stage 2: Builder ─────────────────────────────────────────────────────────
 FROM node:22-alpine AS builder
