@@ -33,14 +33,11 @@ export async function POST(req: Request) {
       fullName:    body.fullName.trim(),
       phone:       cleanPhone.startsWith('0') ? cleanPhone : `0${cleanPhone}`,
       inquiryType: body.subject ?? 'consultation',
-      notes:       body.message?.trim() ?? '',
-      source:      'contact_form',
+      aiSummary:   body.message?.trim() ? `پیام فرم تماس: ${body.message.trim()}` : null,
       status:      'new',
     })
 
     return NextResponse.json({ ok: true })
   } catch (err) {
     console.error('[contact POST]', err)
-    return NextResponse.json({ error: 'خطا در ارسال پیام. لطفاً مجدداً تلاش کنید.' }, { status: 500 })
-  }
-}
+    return NextResponse.json({ error: 'خطا در ارسال پیام. لطفاً مجدداً تلاش کنید.' }, { st
