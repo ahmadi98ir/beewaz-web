@@ -58,13 +58,10 @@ export async function getCmsPages(
 
     for (const row of rows) {
       if (!result[row.page]) result[row.page] = {}
+      const pageData = result[row.page]!
       if (row.valueFa !== null && row.valueFa !== '') {
-        result[row.page][row.key] = row.valueFa
+        pageData[row.key] = row.valueFa
       }
     }
   } catch {
-    // silent fail
-  }
-
-  return result
-}
+    // si
