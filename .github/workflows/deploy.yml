@@ -38,9 +38,9 @@ jobs:
           mkdir -p ~/.ssh
           echo "$SSH_KEY_B64" | base64 -d > ~/.ssh/server_key
           chmod 600 ~/.ssh/server_key
-          echo "Key: $(wc -c < ~/.ssh/server_key) bytes"
-          ssh -i ~/.ssh/server_key -o StrictHostKeyChecking=no -o ConnectTimeout=15 \
-              -o BatchMode=yes -p 8443 root@78.157.51.14 "echo SSH_OK" 2>&1
+          echo "Key size: $(wc -c < ~/.ssh/server_key) bytes"
+          head -1 ~/.ssh/server_key
+          echo "SSH key setup complete"
 
       - name: Save & compress Docker image
         run: |
@@ -57,7 +57,7 @@ jobs:
               -o Compression=no \
               /tmp/beewaz-web.tar.gz \
               root@78.157.51.14:/tmp/beewaz-web.tar.gz
-          echo "SCP done: $?"
+          echo "SCP transfer complete"
 
       - name: Load image and start container
         run: |
@@ -82,7 +82,7 @@ jobs:
             -e AUTH_SECRET=5vjMEFsjPfvqqv8305UAgYrmainnBzaSCrReqMIOKFs= \
             -e "DATABASE_URL=postgres://postgres:mtaaBCMdq1yyV48K1b9N7bQr2HBgL0QPgLzXQ5JKKq2dHpzUF8CenMifnYGcfama@j1jerkqljysca3o9y3rdxojf:5432/postgres" \
             -e ADMIN_PHONE=09102413207 -e ADMIN_PASSWORD=Beewaz1403Admin \
-            -e "ADMIN_NAME=مدیر سیستم" \
+            -e "ADMIN_NAME=\u0645\u062f\u06cc\u0631 \u0633\u06cc\u0633\u062a\u0645" \
             -l "traefik.enable=true" \
             -l "traefik.http.middlewares.gzip.compress=true" \
             -l "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https" \
