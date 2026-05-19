@@ -1,259 +1,116 @@
 'use client'
 
-import type { ReactNode } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import Link from 'next/link'
+import type { CmsContent } from '@/lib/cms'
 
-import { useEffect, useRef } from 'react'
+interface CtaSectionProps { cms?: CmsContent }
 
-function AnimateIn({ children, delay = 0 }: { children: ReactNode; delay?: number }) {
+function AnimateIn({ children, delay = 0, className = '' }: { children: React.ReactNode; delay?: number; className?: string }) {
   const ref = useRef<HTMLDivElement>(null)
+  const [visible, setVisible] = useState(false)
   useEffect(() => {
-    const el = ref.current
-    if (!el) return
-    const obs = new IntersectionObserver(([e]) => {
-      if (e.isIntersecting) {
-        el.style.opacity = '1'
-        el.style.transform = 'translateY(0) scale(1)'
-        obs.disconnect()
-      }
-    }, { threshold: 0.2 })
-    obs.observe(el)
-    return () => obs.disconnect()
+    const el = ref.current; if (!el) return
+    const obs = new IntersectionObserver(([e]) => { if (e.isIntersecting) { setVisible(true); obs.disconnect() } }, { threshold: 0.15 })
+    obs.observe(el); return () => obs.disconnect()
   }, [])
   return (
-    <div ref={ref} style={{
-      opacity: 0,
-      transform: 'translateY(28px) scale(0.98)',
-      transition: `opacity 0.8s cubic-bezier(0.19,1,0.22,1) ${delay}ms, transform 0.8s cubic-bezier(0.19,1,0.22,1) ${delay}ms`,
-    }}>
+    <div ref={ref} className={className} style={{ opacity: visible ? 1 : 0, transform: visible ? 'translateY(0)' : 'translateY(28px)', transition: `opacity 0.7s ease ${delay}ms, transform 0.7s ease ${delay}ms` }}>
       {children}
     </div>
   )
 }
 
-export function CtaSection() {
+export function CtaSection({ cms = {} }: CtaSectionProps) {
+  const title     = cms.cta_title     ?? 'نمی‌دانید چه دزدگیری برای شما مناسب است؟'
+  const subtitle  = cms.cta_subtitle  ?? 'کارشناسان بیواز رایگان راهنمایی می‌کنند — همین الان تماس بگیرید'
+  const button    = cms.cta_button    ?? 'مشاوره رایگان'
+  const buttonUrl = cms.cta_button_url ?? '/contact'
+  const phone     = cms.contact_phone  ?? ''
+
   return (
-    <section
-      dir="rtl"
-      style={{
-        background: '#060B1A',
-        padding: 'clamp(5rem,10vw,8rem) 1.25rem',
-        position: 'relative',
-        overflow: 'hidden',
-      }}
-    >
-      {/* Background layers */}
-      <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
-        {/* Large orange glow center-top */}
-        <div style={{
-          position: 'absolute', top: '-30%', left: '50%',
-          transform: 'translateX(-50%)',
-          width: '80vw', height: '80vw',
-          maxWidth: 900, maxHeight: 900,
-          borderRadius: '50%',
-          background: 'radial-gradient(circle, rgba(249,115,22,0.14) 0%, rgba(234,88,12,0.04) 40%, transparent 65%)',
-        }} />
-        {/* Horizontal glow lines */}
-        <div style={{
-          position: 'absolute', top: '30%', left: 0, right: 0, height: 1,
-          background: 'linear-gradient(90deg, transparent, rgba(249,115,22,0.2), transparent)',
-        }} />
-        <div style={{
-          position: 'absolute', bottom: '30%', left: 0, right: 0, height: 1,
-          background: 'linear-gradient(90deg, transparent, rgba(27,58,138,0.25), transparent)',
-        }} />
-        {/* Grid */}
-        <div style={{
-          position: 'absolute', inset: 0,
-          backgroundImage: `linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
-                            linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px)`,
-          backgroundSize: '60px 60px',
-        }} />
-      </div>
-
-      <div style={{ maxWidth: 880, marginInline: 'auto', position: 'relative', zIndex: 1 }}>
-        {/* Inner glass card */}
-        <div style={{
-          background: 'rgba(255,255,255,0.03)',
-          border: '1px solid rgba(255,255,255,0.08)',
-          borderRadius: 28,
-          padding: 'clamp(2.5rem,6vw,5rem) clamp(1.5rem,5vw,4rem)',
-          textAlign: 'center',
-          position: 'relative',
-          overflow: 'hidden',
-          backdropFilter: 'blur(12px)',
-        }}>
-          {/* Top orange accent bar */}
-          <div style={{
-            position: 'absolute', top: 0, left: '20%', right: '20%', height: 2,
-            background: 'linear-gradient(90deg, transparent, #F97316, transparent)',
-            borderRadius: 99,
-          }} />
-          {/* Bottom blue accent bar */}
-          <div style={{
-            position: 'absolute', bottom: 0, left: '30%', right: '30%', height: 1,
-            background: 'linear-gradient(90deg, transparent, rgba(96,128,250,0.6), transparent)',
-            borderRadius: 99,
-          }} />
-
-          <AnimateIn delay={0}>
-            {/* Available badge */}
-            <div style={{
-              display: 'inline-flex', alignItems: 'center', gap: '0.5rem',
-              background: 'rgba(16,185,129,0.1)',
-              border: '1px solid rgba(16,185,129,0.25)',
-              borderRadius: 99, padding: '0.4rem 1rem',
-              fontSize: '0.8rem', fontWeight: 600, color: '#6EE7B7',
-              marginBottom: '1.75rem',
-            }}>
-              <span style={{
-                width: 7, height: 7, borderRadius: '50%',
-                background: '#10B981',
-                boxShadow: '0 0 8px rgba(16,185,129,0.8)',
-                animation: 'pingCta 1.5s ease infinite',
-                flexShrink: 0,
-              }} />
-              مشاوران ما آماده پاسخگویی هستند
-            </div>
-          </AnimateIn>
-
-          <AnimateIn delay={150}>
-            <h2 style={{
-              fontSize: 'clamp(2rem,5vw,3.5rem)',
-              fontWeight: 900, color: '#FFFFFF',
-              lineHeight: 1.2,
-              margin: '0 0 1.25rem',
-            }}>
-              امنیت اماکنتان را
-              <br />
-              <span style={{
-                background: 'linear-gradient(90deg, #FDE68A 0%, #FB923C 40%, #EA580C 100%)',
-                backgroundClip: 'text',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-              }}>
-                به بیواز بسپارید
-              </span>
-            </h2>
-          </AnimateIn>
-
-          <AnimateIn delay={250}>
-            <p style={{
-              color: 'rgba(255,255,255,0.55)',
-              fontSize: 'clamp(0.9375rem,2vw,1.125rem)',
-              lineHeight: 1.8,
-              margin: '0 0 2.5rem',
-              maxWidth: 520, marginInline: 'auto',
-            }}>
-              همین امروز با تیم بیواز تماس بگیرید.
-              مشاوره رایگان، بازدید رایگان، و نصب تخصصی توسط کارشناسان ما.
-            </p>
-          </AnimateIn>
-
-          <AnimateIn delay={350}>
-            {/* CTA buttons */}
-            <div style={{
-              display: 'flex', gap: '1rem', flexWrap: 'wrap',
-              justifyContent: 'center', marginBottom: '2.5rem',
-            }}>
-              <a
-                href="tel:+982100000000"
-                style={{
-                  display: 'inline-flex', alignItems: 'center', gap: '0.75rem',
-                  padding: '1rem 2.5rem',
-                  background: 'linear-gradient(135deg, #F97316, #EA580C)',
-                  color: '#fff', fontWeight: 700, fontSize: '1.0625rem',
-                  borderRadius: 14, textDecoration: 'none',
-                  boxShadow: '0 6px 32px rgba(249,115,22,0.5)',
-                  transition: 'all 0.25s ease',
-                  animation: 'ctaPulse 3s ease-in-out 2s infinite',
-                }}
-                onMouseEnter={e => {
-                  const el = e.currentTarget as HTMLAnchorElement
-                  el.style.transform = 'translateY(-3px) scale(1.02)'
-                  el.style.boxShadow = '0 12px 48px rgba(249,115,22,0.65)'
-                }}
-                onMouseLeave={e => {
-                  const el = e.currentTarget as HTMLAnchorElement
-                  el.style.transform = 'translateY(0) scale(1)'
-                  el.style.boxShadow = '0 6px 32px rgba(249,115,22,0.5)'
-                }}
-              >
-                <svg viewBox="0 0 24 24" fill="none" style={{ width: 22, height: 22 }}>
-                  <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 014.72 12 19.79 19.79 0 011.65 3.33 2 2 0 013.62 1.2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L7.91 8.85a16 16 0 006.29 6.29l.61-.61a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"
-                    stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                </svg>
-                تماس رایگان — همین الان
-              </a>
-              <a
-                href="https://wa.me/989100000000"
-                target="_blank" rel="noopener noreferrer"
-                style={{
-                  display: 'inline-flex', alignItems: 'center', gap: '0.75rem',
-                  padding: '1rem 2rem',
-                  background: 'rgba(37,211,102,0.1)',
-                  border: '1.5px solid rgba(37,211,102,0.3)',
-                  color: '#4ADE80', fontWeight: 600, fontSize: '1rem',
-                  borderRadius: 14, textDecoration: 'none',
-                  transition: 'all 0.25s ease',
-                }}
-                onMouseEnter={e => {
-                  const el = e.currentTarget as HTMLAnchorElement
-                  el.style.background = 'rgba(37,211,102,0.18)'
-                  el.style.transform = 'translateY(-2px)'
-                  el.style.boxShadow = '0 8px 24px rgba(37,211,102,0.2)'
-                }}
-                onMouseLeave={e => {
-                  const el = e.currentTarget as HTMLAnchorElement
-                  el.style.background = 'rgba(37,211,102,0.1)'
-                  el.style.transform = 'translateY(0)'
-                  el.style.boxShadow = 'none'
-                }}
-              >
-                <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: 20, height: 20 }}>
-                  <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
-                  <path d="M11.999 0C5.373 0 0 5.373 0 12c0 2.117.554 4.107 1.524 5.827L.057 23.882l6.232-1.455A11.926 11.926 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-1.846 0-3.576-.49-5.072-1.345l-.363-.214-3.699.865.894-3.612-.236-.375A9.967 9.967 0 012 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10z"/>
-                </svg>
-                واتساپ
-              </a>
-            </div>
-          </AnimateIn>
-
-          <AnimateIn delay={450}>
-            {/* Trust items */}
-            <div style={{
-              display: 'flex', flexWrap: 'wrap', gap: '1rem',
-              justifyContent: 'center',
-            }}>
-              {[
-                { icon: '🛡️', text: 'گارانتی ۱۸ ماهه' },
-                { icon: '⚡', text: 'نصب در ۲ ساعت' },
-                { icon: '📞', text: 'پشتیبانی ۲۴/۷' },
-                { icon: '🚚', text: 'ارسال رایگان' },
-              ].map((item, i) => (
-                <div key={i} style={{
-                  display: 'flex', alignItems: 'center', gap: '0.4rem',
-                  color: 'rgba(255,255,255,0.55)',
-                  fontSize: '0.875rem', fontWeight: 500,
-                }}>
-                  <span>{item.icon}</span>
-                  {item.text}
-                </div>
-              ))}
-            </div>
-          </AnimateIn>
-        </div>
-      </div>
-
+    <section className="relative py-20 sm:py-32 overflow-hidden bg-[#030712]">
       <style>{`
-        @keyframes pingCta {
-          0%,100% { transform: scale(1); opacity: 1; }
-          50%      { transform: scale(1.6); opacity: 0.5; }
-        }
-        @keyframes ctaPulse {
-          0%,100% { box-shadow: 0 6px 32px rgba(249,115,22,0.5); }
-          50%      { box-shadow: 0 6px 32px rgba(249,115,22,0.5), 0 0 0 8px rgba(249,115,22,0); }
-        }
+        @keyframes ctaPulse { 0%,100%{transform:scale(1);opacity:0.4} 50%{transform:scale(1.08);opacity:0.7} }
+        @keyframes ctaOrbit { from{transform:rotate(0deg) translateX(160px) rotate(0deg)} to{transform:rotate(360deg) translateX(160px) rotate(-360deg)} }
+        @keyframes ctaOrbit2 { from{transform:rotate(180deg) translateX(220px) rotate(-180deg)} to{transform:rotate(540deg) translateX(220px) rotate(-540deg)} }
+        @keyframes gradientShift { 0%,100%{background-position:0% 50%} 50%{background-position:100% 50%} }
       `}</style>
+
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[400px] rounded-full" style={{ background: 'radial-gradient(ellipse, rgba(99,102,241,0.15) 0%, rgba(139,92,246,0.08) 50%, transparent 80%)', animation: 'ctaPulse 6s ease-in-out infinite' }} />
+      </div>
+
+      <div className="relative z-10 container mx-auto px-4 sm:px-6 lg:px-8 max-w-5xl">
+        <AnimateIn>
+          <div className="relative rounded-3xl overflow-hidden">
+            <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg,#1e1b4b 0%,#312e81 30%,#4c1d95 60%,#1e1b4b 100%)', backgroundSize: '300% 300%', animation: 'gradientShift 8s ease infinite' }} />
+            <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0.1) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.1) 1px,transparent 1px)', backgroundSize: '40px 40px' }} />
+
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-0 h-0 hidden sm:block">
+              <div className="absolute w-3 h-3 rounded-full bg-violet-300/60" style={{ animation: 'ctaOrbit 12s linear infinite' }} />
+              <div className="absolute w-2 h-2 rounded-full bg-indigo-300/50" style={{ animation: 'ctaOrbit2 18s linear infinite' }} />
+            </div>
+            <div className="absolute top-0 right-0 w-64 h-64 bg-violet-400/20 blur-3xl rounded-full -translate-y-1/2 translate-x-1/2" />
+            <div className="absolute bottom-0 left-0 w-64 h-64 bg-indigo-400/20 blur-3xl rounded-full translate-y-1/2 -translate-x-1/2" />
+
+            <div className="relative z-10 px-8 py-14 sm:px-16 sm:py-20 text-center">
+              <AnimateIn delay={100}>
+                <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm border border-white/20 text-white/80 text-sm font-medium px-4 py-2 rounded-full mb-8">
+                  <svg viewBox="0 0 20 20" className="w-4 h-4 text-yellow-400" fill="currentColor">
+                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                  </svg>
+                  مشاوره کاملاً رایگان
+                </div>
+              </AnimateIn>
+              <AnimateIn delay={180}>
+                <h2 className="text-3xl sm:text-5xl font-black text-white mb-5 leading-tight">{title}</h2>
+              </AnimateIn>
+              <AnimateIn delay={260}>
+                <p className="text-white/60 text-lg sm:text-xl mb-10 max-w-2xl mx-auto leading-relaxed">{subtitle}</p>
+              </AnimateIn>
+              <AnimateIn delay={340}>
+                <div className="flex flex-wrap items-center justify-center gap-4">
+                  <Link href={buttonUrl} className="group inline-flex items-center gap-3 bg-white text-indigo-700 font-black text-lg px-8 py-4 rounded-2xl shadow-2xl hover:shadow-white/20 hover:-translate-y-1 transition-all duration-300">
+                    <span className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg,#6366f1,#8b5cf6)' }}>
+                      <svg viewBox="0 0 20 20" className="w-4 h-4 text-white" fill="currentColor">
+                        <path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z" />
+                      </svg>
+                    </span>
+                    {button}
+                  </Link>
+                  {phone ? (
+                    <a href={`tel:${phone.replace(/\D/g, '')}`} className="inline-flex items-center gap-3 bg-white/10 backdrop-blur-sm border border-white/30 text-white font-bold text-lg px-8 py-4 rounded-2xl hover:bg-white/20 transition-all duration-300 hover:-translate-y-1">
+                      <svg viewBox="0 0 20 20" className="w-5 h-5 text-green-400" fill="currentColor">
+                        <path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z" />
+                      </svg>
+                      {phone}
+                    </a>
+                  ) : (
+                    <Link href="/shop" className="inline-flex items-center gap-3 bg-white/10 backdrop-blur-sm border border-white/30 text-white font-bold text-lg px-8 py-4 rounded-2xl hover:bg-white/20 transition-all duration-300 hover:-translate-y-1">
+                      <svg viewBox="0 0 20 20" className="w-5 h-5 text-indigo-300" fill="currentColor">
+                        <path fillRule="evenodd" d="M10 2a4 4 0 00-4 4v1H5a1 1 0 00-.994.89l-1 9A1 1 0 004 18h12a1 1 0 00.994-1.11l-1-9A1 1 0 0015 7h-1V6a4 4 0 00-4-4zm2 5V6a2 2 0 10-4 0v1h4zm-6 3a1 1 0 112 0 1 1 0 01-2 0zm7-1a1 1 0 100 2 1 1 0 000-2z" clipRule="evenodd" />
+                      </svg>
+                      مشاهده محصولات
+                    </Link>
+                  )}
+                </div>
+              </AnimateIn>
+              <AnimateIn delay={440}>
+                <div className="mt-12 flex flex-wrap items-center justify-center gap-x-10 gap-y-4 text-white/40 text-sm border-t border-white/10 pt-8">
+                  <span className="flex items-center gap-2"><span className="text-white/70 font-bold text-base">+۱۵,۰۰۰</span> مشتری راضی</span>
+                  <span className="w-px h-4 bg-white/20 hidden sm:block" />
+                  <span className="flex items-center gap-2"><span className="text-white/70 font-bold text-base">۱۸</span> ماه گارانتی</span>
+                  <span className="w-px h-4 bg-white/20 hidden sm:block" />
+                  <span className="flex items-center gap-2"><span className="text-white/70 font-bold text-base">۲۴/۷</span> پشتیبانی</span>
+                  <span className="w-px h-4 bg-white/20 hidden sm:block" />
+                  <span className="flex items-center gap-2"><span className="text-white/70 font-bold text-base">۱۰</span> سال تجربه</span>
+                </div>
+              </AnimateIn>
+            </div>
+          </div>
+        </AnimateIn>
+      </div>
     </section>
   )
 }
