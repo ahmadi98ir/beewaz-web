@@ -31,60 +31,81 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      - name: Setup SSH & Test connection
+        env:
+          SSH_KEY: ${{ secrets.SERVER_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/server_key
+          chmod 600 ~/.ssh/server_key
+
+          # Test SSH connectivity first
+          echo "=== Testing SSH connection ==="
+          ssh -i ~/.ssh/server_key \
+              -o StrictHostKeyChecking=no \
+              -o ConnectTimeout=20 \
+              -o BatchMode=yes \
+              -p 8443 \
+              root@78.157.51.14 \
+              "echo SSH_OK && docker --version" 2>&1
+          echo "SSH test exit code: $?"
+
       - name: Transfer image to server via SSH
         env:
           SSH_KEY: ${{ secrets.SERVER_SSH_KEY }}
         run: |
-          echo "=== Setting up SSH key ==="
-          echo "$SSH_KEY" > /tmp/server_key
-          chmod 600 /tmp/server_key
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/server_key
+          chmod 600 ~/.ssh/server_key
 
-          echo "=== Piping Docker image to server ($(docker image inspect beewaz-web:latest --format='{{.Size}}' | numfmt --to=iec)) ==="
+          IMAGE_SIZE=$(docker image inspect beewaz-web:latest --format='{{.Size}}' | numfmt --to=iec 2>/dev/null || echo "unknown")
+          echo "=== Transferring image (raw: $IMAGE_SIZE) ==="
+
           docker save beewaz-web:latest | gzip | \
-            ssh -i /tmp/server_key \
+            ssh -i ~/.ssh/server_key \
                 -o StrictHostKeyChecking=no \
                 -o ServerAliveInterval=30 \
-                -o ServerAliveCountMax=20 \
+                -o ServerAliveCountMax=30 \
                 -o ConnectTimeout=30 \
+                -o TCPKeepAlive=yes \
                 -p 8443 \
                 root@78.157.51.14 \
-                "gunzip | docker load"
-          echo "=== Image transferred successfully! ==="
+                "gunzip | docker load" 2>&1
+
+          echo "Transfer exit code: $?"
 
       - name: Deploy container on server
         env:
           SSH_KEY: ${{ secrets.SERVER_SSH_KEY }}
         run: |
-          echo "$SSH_KEY" > /tmp/server_key
-          chmod 600 /tmp/server_key
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/server_key
+          chmod 600 ~/.ssh/server_key
 
-          ssh -i /tmp/server_key \
+          ssh -i ~/.ssh/server_key \
               -o StrictHostKeyChecking=no \
               -o ConnectTimeout=30 \
               -p 8443 \
-              root@78.157.51.14 << 'REMOTE_EOF'
+              root@78.157.51.14 'bash -s' << 'REMOTE'
 
+          set -e
           APP_UUID="jw4kpfn8utdybrmwkr80fm8f"
           IMAGE="beewaz-web:latest"
-          NETWORK="coolify"
 
-          echo "=== Stopping existing container ==="
+          echo "=== Stopping old container ==="
           docker stop "$APP_UUID" 2>/dev/null || true
-          docker rm "$APP_UUID" 2>/dev/null || true
+          docker rm   "$APP_UUID" 2>/dev/null || true
 
-          echo "=== Starting new container ==="
+          echo "=== Starting container ==="
           docker run -d \
             --name "$APP_UUID" \
-            --network "$NETWORK" \
+            --network coolify \
             --restart unless-stopped \
-            --pull=never \
             -e NODE_ENV=production \
             -e NEXT_TELEMETRY_DISABLED=1 \
             -e AUTH_TRUST_HOST=1 \
             -e NEXT_PUBLIC_APP_URL=https://bz360.ir \
             -e NEXTAUTH_URL=https://bz360.ir \
             -e AUTH_SECRET=5vjMEFsjPfvqqv8305UAgYrmainnBzaSCrReqMIOKFs= \
-            -e DATABASE_URL="postgres://postgres:mtaaBCMdq1yyV48K1b9N7bQr2HBgL0QPgLzXQ5JKKq2dHpzUF8CenMifnYGcfama@j1jerkqljysca3o9y3rdxojf:5432/postgres" \
+            -e "DATABASE_URL=postgres://postgres:mtaaBCMdq1yyV48K1b9N7bQr2HBgL0QPgLzXQ5JKKq2dHpzUF8CenMifnYGcfama@j1jerkqljysca3o9y3rdxojf:5432/postgres" \
             -e ADMIN_PHONE=09102413207 \
             -e ADMIN_PASSWORD=Beewaz1403Admin \
             -e "ADMIN_NAME=مدیر سیستم" \
@@ -105,18 +126,9 @@ jobs:
             -l "traefik.http.services.https-0-${APP_UUID}.loadbalancer.server.port=3000" \
             "$IMAGE"
 
-          echo "=== Container started! ==="
-          docker ps --filter "name=${APP_UUID}" --format "table {{.ID}}\t{{.Status}}\t{{.Ports}}"
-
-          echo "=== Waiting for health check (30s) ==="
-          sleep 30
-          STATUS=$(docker inspect "$APP_UUID" --format='{{.State.Status}}' 2>/dev/null)
-          echo "Container status: $STATUS"
-
-          if [ "$STATUS" = "running" ]; then
-            echo "=== DEPLOYMENT SUCCESSFUL! ==="
-          else
-            echo "=== WARNING: Container not running, checking logs ==="
-            docker logs "$APP_UUID" --tail=50 2>&1
-          fi
-          REMOTE_EOF
+          echo "=== Container status ==="
+          sleep 15
+          docker inspect "$APP_UUID" --format='Status: {{.State.Status}}'
+          docker logs "$APP_UUID" --tail=20 2>&1
+          echo "=== DONE ==="
+          REMOTE
