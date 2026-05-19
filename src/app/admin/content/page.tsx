@@ -295,4 +295,13 @@ export default function AdminContentPage() {
 
               <div className="flex justify-end pt-2">
                 <button onClick={handleSave} disabled={saving} className="btn btn-primary py-2.5 px-6">
-                  {saving ? 'در حال ذخیره...' : '💾 ذخیره تغ
+                  {saving ? '\u062f\u0631 \u062d\u0627\u0644 \u0630\u062e\u06cc\u0631\u0647...' : '\ud83d\udcbe \u0630\u062e\u06cc\u0631\u0647 \u062a\u063a\u06cc\u06cc\u0631\u0627\u062a'}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
