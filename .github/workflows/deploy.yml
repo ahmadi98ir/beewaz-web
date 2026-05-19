@@ -5,89 +5,118 @@ on:
     branches: [main]
   workflow_dispatch:
 
-env:
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ahmadi98ir/beewaz-web
-
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: write
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build and push Docker image
+      - name: Build Docker image
         uses: docker/build-push-action@v5
         with:
           context: .
           file: ./Dockerfile.ci
-          push: true
-          tags: |
-            ghcr.io/ahmadi98ir/beewaz-web:latest
-            ghcr.io/ahmadi98ir/beewaz-web:${{ github.sha }}
+          push: false
+          load: true
+          tags: beewaz-web:latest
           build-args: |
             NEXT_PUBLIC_APP_URL=https://bz360.ir
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Deploy to Coolify (with DNS retry)
+      - name: Transfer image to server via SSH
+        env:
+          SSH_KEY: ${{ secrets.SERVER_SSH_KEY }}
         run: |
-          COOLIFY_URL="http://cool.rpim.ir"
-          COOLIFY_TOKEN="5|wmPEJblDJiNLZSTVjaWVkU8hplMJjunnQsG30tVw2b19f363"
+          echo "=== Setting up SSH key ==="
+          echo "$SSH_KEY" > /tmp/server_key
+          chmod 600 /tmp/server_key
+
+          echo "=== Piping Docker image to server ($(docker image inspect beewaz-web:latest --format='{{.Size}}' | numfmt --to=iec)) ==="
+          docker save beewaz-web:latest | gzip | \
+            ssh -i /tmp/server_key \
+                -o StrictHostKeyChecking=no \
+                -o ServerAliveInterval=30 \
+                -o ServerAliveCountMax=20 \
+                -o ConnectTimeout=30 \
+                -p 8443 \
+                root@78.157.51.14 \
+                "gunzip | docker load"
+          echo "=== Image transferred successfully! ==="
+
+      - name: Deploy container on server
+        env:
+          SSH_KEY: ${{ secrets.SERVER_SSH_KEY }}
+        run: |
+          echo "$SSH_KEY" > /tmp/server_key
+          chmod 600 /tmp/server_key
+
+          ssh -i /tmp/server_key \
+              -o StrictHostKeyChecking=no \
+              -o ConnectTimeout=30 \
+              -p 8443 \
+              root@78.157.51.14 << 'REMOTE_EOF'
+
           APP_UUID="jw4kpfn8utdybrmwkr80fm8f"
+          IMAGE="beewaz-web:latest"
+          NETWORK="coolify"
 
-          echo "=== Triggering deploy for docker-image app ==="
-          for attempt in 1 2 3 4 5; do
-            echo "Attempt $attempt/5..."
-            RESPONSE=$(curl -s -w "\n%{http_code}" -X GET \
-              "$COOLIFY_URL/api/v1/deploy?uuid=$APP_UUID&force=false" \
-              -H "Authorization: Bearer $COOLIFY_TOKEN" \
-              -H "Accept: application/json" \
-              --max-time 30 2>&1)
+          echo "=== Stopping existing container ==="
+          docker stop "$APP_UUID" 2>/dev/null || true
+          docker rm "$APP_UUID" 2>/dev/null || true
 
-            HTTP_CODE=$(echo "$RESPONSE" | tail -1)
-            BODY=$(echo "$RESPONSE" | head -1)
-            echo "HTTP $HTTP_CODE: $BODY"
+          echo "=== Starting new container ==="
+          docker run -d \
+            --name "$APP_UUID" \
+            --network "$NETWORK" \
+            --restart unless-stopped \
+            --pull=never \
+            -e NODE_ENV=production \
+            -e NEXT_TELEMETRY_DISABLED=1 \
+            -e AUTH_TRUST_HOST=1 \
+            -e NEXT_PUBLIC_APP_URL=https://bz360.ir \
+            -e NEXTAUTH_URL=https://bz360.ir \
+            -e AUTH_SECRET=5vjMEFsjPfvqqv8305UAgYrmainnBzaSCrReqMIOKFs= \
+            -e DATABASE_URL="postgres://postgres:mtaaBCMdq1yyV48K1b9N7bQr2HBgL0QPgLzXQ5JKKq2dHpzUF8CenMifnYGcfama@j1jerkqljysca3o9y3rdxojf:5432/postgres" \
+            -e ADMIN_PHONE=09102413207 \
+            -e ADMIN_PASSWORD=Beewaz1403Admin \
+            -e "ADMIN_NAME=مدیر سیستم" \
+            -l "traefik.enable=true" \
+            -l "traefik.http.middlewares.gzip.compress=true" \
+            -l "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https" \
+            -l "traefik.http.routers.http-0-${APP_UUID}.entryPoints=http" \
+            -l "traefik.http.routers.http-0-${APP_UUID}.middlewares=redirect-to-https" \
+            -l "traefik.http.routers.http-0-${APP_UUID}.rule=Host(\`bz360.ir\`) && PathPrefix(\`/\`)" \
+            -l "traefik.http.routers.http-0-${APP_UUID}.service=http-0-${APP_UUID}" \
+            -l "traefik.http.routers.https-0-${APP_UUID}.entryPoints=https" \
+            -l "traefik.http.routers.https-0-${APP_UUID}.middlewares=gzip" \
+            -l "traefik.http.routers.https-0-${APP_UUID}.rule=Host(\`bz360.ir\`) && PathPrefix(\`/\`)" \
+            -l "traefik.http.routers.https-0-${APP_UUID}.service=https-0-${APP_UUID}" \
+            -l "traefik.http.routers.https-0-${APP_UUID}.tls.certresolver=letsencrypt" \
+            -l "traefik.http.routers.https-0-${APP_UUID}.tls=true" \
+            -l "traefik.http.services.http-0-${APP_UUID}.loadbalancer.server.port=3000" \
+            -l "traefik.http.services.https-0-${APP_UUID}.loadbalancer.server.port=3000" \
+            "$IMAGE"
 
-            if [ "$HTTP_CODE" = "200" ]; then
-              DEP_UUID=$(echo "$BODY" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['deployments'][0].get('deployment_uuid',''))" 2>/dev/null)
-              echo "Deploy queued: $DEP_UUID"
+          echo "=== Container started! ==="
+          docker ps --filter "name=${APP_UUID}" --format "table {{.ID}}\t{{.Status}}\t{{.Ports}}"
 
-              # Wait for result
-              for poll in $(seq 1 20); do
-                sleep 15
-                STATUS=$(curl -s "$COOLIFY_URL/api/v1/deployments/$DEP_UUID" \
-                  -H "Authorization: Bearer $COOLIFY_TOKEN" | \
-                  python3 -c "import sys,json; print(json.load(sys.stdin).get('status',''))" 2>/dev/null)
-                echo "  Poll $poll: $STATUS"
-                if [ "$STATUS" = "finished" ]; then
-                  echo "=== DEPLOYED SUCCESSFULLY ==="
-                  exit 0
-                elif [ "$STATUS" = "failed" ] || [ "$STATUS" = "error" ]; then
-                  echo "Deploy attempt $attempt failed. Waiting 60s before retry..."
-                  sleep 60
-                  break
-                fi
-              done
-            else
-              echo "Deploy API returned $HTTP_CODE, waiting 60s..."
-              sleep 60
-            fi
-          done
-          echo "All deploy attempts failed — DNS may be blocked. Image is built at ghcr.io/ahmadi98ir/beewaz-web:latest"
-          echo "Re-run this workflow when DNS is available."
-          exit 0
+          echo "=== Waiting for health check (30s) ==="
+          sleep 30
+          STATUS=$(docker inspect "$APP_UUID" --format='{{.State.Status}}' 2>/dev/null)
+          echo "Container status: $STATUS"
+
+          if [ "$STATUS" = "running" ]; then
+            echo "=== DEPLOYMENT SUCCESSFUL! ==="
+          else
+            echo "=== WARNING: Container not running, checking logs ==="
+            docker logs "$APP_UUID" --tail=50 2>&1
+          fi
+          REMOTE_EOF
