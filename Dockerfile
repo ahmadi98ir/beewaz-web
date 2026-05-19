@@ -3,7 +3,20 @@ FROM docker.arvancloud.ir/library/node:22-alpine AS deps
 WORKDIR /app
 RUN apk add --no-cache libc6-compat
 COPY package*.json ./
-RUN npm config set registry https://registry.npmjs.org/  && (npm ci --include=dev     || (echo "retry 1..." && sleep 30 && npm ci --include=dev)     || (echo "retry 2 via mirror..." && sleep 60         && npm config set registry https://registry.npmmirror.com/         && npm ci --include=dev))
+RUN echo "nameserver 178.22.122.100" > /etc/resolv.conf \
+    && echo "nameserver 185.51.200.2" >> /etc/resolv.conf \
+    && npm config set registry https://registry.npmjs.org/ \
+    && npm config set fetch-timeout 300000 \
+    && npm config set fetch-retry-mintimeout 20000 \
+    && npm config set fetch-retry-maxtimeout 120000 \
+    && npm config set fetch-retries 5 \
+    && (npm ci --include=dev \
+        || (echo "retry 1 with npmmirror..." && sleep 15 \
+            && npm config set registry https://registry.npmmirror.com/ \
+            && npm ci --include=dev) \
+        || (echo "retry 2 via npm install..." && sleep 15 \
+            && npm config set registry https://registry.npmmirror.com/ \
+            && npm install --include=dev))
 
 # Stage 2: Builder
 FROM docker.arvancloud.ir/library/node:22-alpine AS builder
