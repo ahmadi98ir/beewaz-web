@@ -1,8 +1,10 @@
 'use client'
 
+import type { ReactNode } from 'react'
+
 import { useEffect, useRef } from 'react'
 
-function AnimateIn({ children, delay = 0 }: { children: React.ReactNode; delay?: number }) {
+function AnimateIn({ children, delay = 0 }: { children: ReactNode; delay?: number }) {
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
     const el = ref.current
