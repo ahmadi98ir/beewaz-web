@@ -1,0 +1,51 @@
+name: Build & Deploy to Coolify
+
+on:
+  push:
+    branches: [main]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ahmadi98ir/beewaz-web
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile.ci
+          push: true
+          tags: |
+            ghcr.io/ahmadi98ir/beewaz-web:latest
+            ghcr.io/ahmadi98ir/beewaz-web:${{ github.sha }}
+          build-args: |
+            NEXT_PUBLIC_APP_URL=https://bz360.ir
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Trigger Coolify Deploy
+        run: |
+          curl -s -X GET \
+            "http://cool.rpim.ir/api/v1/deploy?uuid=ai1rr235nbzmyyvd6nuxaynd&force=false" \
+            -H "Authorization: Bearer 5|wmPEJblDJiNLZSTVjaWVkU8hplMJjunnQsG30tVw2b19f363" \
+            && echo "Deploy triggered successfully"
