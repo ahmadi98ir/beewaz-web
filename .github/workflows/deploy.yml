@@ -31,39 +31,42 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Setup SSH key
+      - name: Debug SSH connectivity
         env:
           SSH_KEY_B64: ${{ secrets.SERVER_SSH_KEY_B64 }}
         run: |
           mkdir -p ~/.ssh
           echo "$SSH_KEY_B64" | base64 -d > ~/.ssh/server_key
           chmod 600 ~/.ssh/server_key
-          echo "Key size: $(wc -c < ~/.ssh/server_key) bytes"
-          head -1 ~/.ssh/server_key
 
-          echo "=== Testing SSH ==="
-          ssh -i ~/.ssh/server_key \
+          echo "Key first line: $(head -1 ~/.ssh/server_key)"
+          echo "Key size: $(wc -c < ~/.ssh/server_key) bytes"
+          echo "Key lines: $(wc -l < ~/.ssh/server_key)"
+
+          echo "=== TCP connectivity to 78.157.51.14:8443 ==="
+          timeout 10 bash -c 'cat < /dev/null > /dev/tcp/78.157.51.14/8443' 2>&1 && echo "TCP: OPEN" || echo "TCP: FAILED (exit $?)"
+
+          echo "=== nc test ==="
+          nc -zv -w 10 78.157.51.14 8443 2>&1 || echo "nc failed: $?"
+
+          echo "=== SSH verbose test ==="
+          ssh -v -i ~/.ssh/server_key \
               -o StrictHostKeyChecking=no \
-              -o ConnectTimeout=20 \
+              -o ConnectTimeout=15 \
               -o BatchMode=yes \
               -p 8443 root@78.157.51.14 \
-              "echo SSH_OK && docker images --format '{{.Repository}}:{{.Tag}}' | grep beewaz | head -5" 2>&1
+              "echo SSH_CONNECTED" 2>&1 || echo "SSH exit: $?"
 
       - name: Transfer image to server via SSH pipe
         run: |
-          IMAGE_SIZE=$(docker image inspect beewaz-web:latest --format='{{.Size}}' 2>/dev/null || echo 0)
-          echo "=== Image size: $(numfmt --to=iec $IMAGE_SIZE 2>/dev/null || echo $IMAGE_SIZE bytes) ==="
-
           docker save beewaz-web:latest | gzip | \
             ssh -i ~/.ssh/server_key \
                 -o StrictHostKeyChecking=no \
                 -o ServerAliveInterval=20 \
                 -o ServerAliveCountMax=30 \
                 -o ConnectTimeout=30 \
-                -p 8443 \
-                root@78.157.51.14 \
+                -p 8443 root@78.157.51.14 \
                 "gunzip | docker load" 2>&1
-
           echo "Transfer exit: $?"
 
       - name: Start container on server
@@ -74,25 +77,15 @@ jobs:
               -p 8443 root@78.157.51.14 'bash -s' << 'REMOTE'
           set -e
           APP="jw4kpfn8utdybrmwkr80fm8f"
-
-          echo "=== Stopping old container ==="
           docker stop "$APP" 2>/dev/null || true
           docker rm   "$APP" 2>/dev/null || true
-
-          echo "=== Starting beewaz-web ==="
           docker run -d \
-            --name "$APP" \
-            --network coolify \
-            --restart unless-stopped \
-            -e NODE_ENV=production \
-            -e NEXT_TELEMETRY_DISABLED=1 \
-            -e AUTH_TRUST_HOST=1 \
-            -e NEXT_PUBLIC_APP_URL=https://bz360.ir \
-            -e NEXTAUTH_URL=https://bz360.ir \
+            --name "$APP" --network coolify --restart unless-stopped \
+            -e NODE_ENV=production -e NEXT_TELEMETRY_DISABLED=1 -e AUTH_TRUST_HOST=1 \
+            -e NEXT_PUBLIC_APP_URL=https://bz360.ir -e NEXTAUTH_URL=https://bz360.ir \
             -e AUTH_SECRET=5vjMEFsjPfvqqv8305UAgYrmainnBzaSCrReqMIOKFs= \
             -e "DATABASE_URL=postgres://postgres:mtaaBCMdq1yyV48K1b9N7bQr2HBgL0QPgLzXQ5JKKq2dHpzUF8CenMifnYGcfama@j1jerkqljysca3o9y3rdxojf:5432/postgres" \
-            -e ADMIN_PHONE=09102413207 \
-            -e ADMIN_PASSWORD=Beewaz1403Admin \
+            -e ADMIN_PHONE=09102413207 -e ADMIN_PASSWORD=Beewaz1403Admin \
             -e "ADMIN_NAME=مدیر سیستم" \
             -l "traefik.enable=true" \
             -l "traefik.http.middlewares.gzip.compress=true" \
@@ -110,9 +103,7 @@ jobs:
             -l "traefik.http.services.http-0-${APP}.loadbalancer.server.port=3000" \
             -l "traefik.http.services.https-0-${APP}.loadbalancer.server.port=3000" \
             beewaz-web:latest
-
           sleep 20
-          STATUS=$(docker inspect "$APP" --format='{{.State.Status}}' 2>/dev/null)
-          echo "Container: $STATUS"
-          docker logs "$APP" --tail=30 2>&1
+          docker inspect "$APP" --format='Status: {{.State.Status}}'
+          docker logs "$APP" --tail=20 2>&1
           REMOTE
