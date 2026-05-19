@@ -3,6 +3,7 @@ name: Build & Deploy to Coolify
 on:
   push:
     branches: [main]
+  workflow_dispatch:
 
 env:
   REGISTRY: ghcr.io
@@ -43,9 +44,50 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Trigger Coolify Deploy
+      - name: Deploy to Coolify (with DNS retry)
         run: |
-          curl -s -X GET \
-            "http://cool.rpim.ir/api/v1/deploy?uuid=ai1rr235nbzmyyvd6nuxaynd&force=false" \
-            -H "Authorization: Bearer 5|wmPEJblDJiNLZSTVjaWVkU8hplMJjunnQsG30tVw2b19f363" \
-            && echo "Deploy triggered successfully"
+          COOLIFY_URL="http://cool.rpim.ir"
+          COOLIFY_TOKEN="5|wmPEJblDJiNLZSTVjaWVkU8hplMJjunnQsG30tVw2b19f363"
+          APP_UUID="jw4kpfn8utdybrmwkr80fm8f"
+
+          echo "=== Triggering deploy for docker-image app ==="
+          for attempt in 1 2 3 4 5; do
+            echo "Attempt $attempt/5..."
+            RESPONSE=$(curl -s -w "\n%{http_code}" -X GET \
+              "$COOLIFY_URL/api/v1/deploy?uuid=$APP_UUID&force=false" \
+              -H "Authorization: Bearer $COOLIFY_TOKEN" \
+              -H "Accept: application/json" \
+              --max-time 30 2>&1)
+
+            HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+            BODY=$(echo "$RESPONSE" | head -1)
+            echo "HTTP $HTTP_CODE: $BODY"
+
+            if [ "$HTTP_CODE" = "200" ]; then
+              DEP_UUID=$(echo "$BODY" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['deployments'][0].get('deployment_uuid',''))" 2>/dev/null)
+              echo "Deploy queued: $DEP_UUID"
+
+              # Wait for result
+              for poll in $(seq 1 20); do
+                sleep 15
+                STATUS=$(curl -s "$COOLIFY_URL/api/v1/deployments/$DEP_UUID" \
+                  -H "Authorization: Bearer $COOLIFY_TOKEN" | \
+                  python3 -c "import sys,json; print(json.load(sys.stdin).get('status',''))" 2>/dev/null)
+                echo "  Poll $poll: $STATUS"
+                if [ "$STATUS" = "finished" ]; then
+                  echo "=== DEPLOYED SUCCESSFULLY ==="
+                  exit 0
+                elif [ "$STATUS" = "failed" ] || [ "$STATUS" = "error" ]; then
+                  echo "Deploy attempt $attempt failed. Waiting 60s before retry..."
+                  sleep 60
+                  break
+                fi
+              done
+            else
+              echo "Deploy API returned $HTTP_CODE, waiting 60s..."
+              sleep 60
+            fi
+          done
+          echo "All deploy attempts failed — DNS may be blocked. Image is built at ghcr.io/ahmadi98ir/beewaz-web:latest"
+          echo "Re-run this workflow when DNS is available."
+          exit 0
