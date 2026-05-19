@@ -1,13 +1,13 @@
 import Link from 'next/link'
 import { db } from '@/lib/db'
 import { products, categories, productImages } from '@/lib/db/schema'
-import { eq, asc, desc } from 'drizzle-orm'
+import { eq, desc } from 'drizzle-orm'
 import { formatPrice } from '@/lib/utils'
 
 export async function FeaturedProducts() {
   let items: {
     id: string
-    name: string
+    nameFa: string
     slug: string
     price: number
     comparePrice: number | null
@@ -19,7 +19,7 @@ export async function FeaturedProducts() {
     const rows = await db
       .select({
         id: products.id,
-        name: products.name,
+        nameFa: products.nameFa,
         slug: products.slug,
         price: products.price,
         comparePrice: products.comparePrice,
@@ -32,11 +32,10 @@ export async function FeaturedProducts() {
         productImages,
         eq(productImages.productId, products.id),
       )
-      .where(eq(products.status, 'published'))
+      .where(eq(products.status, 'active'))
       .orderBy(desc(products.createdAt))
       .limit(8)
 
-    // حذف تکراری (به‌خاطر join تصویر)
     const seen = new Set<string>()
     for (const row of rows) {
       if (!seen.has(row.id)) {
@@ -84,13 +83,12 @@ export async function FeaturedProducts() {
                 href={href}
                 className="group bg-white rounded-2xl border border-surface-100 overflow-hidden hover:shadow-md hover:border-brand-200 transition-all"
               >
-                {/* Image */}
                 <div className="relative aspect-square bg-surface-50 overflow-hidden">
                   {item.imageUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={item.imageUrl}
-                      alt={item.name}
+                      alt={item.nameFa}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     />
                   ) : (
@@ -105,10 +103,9 @@ export async function FeaturedProducts() {
                   )}
                 </div>
 
-                {/* Info */}
                 <div className="p-4">
                   <h3 className="text-sm font-semibold text-surface-800 line-clamp-2 mb-3 group-hover:text-brand-700 transition-colors leading-relaxed">
-                    {item.name}
+                    {item.nameFa}
                   </h3>
                   <div className="flex items-baseline gap-2">
                     <span className="font-black text-surface-900 text-base">
