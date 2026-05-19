@@ -534,6 +534,21 @@
   /* ── Mobile Cinematic Scroll ────────────────────────────── */
 
   /* Hide scrollbar utility */
+  
+  /* ── Hero scan line ───────────────────────── */
+  @keyframes scanLine {
+    0%   { top: -2px; opacity: 0; }
+    5%   { opacity: 1; }
+    95%  { opacity: 1; }
+    100% { top: 100vh; opacity: 0; }
+  }
+
+  /* ── Stats section ─────────────────────────── */
+  @keyframes countUp {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
   .scrollbar-hide {
     -ms-overflow-style: none;
     scrollbar-width: none;
