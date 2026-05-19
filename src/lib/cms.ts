@@ -64,4 +64,8 @@ export async function getCmsPages(
       }
     }
   } catch {
-    // si
+    // silent fail
+  }
+
+  return result
+}
