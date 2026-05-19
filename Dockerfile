@@ -1,6 +1,6 @@
 # ─── Stage 1: Dependencies ────────────────────────────────────────────────────
 # از ArvanCloud mirror استفاده می‌کنیم چون سرور داخل ایران است
-FROM node:22-alpine AS deps
+FROM public.ecr.aws/docker/library/node:22-alpine AS deps
 WORKDIR /app
 
 # Alpine mirror به ArvanCloud — دانلود سریع‌تر از داخل ایران
@@ -18,7 +18,7 @@ RUN npm config set registry https://registry.npmjs.org/ \
         && npm ci --include=dev))
 
 # ─── Stage 2: Builder ─────────────────────────────────────────────────────────
-FROM node:22-alpine AS builder
+FROM public.ecr.aws/docker/library/node:22-alpine AS builder
 WORKDIR /app
 
 COPY --from=deps /app/node_modules ./node_modules
@@ -32,7 +32,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
 
 # ─── Stage 3: Runner ──────────────────────────────────────────────────────────
-FROM node:22-alpine AS runner
+FROM public.ecr.aws/docker/library/node:22-alpine AS runner
 WORKDIR /app
 
 RUN apk upgrade --no-cache && apk add --no-cache su-exec
