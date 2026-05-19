@@ -5,64 +5,185 @@ import { useEffect, useRef } from 'react'
 const FEATURES = [
   {
     icon: (
-      <svg viewBox="0 0 24 24" fill="none" className="w-8 h-8">
-        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" fill="rgba(249,115,22,0.15)" stroke="#F97316" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-        <path d="M9 12l2 2 4-4" stroke="#F97316" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+      <svg viewBox="0 0 24 24" fill="none" style={{ width: 32, height: 32 }}>
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"
+          fill="rgba(249,115,22,0.12)" stroke="#F97316" strokeWidth="1.8"
+          strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M9 12l2 2 4-4" stroke="#F97316" strokeWidth="2"
+          strokeLinecap="round" strokeLinejoin="round"/>
       </svg>
     ),
     title: 'محافظت ۲۴ ساعته',
     desc: 'سیستم‌های بیواز هرگز نمی‌خوابند. شبانه‌روز از امنیت اماکن شما حراست می‌کنیم — بدون هیچ وقفه‌ای.',
+    color: '#F97316',
   },
   {
     icon: (
-      <svg viewBox="0 0 24 24" fill="none" className="w-8 h-8">
-        <rect x="5" y="2" width="14" height="20" rx="3" fill="rgba(249,115,22,0.1)" stroke="#F97316" strokeWidth="1.8"/>
-        <circle cx="12" cy="17" r="1.2" fill="#F97316"/>
-        <path d="M9 6h6M9 9h4" stroke="#F97316" strokeWidth="1.5" strokeLinecap="round"/>
+      <svg viewBox="0 0 24 24" fill="none" style={{ width: 32, height: 32 }}>
+        <rect x="5" y="2" width="14" height="20" rx="2" ry="2"
+          fill="rgba(96,128,250,0.12)" stroke="#6080FA" strokeWidth="1.8"/>
+        <path d="M12 18h.01M8.5 7h7M8.5 11h4" stroke="#6080FA" strokeWidth="2"
+          strokeLinecap="round"/>
       </svg>
     ),
     title: 'کنترل از راه دور',
-    desc: 'با اپلیکیشن هوشمند بیواز، از هر نقطه‌ای سیستم امنیتی خود را کنترل کنید. آرم کردن، غیرفعال کردن، گزارش لحظه‌ای.',
+    desc: 'با اپلیکیشن موبایل بیواز، وضعیت سیستم امنیتی خود را از هر کجای دنیا کنترل کنید.',
+    color: '#6080FA',
   },
   {
     icon: (
-      <svg viewBox="0 0 24 24" fill="none" className="w-8 h-8">
-        <circle cx="12" cy="12" r="9" fill="rgba(249,115,22,0.1)" stroke="#F97316" strokeWidth="1.8"/>
-        <path d="M12 7v5l3 3" stroke="#F97316" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+      <svg viewBox="0 0 24 24" fill="none" style={{ width: 32, height: 32 }}>
+        <circle cx="12" cy="12" r="10"
+          fill="rgba(16,185,129,0.1)" stroke="#10B981" strokeWidth="1.8"/>
+        <path d="M12 6v6l4 2" stroke="#10B981" strokeWidth="2"
+          strokeLinecap="round" strokeLinejoin="round"/>
       </svg>
     ),
     title: 'نصب سریع و تخصصی',
-    desc: 'تیم متخصص ما در کمترین زمان ممکن سیستم را نصب و راه‌اندازی می‌کند. نصب رایگان در سرتاسر ایران.',
+    desc: 'تیم متخصص ما در کمتر از ۲ ساعت سیستم امنیتی را نصب، راه‌اندازی و آزمایش می‌کند.',
+    color: '#10B981',
   },
   {
     icon: (
-      <svg viewBox="0 0 24 24" fill="none" className="w-8 h-8">
-        <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9" fill="rgba(249,115,22,0.1)" stroke="#F97316" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-        <path d="M13.73 21a2 2 0 01-3.46 0" stroke="#F97316" strokeWidth="1.8" strokeLinecap="round"/>
+      <svg viewBox="0 0 24 24" fill="none" style={{ width: 32, height: 32 }}>
+        <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0"
+          fill="rgba(251,146,60,0.12)" stroke="#FB923C" strokeWidth="1.8"
+          strokeLinecap="round" strokeLinejoin="round"/>
       </svg>
     ),
     title: 'هشدار آنی و فوری',
-    desc: 'به محض تشخیص تهدید، فوری پیامک و اعلان دریافت می‌کنید. سیستم بیواز ثانیه‌شمار واکنش نشان می‌دهد.',
+    desc: 'در کمتر از ۳ ثانیه از هر رویداد امنیتی باخبر می‌شوید — پیامک، اپلیکیشن، و تماس خودکار.',
+    color: '#FB923C',
   },
   {
     icon: (
-      <svg viewBox="0 0 24 24" fill="none" className="w-8 h-8">
-        <path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z" fill="rgba(249,115,22,0.1)" stroke="#F97316" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+      <svg viewBox="0 0 24 24" fill="none" style={{ width: 32, height: 32 }}>
+        <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 002 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"
+          fill="rgba(167,139,250,0.12)" stroke="#A78BFA" strokeWidth="1.8"/>
+        <path d="M16 10l-4 4-4-4" stroke="#A78BFA" strokeWidth="2"
+          strokeLinecap="round" strokeLinejoin="round"/>
       </svg>
     ),
     title: 'پشتیبانی ۲۴/۷',
-    desc: 'تیم پشتیبانی ما همواره آماده پاسخگویی و رفع مشکلات شماست. هیچ سوالی بی‌پاسخ نمی‌ماند.',
+    desc: 'تیم پشتیبانی بیواز در تمام ساعات شبانه‌روز، حتی در تعطیلات رسمی، آماده پاسخگویی است.',
+    color: '#A78BFA',
   },
   {
     icon: (
-      <svg viewBox="0 0 24 24" fill="none" className="w-8 h-8">
-        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" fill="rgba(249,115,22,0.12)" stroke="#F97316" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+      <svg viewBox="0 0 24 24" fill="none" style={{ width: 32, height: 32 }}>
+        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+          fill="rgba(251,191,36,0.12)" stroke="#FBBF24" strokeWidth="1.8"
+          strokeLinejoin="round"/>
       </svg>
     ),
     title: 'گارانتی ۱۸ ماهه',
-    desc: 'تمام محصولات بیواز با گارانتی تعویض ۱۸ ماهه عرضه می‌شوند. خرید با خیالی آسوده.',
+    desc: 'تمام محصولات بیواز با گارانتی رسمی ۱۸ ماهه و خدمات پس از فروش معتبر ارائه می‌شوند.',
+    color: '#FBBF24',
   },
 ]
+
+function FeatureCard({ feature, index }: { feature: typeof FEATURES[0]; index: number }) {
+  const cardRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const card = cardRef.current
+    if (!card) return
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const rect = card.getBoundingClientRect()
+      const x = e.clientX - rect.left
+      const y = e.clientY - rect.top
+      const cx = rect.width / 2
+      const cy = rect.height / 2
+      const rotX = ((y - cy) / cy) * -8
+      const rotY = ((x - cx) / cx) * 8
+      card.style.transform = `perspective(800px) rotateX(${rotX}deg) rotateY(${rotY}deg) translateY(-6px)`
+    }
+    const handleMouseLeave = () => {
+      card.style.transform = 'perspective(800px) rotateX(0deg) rotateY(0deg) translateY(0px)'
+    }
+
+    card.addEventListener('mousemove', handleMouseMove)
+    card.addEventListener('mouseleave', handleMouseLeave)
+    return () => {
+      card.removeEventListener('mousemove', handleMouseMove)
+      card.removeEventListener('mouseleave', handleMouseLeave)
+    }
+  }, [])
+
+  return (
+    <div
+      ref={cardRef}
+      style={{
+        background: 'rgba(255,255,255,0.03)',
+        border: `1px solid rgba(255,255,255,0.07)`,
+        borderRadius: 20,
+        padding: '2rem 1.75rem',
+        position: 'relative',
+        overflow: 'hidden',
+        cursor: 'default',
+        transition: 'transform 0.15s ease, box-shadow 0.3s ease, border-color 0.3s ease',
+        willChange: 'transform',
+        animationDelay: `${index * 0.1}s`,
+      }}
+      onMouseEnter={e => {
+        const el = e.currentTarget
+        el.style.borderColor = `${feature.color}40`
+        el.style.boxShadow = `0 20px 60px rgba(0,0,0,0.4), 0 0 0 1px ${feature.color}20, inset 0 1px 0 rgba(255,255,255,0.08)`
+      }}
+      onMouseLeave={e => {
+        const el = e.currentTarget
+        el.style.borderColor = 'rgba(255,255,255,0.07)'
+        el.style.boxShadow = 'none'
+      }}
+    >
+      {/* Top glow line */}
+      <div style={{
+        position: 'absolute', top: 0, left: '10%', right: '10%', height: 1,
+        background: `linear-gradient(90deg, transparent, ${feature.color}60, transparent)`,
+        transition: 'opacity 0.3s ease',
+      }} />
+
+      {/* Icon container */}
+      <div style={{
+        width: 64, height: 64,
+        borderRadius: 16,
+        background: `linear-gradient(135deg, ${feature.color}15, ${feature.color}05)`,
+        border: `1px solid ${feature.color}25`,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        marginBottom: '1.25rem',
+        transition: 'transform 0.3s ease, box-shadow 0.3s ease',
+      }}>
+        {feature.icon}
+      </div>
+
+      <h3 style={{
+        color: '#FFFFFF',
+        fontSize: '1.1rem', fontWeight: 700,
+        marginBottom: '0.6rem',
+        margin: '0 0 0.6rem',
+      }}>
+        {feature.title}
+      </h3>
+      <p style={{
+        color: 'rgba(255,255,255,0.55)',
+        fontSize: '0.9rem', lineHeight: 1.8,
+        margin: 0,
+      }}>
+        {feature.desc}
+      </p>
+
+      {/* Bottom right accent */}
+      <div style={{
+        position: 'absolute', bottom: -20, insetInlineEnd: -20,
+        width: 80, height: 80,
+        borderRadius: '50%',
+        background: `radial-gradient(circle, ${feature.color}08, transparent 70%)`,
+        pointerEvents: 'none',
+      }} />
+    </div>
+  )
+}
 
 function AnimateIn({ children, delay = 0 }: { children: React.ReactNode; delay?: number }) {
   const ref = useRef<HTMLDivElement>(null)
@@ -70,19 +191,21 @@ function AnimateIn({ children, delay = 0 }: { children: React.ReactNode; delay?:
     const el = ref.current
     if (!el) return
     const obs = new IntersectionObserver(([e]) => {
-      if (e?.isIntersecting) {
-        setTimeout(() => {
-          el.style.opacity = '1'
-          el.style.transform = 'translateY(0) scale(1)'
-        }, delay)
+      if (e.isIntersecting) {
+        el.style.opacity = '1'
+        el.style.transform = 'translateY(0) scale(1)'
         obs.disconnect()
       }
-    }, { threshold: 0.15 })
+    }, { threshold: 0.12 })
     obs.observe(el)
     return () => obs.disconnect()
-  }, [delay])
+  }, [])
   return (
-    <div ref={ref} style={{ opacity: 0, transform: 'translateY(32px) scale(0.97)', transition: 'opacity 0.6s cubic-bezier(0.16,1,0.3,1), transform 0.6s cubic-bezier(0.16,1,0.3,1)' }}>
+    <div ref={ref} style={{
+      opacity: 0,
+      transform: 'translateY(32px) scale(0.97)',
+      transition: `opacity 0.7s cubic-bezier(0.19,1,0.22,1) ${delay}ms, transform 0.7s cubic-bezier(0.19,1,0.22,1) ${delay}ms`,
+    }}>
       {children}
     </div>
   )
@@ -90,68 +213,90 @@ function AnimateIn({ children, delay = 0 }: { children: React.ReactNode; delay?:
 
 export function WhyBeewaz() {
   return (
-    <section style={{ background: 'linear-gradient(180deg, #060B1A 0%, #0A1028 50%, #060B1A 100%)', padding: '5rem 0 6rem' }}>
-      <div className="container-page">
+    <section
+      dir="rtl"
+      style={{
+        background: 'linear-gradient(180deg, #060B1A 0%, #080E22 50%, #060B1A 100%)',
+        padding: 'clamp(5rem,10vw,8rem) 1.25rem',
+        position: 'relative',
+        overflow: 'hidden',
+      }}
+    >
+      {/* Background decoration */}
+      <div style={{
+        position: 'absolute', top: '20%', left: '50%',
+        transform: 'translateX(-50%)',
+        width: '80vw', height: '60vh',
+        background: 'radial-gradient(ellipse, rgba(27,58,138,0.12) 0%, transparent 70%)',
+        pointerEvents: 'none',
+      }} />
+      <div style={{
+        position: 'absolute',
+        backgroundImage: `linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
+                          linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px)`,
+        backgroundSize: '50px 50px',
+        inset: 0,
+        pointerEvents: 'none',
+      }} />
 
-        {/* Header */}
-        <AnimateIn>
-          <div className="text-center mb-14">
-            <div className="orange-divider mx-auto mb-4" />
-            <span className="inline-block px-4 py-1.5 rounded-full text-xs font-bold mb-4"
-              style={{ background: 'rgba(249,115,22,0.1)', border: '1px solid rgba(249,115,22,0.25)', color: '#FB923C' }}>
+      <div style={{ maxWidth: 1200, marginInline: 'auto', position: 'relative', zIndex: 1 }}>
+        {/* Section header */}
+        <AnimateIn delay={0}>
+          <div style={{ textAlign: 'center', marginBottom: 'clamp(3rem,6vw,5rem)' }}>
+            <div style={{
+              display: 'inline-flex', alignItems: 'center', gap: '0.5rem',
+              background: 'rgba(249,115,22,0.1)',
+              border: '1px solid rgba(249,115,22,0.25)',
+              borderRadius: 99, padding: '0.4rem 1.2rem',
+              fontSize: '0.8125rem', fontWeight: 600,
+              color: '#FB923C',
+              marginBottom: '1.25rem',
+            }}>
+              <svg viewBox="0 0 16 16" fill="none" style={{ width: 14, height: 14 }}>
+                <path d="M8 1l2.06 4.18 4.61.67-3.34 3.25.79 4.6L8 11.25l-4.12 2.45.79-4.6L1.33 5.85l4.61-.67L8 1z"
+                  fill="#F97316"/>
+              </svg>
               چرا بیواز؟
-            </span>
-            <h2 className="font-black text-white mb-4" style={{ fontSize: 'clamp(1.875rem, 4vw, 2.75rem)' }}>
-              تکنولوژی محافظت،{' '}
-              <span style={{ background: 'linear-gradient(135deg, #FDE68A, #F97316)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
-                در خدمت آرامش شما
+            </div>
+            <h2 style={{
+              fontSize: 'clamp(2rem,5vw,3.2rem)',
+              fontWeight: 900, color: '#FFFFFF',
+              lineHeight: 1.25,
+              marginBottom: '1rem',
+              margin: '0 0 1rem',
+            }}>
+              ویژگی‌هایی که ما را
+              <span style={{
+                display: 'block',
+                background: 'linear-gradient(90deg, #FDE68A, #F97316, #EA580C)',
+                backgroundClip: 'text',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+              }}>
+                متمایز می‌کنند
               </span>
             </h2>
-            <p style={{ color: 'rgba(255,255,255,0.45)', maxWidth: '520px', margin: '0 auto', lineHeight: 1.8 }}>
-              بیواز با ترکیب تکنولوژی پیشرفته و تجربه ۱۰ ساله، بهترین راهکار امنیتی را برای خانه و کسب‌وکار شما فراهم می‌کند.
+            <p style={{
+              color: 'rgba(255,255,255,0.5)',
+              fontSize: '1.0625rem', lineHeight: 1.8,
+              maxWidth: 560, marginInline: 'auto',
+              margin: '0 auto',
+            }}>
+              بیواز با بیش از یک دهه تجربه در امنیت الکترونیک، راهکارهای هوشمند
+              محافظت از اماکن را با کیفیت بی‌نظیر ارائه می‌دهد
             </p>
           </div>
         </AnimateIn>
 
-        {/* Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+        {/* Feature grid */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%,320px), 1fr))',
+          gap: '1.25rem',
+        }}>
           {FEATURES.map((f, i) => (
             <AnimateIn key={i} delay={i * 90}>
-              <div
-                className="group relative p-7 rounded-2xl overflow-hidden transition-all duration-400 cursor-default"
-                style={{
-                  background: 'rgba(255,255,255,0.03)',
-                  border: '1px solid rgba(255,255,255,0.07)',
-                  backdropFilter: 'blur(8px)',
-                }}
-                onMouseEnter={e => {
-                  const el = e.currentTarget as HTMLDivElement
-                  el.style.background = 'rgba(249,115,22,0.07)'
-                  el.style.borderColor = 'rgba(249,115,22,0.28)'
-                  el.style.transform = 'translateY(-6px)'
-                  el.style.boxShadow = '0 20px 40px rgba(0,0,0,0.3), 0 0 20px rgba(249,115,22,0.08)'
-                }}
-                onMouseLeave={e => {
-                  const el = e.currentTarget as HTMLDivElement
-                  el.style.background = 'rgba(255,255,255,0.03)'
-                  el.style.borderColor = 'rgba(255,255,255,0.07)'
-                  el.style.transform = 'translateY(0)'
-                  el.style.boxShadow = 'none'
-                }}
-              >
-                {/* Top glow on hover */}
-                <div className="absolute top-0 left-0 right-0 h-px opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-                  style={{ background: 'linear-gradient(90deg, transparent, rgba(249,115,22,0.5), transparent)' }} />
-
-                {/* Icon */}
-                <div className="mb-5 inline-flex items-center justify-center w-14 h-14 rounded-xl"
-                  style={{ background: 'rgba(249,115,22,0.08)', border: '1px solid rgba(249,115,22,0.15)' }}>
-                  {f.icon}
-                </div>
-
-                <h3 className="font-bold text-white mb-3" style={{ fontSize: '1.1rem' }}>{f.title}</h3>
-                <p style={{ color: 'rgba(255,255,255,0.45)', lineHeight: 1.8, fontSize: '0.9rem' }}>{f.desc}</p>
-              </div>
+              <FeatureCard feature={f} index={i} />
             </AnimateIn>
           ))}
         </div>
