@@ -1,11 +1,10 @@
 # ─── Stage 1: Dependencies ────────────────────────────────────────────────────
 # از ArvanCloud mirror استفاده می‌کنیم چون سرور داخل ایران است
-FROM docker.arvancloud.ir/library/node:22-alpine AS deps
+FROM node:22-alpine AS deps
 WORKDIR /app
 
 # Alpine mirror به ArvanCloud — دانلود سریع‌تر از داخل ایران
-RUN sed -i 's|https://dl-cdn.alpinelinux.org|https://mirror.arvancloud.ir|g' /etc/apk/repositories \
- && apk add --no-cache libc6-compat
+RUN apk add --no-cache libc6-compat
 
 COPY package*.json ./
 
@@ -19,7 +18,7 @@ RUN npm config set registry https://registry.npmjs.org/ \
         && npm ci --include=dev))
 
 # ─── Stage 2: Builder ─────────────────────────────────────────────────────────
-FROM docker.arvancloud.ir/library/node:22-alpine AS builder
+FROM node:22-alpine AS builder
 WORKDIR /app
 
 COPY --from=deps /app/node_modules ./node_modules
@@ -33,12 +32,10 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
 
 # ─── Stage 3: Runner ──────────────────────────────────────────────────────────
-FROM docker.arvancloud.ir/library/node:22-alpine AS runner
+FROM node:22-alpine AS runner
 WORKDIR /app
 
-RUN sed -i 's|https://dl-cdn.alpinelinux.org|https://mirror.arvancloud.ir|g' /etc/apk/repositories \
- && apk upgrade --no-cache \
- && apk add --no-cache su-exec
+RUN apk upgrade --no-cache && apk add --no-cache su-exec
 
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
