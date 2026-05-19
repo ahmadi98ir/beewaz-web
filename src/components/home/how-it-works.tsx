@@ -1,191 +1,281 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import type { CmsContent } from '@/lib/cms'
-
-interface HowItWorksProps { cms?: CmsContent }
 
 const STEPS = [
   {
     num: '۱',
+    title: 'تماس و مشاوره رایگان',
+    desc: 'با کارشناس بیواز تماس بگیرید. نیازها، ابعاد محیط و بودجه شما را بررسی می‌کنیم.',
+    color: '#F97316',
     icon: (
-      <svg viewBox="0 0 24 24" fill="none" className="w-7 h-7">
-        <path d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
-          fill="rgba(249,115,22,0.15)" stroke="#F97316" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+      <svg viewBox="0 0 24 24" fill="none" style={{ width: 32, height: 32 }}>
+        <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 014.72 12 19.79 19.79 0 011.65 3.33 2 2 0 013.62 1.2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L7.91 8.85a16 16 0 006.29 6.29l.61-.61a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"
+          stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
       </svg>
     ),
-    title: 'تماس و مشاوره رایگان',
-    desc: 'با کارشناسان بیواز تماس بگیرید. ما نیازهای امنیتی منزل یا کسب‌وکار شما را بررسی کرده و بهترین راهکار را پیشنهاد می‌دهیم.',
   },
   {
     num: '۲',
+    title: 'بازدید و طراحی سیستم',
+    desc: 'کارشناس ما از محل بازدید می‌کند و بهترین پلن امنیتی را برای شما طراحی می‌نماید.',
+    color: '#6080FA',
     icon: (
-      <svg viewBox="0 0 24 24" fill="none" className="w-7 h-7">
-        <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
-          fill="rgba(249,115,22,0.15)" stroke="#F97316" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+      <svg viewBox="0 0 24 24" fill="none" style={{ width: 32, height: 32 }}>
+        <path d="M9 11l3 3L22 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"
+          stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
       </svg>
     ),
-    title: 'انتخاب و سفارش',
-    desc: 'پس از مشاوره، محصول مناسب را انتخاب کنید. سیستم BH10 برای خانه و BH11 برای کسب‌وکارهای بزرگ‌تر ایده‌آل است.',
   },
   {
     num: '۳',
+    title: 'نصب حرفه‌ای در ۲ ساعت',
+    desc: 'تیم نصب متخصص بیواز در کمتر از ۲ ساعت سیستم را نصب، تنظیم و آزمایش می‌کند.',
+    color: '#10B981',
     icon: (
-      <svg viewBox="0 0 24 24" fill="none" className="w-7 h-7">
-        <path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
-          fill="rgba(249,115,22,0.15)" stroke="#F97316" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-        <circle cx="12" cy="12" r="3" fill="rgba(249,115,22,0.2)" stroke="#F97316" strokeWidth="1.8"/>
+      <svg viewBox="0 0 24 24" fill="none" style={{ width: 32, height: 32 }}>
+        <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="2"/>
+        <path d="M19.07 4.93l-1.41 1.41M5.34 18.66l-1.41 1.41M21 12h-2M5 12H3M19.07 19.07l-1.41-1.41M5.34 5.34L3.93 3.93M12 21v-2M12 5V3"
+          stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
       </svg>
     ),
-    title: 'نصب تخصصی رایگان',
-    desc: 'تیم فنی ما در کمترین زمان ممکن در محل شما حاضر شده و سیستم را به صورت کاملاً حرفه‌ای نصب و راه‌اندازی می‌کند.',
   },
   {
     num: '۴',
+    title: 'تحویل و پشتیبانی دائمی',
+    desc: 'سیستم تحویل داده می‌شود. آموزش اپلیکیشن، گارانتی ۱۸ ماهه و پشتیبانی ۲۴/۷.',
+    color: '#FBBF24',
     icon: (
-      <svg viewBox="0 0 24 24" fill="none" className="w-7 h-7">
+      <svg viewBox="0 0 24 24" fill="none" style={{ width: 32, height: 32 }}>
         <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"
-          fill="rgba(249,115,22,0.15)" stroke="#F97316" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-        <path d="M9 12l2 2 4-4" stroke="#F97316" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M9 12l2 2 4-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
       </svg>
     ),
-    title: 'محافظت دائمی',
-    desc: 'سیستم شما فعال است. هشدارهای لحظه‌ای، کنترل از راه دور، و پشتیبانی ۲۴/۷ — آرامش واقعی برای شما و خانواده‌تان.',
   },
 ]
 
-function AnimateIn({ children, delay = 0, direction = 'up' }: {
-  children: React.ReactNode; delay?: number; direction?: 'up' | 'left' | 'right'
-}) {
+function StepCard({ step, index, total }: { step: typeof STEPS[0]; index: number; total: number }) {
   const ref = useRef<HTMLDivElement>(null)
+
   useEffect(() => {
     const el = ref.current
     if (!el) return
-    const xMap = { up: 0, left: -24, right: 24 }
-    el.style.opacity = '0'
-    el.style.transform = `translateY(${direction === 'up' ? 28 : 0}px) translateX(${xMap[direction]}px)`
-    el.style.transition = 'opacity 0.65s cubic-bezier(0.16,1,0.3,1), transform 0.65s cubic-bezier(0.16,1,0.3,1)'
     const obs = new IntersectionObserver(([e]) => {
-      if (e?.isIntersecting) {
-        setTimeout(() => {
-          el.style.opacity = '1'
-          el.style.transform = 'translateY(0) translateX(0)'
-        }, delay)
+      if (e.isIntersecting) {
+        el.style.opacity = '1'
+        el.style.transform = 'translateY(0)'
         obs.disconnect()
       }
-    }, { threshold: 0.15 })
+    }, { threshold: 0.2 })
     obs.observe(el)
     return () => obs.disconnect()
-  }, [delay, direction])
-  return <div ref={ref}>{children}</div>
-}
-
-export function HowItWorks({ cms = {} }: HowItWorksProps) {
-  const title = cms.how_title ?? 'چطور کار می‌کند؟'
+  }, [])
 
   return (
-    <section className="relative py-20 sm:py-28 overflow-hidden"
-      style={{ background: 'linear-gradient(180deg, #060B1A 0%, #0A1428 60%, #060B1A 100%)' }}>
+    <div
+      ref={ref}
+      style={{
+        opacity: 0,
+        transform: 'translateY(40px)',
+        transition: `opacity 0.7s cubic-bezier(0.19,1,0.22,1) ${index * 150}ms,
+                     transform 0.7s cubic-bezier(0.19,1,0.22,1) ${index * 150}ms`,
+        position: 'relative',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        textAlign: 'center',
+        flex: 1,
+        minWidth: 0,
+      }}
+    >
+      {/* Connector line (desktop) */}
+      {index < total - 1 && (
+        <div style={{
+          position: 'absolute',
+          top: 36,
+          insetInlineEnd: '-50%',
+          width: '100%',
+          height: 1,
+          background: `linear-gradient(90deg, ${step.color}50, ${STEPS[index+1].color}50)`,
+          display: 'none',
+          zIndex: 0,
+        }}
+        className="step-connector"
+        />
+      )}
 
-      {/* Background glow */}
-      <div className="absolute inset-0 pointer-events-none" aria-hidden>
-        <div style={{ position: 'absolute', top: '40%', left: '50%', transform: 'translate(-50%,-50%)', width: '800px', height: '400px', background: 'radial-gradient(ellipse, rgba(27,58,138,0.15) 0%, transparent 70%)', filter: 'blur(50px)' }} />
+      {/* Step circle */}
+      <div style={{
+        position: 'relative', zIndex: 1,
+        width: 72, height: 72,
+        borderRadius: '50%',
+        background: `linear-gradient(135deg, ${step.color}20, ${step.color}08)`,
+        border: `2px solid ${step.color}50`,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        color: step.color,
+        marginBottom: '1.5rem',
+        boxShadow: `0 0 30px ${step.color}20, 0 0 60px ${step.color}08`,
+        transition: 'transform 0.3s ease, box-shadow 0.3s ease',
+      }}
+      onMouseEnter={e => {
+        const el = e.currentTarget as HTMLDivElement
+        el.style.transform = 'scale(1.1)'
+        el.style.boxShadow = `0 0 40px ${step.color}40, 0 0 80px ${step.color}15`
+      }}
+      onMouseLeave={e => {
+        const el = e.currentTarget as HTMLDivElement
+        el.style.transform = 'scale(1)'
+        el.style.boxShadow = `0 0 30px ${step.color}20, 0 0 60px ${step.color}08`
+      }}
+      >
+        {step.icon}
+        {/* Step number badge */}
+        <div style={{
+          position: 'absolute',
+          top: -8, insetInlineStart: -8,
+          width: 24, height: 24,
+          borderRadius: '50%',
+          background: step.color,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: '0.7rem', fontWeight: 800, color: '#fff',
+          boxShadow: `0 2px 8px ${step.color}60`,
+        }}>
+          {step.num}
+        </div>
       </div>
 
-      <div className="container-page relative z-10">
+      <h3 style={{
+        color: '#FFFFFF',
+        fontSize: '1rem', fontWeight: 700,
+        marginBottom: '0.6rem', margin: '0 0 0.6rem',
+        lineHeight: 1.4,
+      }}>
+        {step.title}
+      </h3>
+      <p style={{
+        color: 'rgba(255,255,255,0.5)',
+        fontSize: '0.875rem', lineHeight: 1.7,
+        margin: 0,
+        maxWidth: 220,
+      }}>
+        {step.desc}
+      </p>
+    </div>
+  )
+}
 
+export function HowItWorks() {
+  return (
+    <section
+      dir="rtl"
+      style={{
+        background: 'linear-gradient(180deg, #060B1A 0%, #090F24 50%, #060B1A 100%)',
+        padding: 'clamp(5rem,10vw,8rem) 1.25rem',
+        position: 'relative',
+        overflow: 'hidden',
+      }}
+    >
+      {/* bg deco */}
+      <div style={{
+        position: 'absolute', bottom: 0, left: '50%',
+        transform: 'translateX(-50%)',
+        width: '100vw', height: '50%',
+        background: 'radial-gradient(ellipse, rgba(27,58,138,0.1) 0%, transparent 65%)',
+        pointerEvents: 'none',
+      }} />
+
+      <div style={{ maxWidth: 1100, marginInline: 'auto', position: 'relative', zIndex: 1 }}>
         {/* Header */}
-        <AnimateIn>
-          <div className="text-center mb-16">
-            <div className="orange-divider mx-auto mb-4" />
-            <span className="inline-block px-4 py-1.5 rounded-full text-xs font-bold mb-4"
-              style={{ background: 'rgba(249,115,22,0.1)', border: '1px solid rgba(249,115,22,0.25)', color: '#FB923C' }}>
-              فرآیند خرید و نصب
+        <div style={{ textAlign: 'center', marginBottom: 'clamp(3rem,6vw,5rem)' }}>
+          <div style={{
+            display: 'inline-flex', alignItems: 'center', gap: '0.5rem',
+            background: 'rgba(96,128,250,0.1)',
+            border: '1px solid rgba(96,128,250,0.25)',
+            borderRadius: 99, padding: '0.4rem 1.2rem',
+            fontSize: '0.8125rem', fontWeight: 600,
+            color: '#93AAFD',
+            marginBottom: '1.25rem',
+          }}>
+            فرآیند کار
+          </div>
+          <h2 style={{
+            fontSize: 'clamp(1.75rem,4.5vw,3rem)',
+            fontWeight: 900, color: '#FFFFFF',
+            margin: '0 0 1rem',
+          }}>
+            از تماس تا{' '}
+            <span style={{
+              background: 'linear-gradient(90deg, #6080FA, #A78BFA)',
+              backgroundClip: 'text',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+            }}>
+              امنیت کامل
             </span>
-            <h2 className="font-black text-white mb-3" style={{ fontSize: 'clamp(1.875rem,4vw,2.75rem)' }}>
-              {title.split('؟')[0]}{' '}
-              <span style={{ background: 'linear-gradient(135deg,#FDE68A,#F97316)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
-                ؟
-              </span>
-            </h2>
-            <p style={{ color: 'rgba(255,255,255,0.4)', lineHeight: 1.8, maxWidth: '480px', margin: '0 auto' }}>
-              از تماس اول تا محافظت کامل — در ۴ گام ساده
-            </p>
-          </div>
-        </AnimateIn>
-
-        {/* Desktop: horizontal steps with connecting line */}
-        <div className="hidden md:block">
-          <div className="relative">
-            {/* Connecting line */}
-            <div className="absolute top-[2.6rem] right-[12.5%] left-[12.5%] h-px"
-              style={{ background: 'linear-gradient(90deg, rgba(249,115,22,0.5), rgba(27,58,138,0.3), rgba(249,115,22,0.5)' }} />
-
-            <div className="grid grid-cols-4 gap-6">
-              {STEPS.map((step, i) => (
-                <AnimateIn key={i} delay={i * 130} direction="up">
-                  <div className="relative flex flex-col items-center text-center group">
-
-                    {/* Step number circle */}
-                    <div className="relative mb-6 w-[5.2rem] h-[5.2rem] rounded-full flex flex-col items-center justify-center transition-all duration-400 group-hover:scale-110"
-                      style={{
-                        background: 'linear-gradient(135deg, rgba(249,115,22,0.15), rgba(27,58,138,0.2))',
-                        border: '2px solid rgba(249,115,22,0.3)',
-                        boxShadow: '0 0 20px rgba(249,115,22,0.1)',
-                      }}>
-                      {step.icon}
-                      <div className="absolute -top-2 -right-2 w-6 h-6 rounded-full flex items-center justify-center text-xs font-black"
-                        style={{ background: '#F97316', color: 'white' }}>
-                        {step.num}
-                      </div>
-                    </div>
-
-                    <h3 className="font-bold text-white mb-2" style={{ fontSize: '1rem' }}>{step.title}</h3>
-                    <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.85rem', lineHeight: 1.75 }}>{step.desc}</p>
-                  </div>
-                </AnimateIn>
-              ))}
-            </div>
-          </div>
+          </h2>
+          <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: '1rem', margin: 0 }}>
+            در ۴ مرحله ساده، امنیت اماکن شما را تضمین می‌کنیم
+          </p>
         </div>
 
-        {/* Mobile: vertical timeline */}
-        <div className="md:hidden relative">
-          {/* Vertical line */}
-          <div className="absolute top-4 bottom-4 end-[2.4rem] w-px"
-            style={{ background: 'linear-gradient(to bottom, rgba(249,115,22,0.5), rgba(27,58,138,0.3), rgba(249,115,22,0.3))' }} />
+        {/* Steps grid */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%,220px), 1fr))',
+          gap: '2.5rem 1rem',
+          position: 'relative',
+        }}>
+          {/* Connecting line behind steps on desktop */}
+          <div style={{
+            position: 'absolute',
+            top: 36,
+            right: '12%',
+            left: '12%',
+            height: 1,
+            background: 'linear-gradient(90deg, rgba(249,115,22,0.3), rgba(96,128,250,0.3), rgba(16,185,129,0.3), rgba(251,191,36,0.3))',
+            zIndex: 0,
+          }} />
 
-          <div className="flex flex-col gap-8">
-            {STEPS.map((step, i) => (
-              <AnimateIn key={i} delay={i * 100} direction="right">
-                <div className="flex items-start gap-4 pe-16 relative">
-                  <div className="flex-1 ps-4">
-                    <h3 className="font-bold text-white mb-1.5" style={{ fontSize: '1rem' }}>{step.title}</h3>
-                    <p style={{ color: 'rgba(255,255,255,0.42)', fontSize: '0.875rem', lineHeight: 1.7 }}>{step.desc}</p>
-                  </div>
-                  {/* Circle on line */}
-                  <div className="absolute end-[1.35rem] top-0 w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 z-10"
-                    style={{ background: 'linear-gradient(135deg,rgba(249,115,22,0.2),rgba(27,58,138,0.25))', border: '2px solid rgba(249,115,22,0.4)' }}>
-                    {step.icon}
-                  </div>
-                </div>
-              </AnimateIn>
-            ))}
-          </div>
+          {STEPS.map((s, i) => (
+            <StepCard key={i} step={s} index={i} total={STEPS.length} />
+          ))}
         </div>
 
-        {/* Bottom CTA */}
-        <AnimateIn delay={600}>
-          <div className="mt-16 text-center">
-            <a href="/contact" className="inline-flex items-center gap-2.5 font-bold text-white rounded-xl transition-all duration-300 hover:-translate-y-1"
-              style={{ padding: '1rem 2.5rem', background: 'linear-gradient(135deg,#F97316,#EA580C)', boxShadow: '0 4px 24px rgba(249,115,22,0.4)', fontSize: '1.0625rem' }}>
-              همین الان شروع کنید
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3"/>
-              </svg>
-            </a>
-          </div>
-        </AnimateIn>
+        {/* CTA */}
+        <div style={{ textAlign: 'center', marginTop: 'clamp(3rem,6vw,5rem)' }}>
+          <a
+            href="tel:+982100000000"
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: '0.75rem',
+              padding: '1rem 2.5rem',
+              background: 'linear-gradient(135deg, #1B3A8A, #3B5CEF)',
+              color: '#fff', fontWeight: 700, fontSize: '1.0625rem',
+              borderRadius: 14,
+              textDecoration: 'none',
+              border: '1px solid rgba(96,128,250,0.3)',
+              boxShadow: '0 8px 32px rgba(27,58,138,0.4)',
+              transition: 'all 0.25s ease',
+            }}
+            onMouseEnter={e => {
+              const el = e.currentTarget as HTMLAnchorElement
+              el.style.transform = 'translateY(-3px)'
+              el.style.boxShadow = '0 16px 48px rgba(27,58,138,0.6)'
+            }}
+            onMouseLeave={e => {
+              const el = e.currentTarget as HTMLAnchorElement
+              el.style.transform = 'translateY(0)'
+              el.style.boxShadow = '0 8px 32px rgba(27,58,138,0.4)'
+            }}
+          >
+            <svg viewBox="0 0 24 24" fill="none" style={{ width: 20, height: 20 }}>
+              <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 014.72 12 19.79 19.79 0 011.65 3.33 2 2 0 013.62 1.2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L7.91 8.85a16 16 0 006.29 6.29l.61-.61a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"
+                stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+            </svg>
+            همین الان شروع کنید
+          </a>
+        </div>
       </div>
     </section>
   )
