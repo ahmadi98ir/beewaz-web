@@ -31,54 +31,50 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Debug SSH connectivity
+      - name: Setup SSH key
         env:
           SSH_KEY_B64: ${{ secrets.SERVER_SSH_KEY_B64 }}
         run: |
           mkdir -p ~/.ssh
           echo "$SSH_KEY_B64" | base64 -d > ~/.ssh/server_key
           chmod 600 ~/.ssh/server_key
+          echo "Key: $(wc -c < ~/.ssh/server_key) bytes"
+          ssh -i ~/.ssh/server_key -o StrictHostKeyChecking=no -o ConnectTimeout=15 \
+              -o BatchMode=yes -p 8443 root@78.157.51.14 "echo SSH_OK" 2>&1
 
-          echo "Key first line: $(head -1 ~/.ssh/server_key)"
-          echo "Key size: $(wc -c < ~/.ssh/server_key) bytes"
-          echo "Key lines: $(wc -l < ~/.ssh/server_key)"
-
-          echo "=== TCP connectivity to 78.157.51.14:8443 ==="
-          timeout 10 bash -c 'cat < /dev/null > /dev/tcp/78.157.51.14/8443' 2>&1 && echo "TCP: OPEN" || echo "TCP: FAILED (exit $?)"
-
-          echo "=== nc test ==="
-          nc -zv -w 10 78.157.51.14 8443 2>&1 || echo "nc failed: $?"
-
-          echo "=== SSH verbose test ==="
-          ssh -v -i ~/.ssh/server_key \
-              -o StrictHostKeyChecking=no \
-              -o ConnectTimeout=15 \
-              -o BatchMode=yes \
-              -p 8443 root@78.157.51.14 \
-              "echo SSH_CONNECTED" 2>&1 || echo "SSH exit: $?"
-
-      - name: Transfer image to server via SSH pipe
+      - name: Save & compress Docker image
         run: |
-          docker save beewaz-web:latest | gzip | \
-            ssh -i ~/.ssh/server_key \
-                -o StrictHostKeyChecking=no \
-                -o ServerAliveInterval=20 \
-                -o ServerAliveCountMax=30 \
-                -o ConnectTimeout=30 \
-                -p 8443 root@78.157.51.14 \
-                "gunzip | docker load" 2>&1
-          echo "Transfer exit: $?"
+          docker save beewaz-web:latest | gzip -1 > /tmp/beewaz-web.tar.gz
+          echo "Compressed size: $(du -sh /tmp/beewaz-web.tar.gz | cut -f1)"
 
-      - name: Start container on server
+      - name: Transfer image via SCP
+        run: |
+          scp -P 8443 \
+              -i ~/.ssh/server_key \
+              -o StrictHostKeyChecking=no \
+              -o ServerAliveInterval=30 \
+              -o ConnectTimeout=60 \
+              -o Compression=no \
+              /tmp/beewaz-web.tar.gz \
+              root@78.157.51.14:/tmp/beewaz-web.tar.gz
+          echo "SCP done: $?"
+
+      - name: Load image and start container
         run: |
           ssh -i ~/.ssh/server_key \
               -o StrictHostKeyChecking=no \
-              -o ConnectTimeout=30 \
+              -o ServerAliveInterval=30 \
+              -o ConnectTimeout=60 \
               -p 8443 root@78.157.51.14 'bash -s' << 'REMOTE'
           set -e
+          echo "=== Loading Docker image ==="
+          docker load < /tmp/beewaz-web.tar.gz
+          rm -f /tmp/beewaz-web.tar.gz
+
           APP="jw4kpfn8utdybrmwkr80fm8f"
           docker stop "$APP" 2>/dev/null || true
           docker rm   "$APP" 2>/dev/null || true
+
           docker run -d \
             --name "$APP" --network coolify --restart unless-stopped \
             -e NODE_ENV=production -e NEXT_TELEMETRY_DISABLED=1 -e AUTH_TRUST_HOST=1 \
@@ -103,7 +99,9 @@ jobs:
             -l "traefik.http.services.http-0-${APP}.loadbalancer.server.port=3000" \
             -l "traefik.http.services.https-0-${APP}.loadbalancer.server.port=3000" \
             beewaz-web:latest
+
           sleep 20
           docker inspect "$APP" --format='Status: {{.State.Status}}'
           docker logs "$APP" --tail=20 2>&1
+          echo "=== DEPLOY COMPLETE ==="
           REMOTE
