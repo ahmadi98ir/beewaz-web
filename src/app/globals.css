@@ -145,6 +145,16 @@
     @media (min-width: 640px)  { padding-inline: 1.5rem; }
     @media (min-width: 1024px) { padding-inline: 2rem; }
   }
+  /* container-page — alias برای کامپوننت‌های home (hero, categories, products, etc.) */
+  .container-page {
+    width: 100%;
+    max-width: 1280px;
+    margin-inline: auto;
+    padding-inline: 1rem;
+
+    @media (min-width: 640px)  { padding-inline: 1.5rem; }
+    @media (min-width: 1024px) { padding-inline: 2rem; }
+  }
 
   /* دکمه‌های پایه */
   .btn {
