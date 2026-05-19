@@ -40,4 +40,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true })
   } catch (err) {
     console.error('[contact POST]', err)
-    return NextResponse.json({ error: 'خطا در ارسال پیام. لطفاً مجدداً تلاش کنید.' }, { st
+    return NextResponse.json({ error: 'خطا در ارسال پیام' }, { status: 500 })
+  }
+}
