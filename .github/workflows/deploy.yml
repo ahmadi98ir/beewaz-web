@@ -6,10 +6,10 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-and-deploy:
+  build-and-upload:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
 
     steps:
       - name: Checkout repository
@@ -31,77 +31,36 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Setup SSH key
-        env:
-          SSH_KEY_B64: ${{ secrets.SERVER_SSH_KEY_B64 }}
-        run: |
-          mkdir -p ~/.ssh
-          echo "$SSH_KEY_B64" | base64 -d > ~/.ssh/server_key
-          chmod 600 ~/.ssh/server_key
-          echo "Key size: $(wc -c < ~/.ssh/server_key) bytes"
-          head -1 ~/.ssh/server_key
-          echo "SSH key setup complete"
-
       - name: Save & compress Docker image
         run: |
           docker save beewaz-web:latest | gzip -1 > /tmp/beewaz-web.tar.gz
-          echo "Compressed size: $(du -sh /tmp/beewaz-web.tar.gz | cut -f1)"
+          SIZE=$(du -sh /tmp/beewaz-web.tar.gz | cut -f1)
+          echo "Compressed size: $SIZE"
+          echo "IMAGE_SIZE=$SIZE" >> $GITHUB_ENV
 
-      - name: Transfer image via SCP
+      - name: Delete previous release asset
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          scp -P 8443 \
-              -i ~/.ssh/server_key \
-              -o StrictHostKeyChecking=no \
-              -o ServerAliveInterval=30 \
-              -o ConnectTimeout=60 \
-              -o Compression=no \
-              /tmp/beewaz-web.tar.gz \
-              root@78.157.51.14:/tmp/beewaz-web.tar.gz
-          echo "SCP transfer complete"
+          # Delete old release if exists
+          RELEASE_ID=$(gh api repos/${{ github.repository }}/releases/tags/docker-latest --jq .id 2>/dev/null || echo "")
+          if [ -n "$RELEASE_ID" ]; then
+            gh api --method DELETE repos/${{ github.repository }}/releases/$RELEASE_ID || true
+          fi
+          # Delete the tag
+          git push origin :refs/tags/docker-latest 2>/dev/null || true
 
-      - name: Load image and start container
+      - name: Create release and upload image
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          ssh -i ~/.ssh/server_key \
-              -o StrictHostKeyChecking=no \
-              -o ServerAliveInterval=30 \
-              -o ConnectTimeout=60 \
-              -p 8443 root@78.157.51.14 'bash -s' << 'REMOTE'
-          set -e
-          echo "=== Loading Docker image ==="
-          docker load < /tmp/beewaz-web.tar.gz
-          rm -f /tmp/beewaz-web.tar.gz
-
-          APP="jw4kpfn8utdybrmwkr80fm8f"
-          docker stop "$APP" 2>/dev/null || true
-          docker rm   "$APP" 2>/dev/null || true
-
-          docker run -d \
-            --name "$APP" --network coolify --restart unless-stopped \
-            -e NODE_ENV=production -e NEXT_TELEMETRY_DISABLED=1 -e AUTH_TRUST_HOST=1 \
-            -e NEXT_PUBLIC_APP_URL=https://bz360.ir -e NEXTAUTH_URL=https://bz360.ir \
-            -e AUTH_SECRET=5vjMEFsjPfvqqv8305UAgYrmainnBzaSCrReqMIOKFs= \
-            -e "DATABASE_URL=postgres://postgres:mtaaBCMdq1yyV48K1b9N7bQr2HBgL0QPgLzXQ5JKKq2dHpzUF8CenMifnYGcfama@j1jerkqljysca3o9y3rdxojf:5432/postgres" \
-            -e ADMIN_PHONE=09102413207 -e ADMIN_PASSWORD=Beewaz1403Admin \
-            -e "ADMIN_NAME=\u0645\u062f\u06cc\u0631 \u0633\u06cc\u0633\u062a\u0645" \
-            -l "traefik.enable=true" \
-            -l "traefik.http.middlewares.gzip.compress=true" \
-            -l "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https" \
-            -l "traefik.http.routers.http-0-${APP}.entryPoints=http" \
-            -l "traefik.http.routers.http-0-${APP}.middlewares=redirect-to-https" \
-            -l "traefik.http.routers.http-0-${APP}.rule=Host(\`bz360.ir\`) && PathPrefix(\`/\`)" \
-            -l "traefik.http.routers.http-0-${APP}.service=http-0-${APP}" \
-            -l "traefik.http.routers.https-0-${APP}.entryPoints=https" \
-            -l "traefik.http.routers.https-0-${APP}.middlewares=gzip" \
-            -l "traefik.http.routers.https-0-${APP}.rule=Host(\`bz360.ir\`) && PathPrefix(\`/\`)" \
-            -l "traefik.http.routers.https-0-${APP}.service=https-0-${APP}" \
-            -l "traefik.http.routers.https-0-${APP}.tls.certresolver=letsencrypt" \
-            -l "traefik.http.routers.https-0-${APP}.tls=true" \
-            -l "traefik.http.services.http-0-${APP}.loadbalancer.server.port=3000" \
-            -l "traefik.http.services.https-0-${APP}.loadbalancer.server.port=3000" \
-            beewaz-web:latest
-
-          sleep 20
-          docker inspect "$APP" --format='Status: {{.State.Status}}'
-          docker logs "$APP" --tail=20 2>&1
-          echo "=== DEPLOY COMPLETE ==="
-          REMOTE
+          COMMIT_SHA="${{ github.sha }}"
+          SHORT_SHA="${COMMIT_SHA:0:8}"
+          # Create new release
+          gh release create docker-latest \
+            --title "Docker image (latest) — $SHORT_SHA" \
+            --notes "Auto-built from commit ${{ github.sha }}" \
+            --target ${{ github.sha }} \
+            /tmp/beewaz-web.tar.gz#beewaz-web.tar.gz
+          echo "Release created successfully"
+          echo "Download URL: https://github.com/${{ github.repository }}/releases/download/docker-latest/beewaz-web.tar.gz"
