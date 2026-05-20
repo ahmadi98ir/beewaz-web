@@ -578,4 +578,6 @@ export default function LeadDetailPage() {
           </div>
         </div>
       </div>
-    </div
+    </div>
+  )
+}
