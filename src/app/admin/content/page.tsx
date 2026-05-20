@@ -1,305 +1,316 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 
-// ── Types ─────────────────────────────────────────────────────────────────────
+type FieldType = 'text' | 'textarea' | 'url' | 'image' | 'boolean' | 'json' | 'number' | 'color' | 'phone'
 
-interface ContentBlock {
-  id: string
-  page: string
-  key: string
-  valueFa: string | null
-  type: string
-  label: string
-  hint: string | null
-  isActive: boolean
-  position: number
+interface CmsField {
+  key: string; label: string; type: FieldType
+  hint?: string; required?: boolean; placeholder?: string; rows?: number
+  group: 'settings' | 'page'; page?: string
 }
 
-const PAGE_LABELS: Record<string, { label: string; icon: string; desc: string }> = {
-  global:  { label: 'سراسری',      icon: '🌐', desc: 'نوار اطلاع‌رسانی، هدر و فوتر' },
-  home:    { label: 'صفحه اصلی',   icon: '🏠', desc: 'Hero، محصولات ویژه، CTA، مراحل' },
-  about:   { label: 'درباره ما',   icon: '🏢', desc: 'داستان، تیم، آمار شرکت' },
-  contact: { label: 'تماس با ما', icon: '📞', desc: 'اطلاعات تماس، فرم پیام' },
-  shop:    { label: 'فروشگاه',     icon: '🛒', desc: 'بنرها، دسته‌بندی‌های ویژه' },
-  chatbot: { label: 'چت‌بات',      icon: '🤖', desc: 'نام، خوش‌آمد، پاسخ‌های سریع، System Prompt' },
-}
+const FIELD_SECTIONS: { id: string; label: string; icon: string; fields: CmsField[] }[] = [
+  {
+    id: 'announcement', label: 'نوار اطلاع‌رسانی', icon: '\u{1F4E2}',
+    fields: [
+      { key: 'announcement_active', label: 'نوار فعال باشد',     type: 'boolean',  group: 'page', page: 'global' },
+      { key: 'announcement_text',   label: 'متن نوار',           type: 'text',     group: 'page', page: 'global', placeholder: '\u{1F389} ارسال رایگان برای سفارش‌های بالای ۵۰۰ هزار تومان' },
+      { key: 'announcement_url',    label: 'لینک نوار',          type: 'url',      group: 'page', page: 'global', placeholder: '/shop' },
+      { key: 'announcement_color',  label: 'رنگ پس‌زمینه',  type: 'color',    group: 'page', page: 'global' },
+    ],
+  },
+  {
+    id: 'hero', label: 'بخش Hero (تیتر اصلی)', icon: '\u{1F9B8}',
+    fields: [
+      { key: 'hero_badge',             label: 'بج روی عنوان',   type: 'text',     group: 'page', page: 'home', placeholder: '\u{1F512} بیش از ۱۵,۰۰۰ مشتری راضی' },
+      { key: 'hero_title',             label: 'عنوان اصلی',     type: 'textarea', group: 'page', page: 'home', rows: 2 },
+      { key: 'hero_subtitle',          label: 'زیرعنوان',       type: 'textarea', group: 'page', page: 'home', rows: 2 },
+      { key: 'hero_cta_primary',       label: 'دکمه اول',       type: 'text',     group: 'page', page: 'home', placeholder: 'مشاوره رایگان' },
+      { key: 'hero_cta_primary_url',   label: 'لینک دکمه اول', type: 'url',      group: 'page', page: 'home', placeholder: '/contact' },
+      { key: 'hero_cta_secondary',     label: 'دکمه دوم',       type: 'text',     group: 'page', page: 'home', placeholder: 'مشاهده محصولات' },
+      { key: 'hero_cta_secondary_url', label: 'لینک دکمه دوم', type: 'url',      group: 'page', page: 'home', placeholder: '/shop' },
+      { key: 'hero_features',          label: 'ویژگی‌ها (هر خط یک مورد)', type: 'textarea', group: 'page', page: 'home', rows: 4, hint: 'هر خط یک ویژگی' },
+      { key: 'hero_stat1_value', label: 'آمار ۱ — عدد',    type: 'text', group: 'page', page: 'home', placeholder: '۵۰۰+' },
+      { key: 'hero_stat1_label', label: 'آمار ۱ — برچسب', type: 'text', group: 'page', page: 'home', placeholder: 'پروژه نصب' },
+      { key: 'hero_stat2_value', label: 'آمار ۲ — عدد',    type: 'text', group: 'page', page: 'home', placeholder: '۱۰+' },
+      { key: 'hero_stat2_label', label: 'آمار ۲ — برچسب', type: 'text', group: 'page', page: 'home', placeholder: 'سال تجربه' },
+      { key: 'hero_stat3_value', label: 'آمار ۳ — عدد',    type: 'text', group: 'page', page: 'home', placeholder: '۹۸٪' },
+      { key: 'hero_stat3_label', label: 'آمار ۳ — برچسب', type: 'text', group: 'page', page: 'home', placeholder: 'رضایت مشتریان' },
+    ],
+  },
+  {
+    id: 'how', label: 'بخش «چطور کار می‌کند»', icon: '\u{1F522}',
+    fields: [
+      { key: 'how_title',    label: 'عنوان بخش',    type: 'text',     group: 'page', page: 'home', placeholder: '۴ گام تا امنیت کامل' },
+      { key: 'how_subtitle', label: 'زیرعنوان',      type: 'text',     group: 'page', page: 'home' },
+      { key: 'how_steps',    label: 'مراحل (JSON)', type: 'json',     group: 'page', page: 'home', rows: 10,
+        hint: 'آرایه JSON با فیلدهای: icon, title, desc' },
+    ],
+  },
+  {
+    id: 'cta', label: 'بخش CTA (دعوت به عمل)', icon: '\u{1F4E3}',
+    fields: [
+      { key: 'cta_title',      label: 'عنوان CTA',          type: 'text',     group: 'page', page: 'home' },
+      { key: 'cta_subtitle',   label: 'زیرعنوان CTA',       type: 'textarea', group: 'page', page: 'home', rows: 2 },
+      { key: 'cta_button',     label: 'متن دکمه',           type: 'text',     group: 'page', page: 'home', placeholder: 'مشاوره رایگان' },
+      { key: 'cta_button_url', label: 'لینک دکمه',          type: 'url',      group: 'page', page: 'home', placeholder: '/contact' },
+      { key: 'contact_phone',  label: 'شماره تلفن نمایشی', type: 'phone',    group: 'settings', hint: 'اگر پر باشد، دکمه تماس نمایش داده می‌شود' },
+    ],
+  },
+  {
+    id: 'general', label: 'تنظیمات عمومی سایت', icon: '⚙️',
+    fields: [
+      { key: 'site_name',        label: 'نام سایت',               type: 'text',     group: 'settings', required: true },
+      { key: 'site_tagline',     label: 'شعار سایت',              type: 'text',     group: 'settings' },
+      { key: 'site_description', label: 'توضیح SEO سایت',         type: 'textarea', group: 'settings', rows: 2 },
+      { key: 'site_keywords',    label: 'کلمات کلیدی SEO',        type: 'text',     group: 'settings', hint: 'با کاما جدا کنید' },
+      { key: 'logo_url',         label: 'آدرس لوگو',              type: 'image',    group: 'settings', placeholder: '/images/logo.png' },
+      { key: 'og_image_url',     label: 'تصویر اشتراک‌گذاری', type: 'image',  group: 'settings' },
+    ],
+  },
+  {
+    id: 'contact', label: 'اطلاعات تماس', icon: '\u{1F4DE}',
+    fields: [
+      { key: 'contact_phone',   label: 'شماره ثابت',   type: 'phone',    group: 'settings', placeholder: '021-00000000' },
+      { key: 'contact_phone2',  label: 'شماره موبایل', type: 'phone',    group: 'settings' },
+      { key: 'whatsapp_number', label: 'واتس‌اپ',  type: 'phone',    group: 'settings', hint: 'فرمت: 989121234567' },
+      { key: 'contact_email',   label: 'ایمیل',        type: 'text',     group: 'settings', placeholder: 'info@beewaz.ir' },
+      { key: 'contact_address', label: 'آدرس',         type: 'textarea', group: 'settings', rows: 2 },
+      { key: 'contact_hours',   label: 'ساعت کاری',    type: 'text',     group: 'settings', placeholder: 'شنبه تا چهارشنبه ۸ تا ۱۷' },
+    ],
+  },
+  {
+    id: 'social', label: 'شبکه‌های اجتماعی', icon: '\u{1F310}',
+    fields: [
+      { key: 'social_instagram', label: 'اینستاگرام', type: 'url', group: 'settings', placeholder: 'https://instagram.com/beewaz.ir' },
+      { key: 'social_telegram',  label: 'تلگرام',     type: 'url', group: 'settings' },
+      { key: 'social_youtube',   label: 'یوتیوب',     type: 'url', group: 'settings' },
+      { key: 'social_linkedin',  label: 'لینکدین',    type: 'url', group: 'settings' },
+    ],
+  },
+  {
+    id: 'commerce', label: 'تنظیمات فروشگاه', icon: '\u{1F6D2}',
+    fields: [
+      { key: 'free_shipping_threshold',  label: 'حد ارسال رایگان (تومان)',      type: 'number',   group: 'settings' },
+      { key: 'default_warranty_months',  label: 'ماه‌های گارانتی پیش‌فرض', type: 'number', group: 'settings' },
+      { key: 'shop_enabled',             label: 'فروشگاه فعال',               type: 'boolean',  group: 'settings' },
+      { key: 'checkout_notes',           label: 'توضیح صفحه پرداخت',          type: 'textarea', group: 'settings', rows: 2 },
+      { key: 'admin_order_notify_phone', label: 'تلفن اطلاع‌رسانی سفارش',type: 'phone',    group: 'settings' },
+    ],
+  },
+]
 
-// ── Field ─────────────────────────────────────────────────────────────────────
+function CmsInput({ field, value, onChange }: { field: CmsField; value: string; onChange: (v: string) => void }) {
+  const cls = "w-full px-3.5 py-2.5 text-sm border border-surface-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-300 transition-all"
 
-function ContentField({
-  block,
-  value,
-  onChange,
-}: {
-  block: ContentBlock
-  value: string
-  onChange: (key: string, val: string) => void
-}) {
-  if (block.type === 'boolean') {
+  if (field.type === 'boolean') {
+    const checked = value === 'true' || value === '1'
     return (
-      <div className="flex items-center justify-between bg-surface-50 rounded-xl p-4">
-        <div>
-          <p className="text-sm font-semibold text-surface-800">{block.label}</p>
-          {block.hint && <p className="text-xs text-surface-400 mt-0.5">{block.hint}</p>}
-        </div>
-        <button
-          type="button"
-          onClick={() => onChange(block.key, value === 'true' ? 'false' : 'true')}
-          className={[
-            'relative inline-flex h-6 w-11 items-center rounded-full transition-colors',
-            value === 'true' ? 'bg-brand-500' : 'bg-surface-200',
-          ].join(' ')}
-        >
-          <span className={['inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform', value === 'true' ? 'translate-x-6' : 'translate-x-1'].join(' ')} />
+      <div className="flex items-center gap-3 p-3 rounded-xl bg-surface-50 border border-surface-100">
+        <button type="button" onClick={() => onChange(checked ? 'false' : 'true')}
+          className={`w-11 h-6 rounded-full transition-colors relative flex-shrink-0 ${checked ? 'bg-brand-500' : 'bg-surface-200'}`}>
+          <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${checked ? 'right-1' : 'left-1'}`} />
         </button>
+        <span className="text-sm font-semibold text-surface-700">{checked ? 'فعال' : 'غیرفعال'}</span>
       </div>
     )
   }
 
-  if (block.type === 'color') {
+  if (field.type === 'color') {
     return (
-      <div>
-        <label className="block text-sm font-semibold text-surface-700 mb-1.5">{block.label}</label>
-        <div className="flex gap-2 items-center">
-          <input type="color" value={value || '#f59e0b'} onChange={(e) => onChange(block.key, e.target.value)} className="h-10 w-14 rounded-lg border border-surface-200 cursor-pointer p-1" />
-          <input type="text" value={value} onChange={(e) => onChange(block.key, e.target.value)} className="input flex-1 font-mono text-sm" placeholder="#f59e0b" />
-        </div>
+      <div className="flex items-center gap-3">
+        <input type="color" value={value || '#f59e0b'} onChange={e => onChange(e.target.value)}
+          className="w-10 h-10 rounded-lg border border-surface-200 cursor-pointer" />
+        <input type="text" value={value} onChange={e => onChange(e.target.value)}
+          className={`${cls} flex-1 font-mono`} dir="ltr" placeholder="#f59e0b" />
       </div>
     )
   }
 
-  if (block.type === 'image') {
+  if (field.type === 'image') {
     return (
-      <div>
-        <label className="block text-sm font-semibold text-surface-700 mb-1.5">{block.label}</label>
-        <div className="flex gap-2">
-          <input type="text" value={value} onChange={(e) => onChange(block.key, e.target.value)} className="input flex-1 text-sm" dir="ltr" placeholder="https://... یا /images/..." />
-          {value && (
-            <img src={value} alt="" className="h-10 w-16 rounded-lg object-cover border border-surface-200 flex-shrink-0" onError={(e) => { (e.target as HTMLImageElement).style.display='none' }} />
-          )}
-        </div>
-        {block.hint && <p className="text-xs text-surface-400 mt-1">{block.hint}</p>}
+      <div className="space-y-2">
+        <input type="url" value={value} onChange={e => onChange(e.target.value)}
+          className={`${cls} font-mono`} dir="ltr" placeholder={field.placeholder} />
+        {value ? (
+          <div className="flex items-center gap-3 p-2 bg-surface-50 rounded-xl border border-surface-100">
+            <img src={value} alt="" className="w-12 h-12 object-contain rounded-lg bg-white border border-surface-100"
+              onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
+            <p className="text-xs text-surface-400 break-all" dir="ltr">{value}</p>
+          </div>
+        ) : null}
       </div>
     )
   }
 
-  if (block.type === 'json') {
+  if (field.type === 'textarea' || field.type === 'json') {
+    const isJson = field.type === 'json'
     return (
-      <div>
-        <label className="block text-sm font-semibold text-surface-700 mb-1.5">{block.label}</label>
-        <textarea
-          value={value}
-          onChange={(e) => onChange(block.key, e.target.value)}
-          rows={6}
-          className="input w-full font-mono text-xs resize-y"
-          dir="ltr"
-          spellCheck={false}
-        />
-        {block.hint && <p className="text-xs text-surface-400 mt-1">{block.hint}</p>}
-      </div>
-    )
-  }
-
-  if (block.type === 'richtext' || block.key.includes('text') || block.key.includes('subtitle') || block.key.includes('story')) {
-    return (
-      <div>
-        <label className="block text-sm font-semibold text-surface-700 mb-1.5">{block.label}</label>
-        <textarea
-          value={value}
-          onChange={(e) => onChange(block.key, e.target.value)}
-          rows={4}
-          className="input w-full resize-y text-sm"
-        />
-        {block.hint && <p className="text-xs text-surface-400 mt-1">{block.hint}</p>}
-      </div>
+      <textarea value={value} onChange={e => onChange(e.target.value)} rows={field.rows ?? 3}
+        className={`${cls} resize-y ${isJson ? 'font-mono text-xs' : ''}`}
+        dir={isJson ? 'ltr' : 'rtl'} placeholder={field.placeholder} />
     )
   }
 
   return (
-    <div>
-      <label className="block text-sm font-semibold text-surface-700 mb-1.5">{block.label}</label>
-      <input
-        type={block.type === 'url' ? 'url' : 'text'}
-        value={value}
-        onChange={(e) => onChange(block.key, e.target.value)}
-        className="input w-full text-sm"
-        dir={block.type === 'url' ? 'ltr' : undefined}
-        placeholder={block.hint ?? undefined}
-      />
-      {block.hint && <p className="text-xs text-surface-400 mt-1">{block.hint}</p>}
-    </div>
+    <input
+      type={field.type === 'number' ? 'number' : 'text'}
+      value={value} onChange={e => onChange(e.target.value)}
+      className={`${cls} ${['url','number','phone'].includes(field.type) ? 'font-mono' : ''}`}
+      dir={['url','number'].includes(field.type) ? 'ltr' : 'rtl'}
+      placeholder={field.placeholder} required={field.required}
+    />
   )
 }
 
-// ── Page ─────────────────────────────────────────────────────────────────────
+export default function ContentPage() {
+  const [activeSection, setActiveSection] = useState(FIELD_SECTIONS[0].id)
+  const [values, setValues]               = useState<Record<string, string>>({})
+  const [loading, setLoading]             = useState(true)
+  const [saving, setSaving]               = useState(false)
+  const [toast, setToast]                 = useState('')
+  const [changed, setChanged]             = useState(false)
+  const [seeding, setSeeding]             = useState(false)
+  const initial                           = useRef<Record<string, string>>({})
 
-export default function AdminContentPage() {
-  const [activePage, setActivePage] = useState('global')
-  const [blocks, setBlocks] = useState<ContentBlock[]>([])
-  const [values, setValues] = useState<Record<string, string>>({})
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [saveStatus, setSaveStatus] = useState<'idle' | 'saved' | 'error'>('idle')
-  const [initializing, setInitializing] = useState(false)
-
-  const loadContent = useCallback(async (page: string) => {
+  const fetchData = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await fetch(`/api/admin/page-content?page=${page}`)
-      const data = await res.json()
-      if (data.content) {
-        setBlocks(data.content)
-        const vals: Record<string, string> = {}
-        for (const b of data.content as ContentBlock[]) {
-          vals[b.key] = b.valueFa ?? ''
-        }
-        setValues(vals)
+      const res = await fetch('/api/admin/cms')
+      const j = await res.json() as { settingsMap: Record<string,string>; contentMap: Record<string,Record<string,string>> }
+      const flat: Record<string, string> = {}
+      for (const [k, v] of Object.entries(j.settingsMap ?? {})) flat[`s::${k}`] = v
+      for (const [page, keys] of Object.entries(j.contentMap ?? {})) {
+        for (const [k, v] of Object.entries(keys)) flat[`c::${page}::${k}`] = v
       }
-    } finally {
-      setLoading(false)
-    }
+      setValues(flat); initial.current = { ...flat }
+    } finally { setLoading(false) }
   }, [])
 
-  useEffect(() => { loadContent(activePage) }, [activePage, loadContent])
+  useEffect(() => { fetchData() }, [fetchData])
 
-  const handleChange = (key: string, val: string) => {
-    setValues((p) => ({ ...p, [key]: val }))
-    setSaveStatus('idle')
+  const getKey = (f: CmsField) => f.group === 'settings' ? `s::${f.key}` : `c::${f.page}::${f.key}`
+  const getValue = (f: CmsField) => values[getKey(f)] ?? ''
+  const setValue = (f: CmsField, v: string) => {
+    setValues(p => ({ ...p, [getKey(f)]: v })); setChanged(true)
   }
 
-  const handleSave = async () => {
+  const save = async () => {
     setSaving(true)
-    try {
-      const res = await fetch('/api/admin/page-content', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ page: activePage, updates: values }),
-      })
-      setSaveStatus(res.ok ? 'saved' : 'error')
-      if (res.ok) setTimeout(() => setSaveStatus('idle'), 3000)
-    } catch {
-      setSaveStatus('error')
-    } finally {
-      setSaving(false)
+    const settings: Record<string, string> = {}
+    const content: Record<string, Record<string, string>> = {}
+    for (const [k, v] of Object.entries(values)) {
+      if (k.startsWith('s::')) { settings[k.slice(3)] = v }
+      else if (k.startsWith('c::')) {
+        const [, page, key] = k.split('::')
+        if (!content[page]) content[page] = {}
+        content[page][key] = v
+      }
     }
+    const res = await fetch('/api/admin/cms', {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ settings, content }),
+    })
+    if (res.ok) {
+      initial.current = { ...values }; setChanged(false)
+      setToast('تنظیمات با موفقیت ذخیره شد'); setTimeout(() => setToast(''), 3000)
+    }
+    setSaving(false)
   }
 
-  const handleInit = async () => {
-    setInitializing(true)
-    try {
-      await fetch('/api/admin/page-content', { method: 'POST' })
-      await loadContent(activePage)
-    } finally {
-      setInitializing(false)
-    }
+  const handleSeed = async () => {
+    setSeeding(true)
+    await fetch('/api/admin/cms', { method: 'POST' })
+    await fetchData(); setSeeding(false)
+    setToast('مقادیر پیش‌فرض بارگذاری شدند'); setTimeout(() => setToast(''), 3000)
   }
 
-  const pageInfo = PAGE_LABELS[activePage] ?? { label: activePage, icon: '📄', desc: '' }
+  const section = FIELD_SECTIONS.find(s => s.id === activeSection)
 
   return (
-    <div className="flex-1 overflow-y-auto">
-      {/* Header */}
-      <header className="bg-white border-b border-surface-200 px-6 py-4 flex items-center justify-between sticky top-0 z-10">
-        <div>
-          <h1 className="text-lg font-black text-surface-900">محتوای صفحات</h1>
-          <p className="text-xs text-surface-400 mt-0.5">ویرایش متون، تصاویر و بنرهای هر صفحه</p>
+    <div className="flex-1 flex overflow-hidden">
+      {toast && (
+        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 bg-green-600 text-white px-5 py-3 rounded-2xl shadow-xl text-sm font-semibold">
+          {toast}
         </div>
-        <div className="flex items-center gap-3">
-          {blocks.length === 0 && !loading && (
-            <button onClick={handleInit} disabled={initializing} className="btn btn-outline text-sm py-2 px-4">
-              {initializing ? 'در حال راه‌اندازی...' : '⚡ راه‌اندازی اولیه'}
-            </button>
-          )}
-          <button onClick={handleSave} disabled={saving || blocks.length === 0} className="btn btn-primary py-2 px-5 text-sm">
-            {saving ? (
-              <span className="flex items-center gap-2">
-                <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-                ذخیره...
-              </span>
-            ) : '💾 ذخیره'}
+      )}
+
+      {/* Sidebar */}
+      <div className="w-56 flex-shrink-0 border-l border-surface-100 overflow-y-auto bg-surface-50 p-3">
+        <p className="text-xs font-bold text-surface-400 uppercase tracking-wide px-2 py-2">بخش‌ها</p>
+        {FIELD_SECTIONS.map(s => (
+          <button key={s.id} onClick={() => setActiveSection(s.id)}
+            className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all mb-0.5 text-start ${activeSection === s.id ? 'bg-white text-brand-700 shadow-sm border border-surface-100' : 'text-surface-600 hover:bg-white hover:text-surface-900'}`}>
+            <span>{s.icon}</span><span className="truncate">{s.label}</span>
           </button>
-          {saveStatus === 'saved' && <span className="text-green-600 text-sm font-semibold">✓ ذخیره شد</span>}
-          {saveStatus === 'error' && <span className="text-red-500 text-sm font-semibold">✗ خطا</span>}
-        </div>
-      </header>
+        ))}
+      </div>
 
-      <div className="flex min-h-0">
-        {/* Page nav */}
-        <nav className="w-52 flex-shrink-0 border-l border-surface-200 bg-white p-3 space-y-1 sticky top-16 self-start">
-          {Object.entries(PAGE_LABELS).map(([p, info]) => (
-            <button
-              key={p}
-              onClick={() => setActivePage(p)}
-              className={[
-                'w-full flex items-start gap-2.5 px-3 py-2.5 rounded-xl text-sm text-start transition-all',
-                activePage === p ? 'bg-brand-50 text-brand-700 font-semibold' : 'text-surface-600 hover:bg-surface-50',
-              ].join(' ')}
-            >
-              <span className="text-base mt-0.5">{info.icon}</span>
-              <div>
-                <p className="font-medium">{info.label}</p>
-                <p className="text-[10px] text-surface-400 leading-tight">{info.desc}</p>
-              </div>
-            </button>
-          ))}
-        </nav>
-
-        {/* Content */}
-        <div className="flex-1 p-6">
-          {loading ? (
-            <div className="flex items-center justify-center h-48 text-surface-400 text-sm">در حال بارگذاری...</div>
-          ) : blocks.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-64 gap-4">
-              <div className="text-5xl">{pageInfo.icon}</div>
-              <p className="text-surface-500 text-sm">محتوایی برای این صفحه تعریف نشده</p>
-              <button onClick={handleInit} disabled={initializing} className="btn btn-primary">
-                {initializing ? 'در حال راه‌اندازی...' : 'راه‌اندازی محتوای پیش‌فرض'}
+      {/* Main */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <header className="bg-white border-b border-surface-200 px-6 py-4 flex-shrink-0">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-lg font-black text-surface-900">{section?.icon} {section?.label}</h1>
+              <p className="text-xs text-surface-400 mt-0.5">محتوای سایت را ویرایش کنید — بلادرنگ روی سایت اعمال می‌شود</p>
+            </div>
+            <div className="flex items-center gap-3">
+              <button onClick={handleSeed} disabled={seeding}
+                className="btn btn-outline text-xs py-2 px-3 disabled:opacity-50">
+                {seeding ? 'بارگذاری...' : 'پیش‌فرض‌ها'}
+              </button>
+              <a href="https://bz360.ir" target="_blank" className="btn btn-outline text-xs py-2 px-3">مشاهده سایت</a>
+              <button onClick={save} disabled={saving || !changed}
+                className={`btn text-sm py-2.5 px-5 ${changed ? 'btn-primary' : 'btn-outline opacity-50 cursor-not-allowed'}`}>
+                {saving ? 'ذخیره...' : '\u{1F4BE} ذخیره تغییرات'}
               </button>
             </div>
-          ) : (
-            <div className="max-w-2xl space-y-4">
-              {/* Page header */}
-              <div className="flex items-center gap-3 mb-6">
-                <span className="text-2xl">{pageInfo.icon}</span>
+          </div>
+        </header>
+
+        <div className="flex-1 overflow-y-auto p-6">
+          {loading ? (
+            <div className="flex items-center justify-center h-40 text-surface-300">بارگذاری...</div>
+          ) : section ? (
+            <div className="max-w-2xl space-y-5">
+              <div className="bg-brand-50 border border-brand-100 rounded-2xl px-4 py-3 flex items-center gap-3">
+                <span className="text-2xl">{section.icon}</span>
                 <div>
-                  <h2 className="text-base font-black text-surface-900">{pageInfo.label}</h2>
-                  <p className="text-xs text-surface-400">{pageInfo.desc} — {blocks.length} بلاک</p>
+                  <p className="text-sm font-bold text-brand-800">{section.label}</p>
+                  <p className="text-xs text-brand-600">{section.fields.length} فیلد قابل ویرایش</p>
                 </div>
               </div>
 
-              {/* Group by key prefix */}
-              {(() => {
-                const grouped: Record<string, ContentBlock[]> = {}
-                for (const b of blocks) {
-                  const prefix = b.key.split('_')[0] ?? 'other'
-                  if (!grouped[prefix]) grouped[prefix] = []
-                  grouped[prefix].push(b)
-                }
-                return Object.entries(grouped).map(([prefix, items]) => (
-                  <div key={prefix} className="bg-white rounded-2xl border border-surface-200 p-6 space-y-5">
-                    <h3 className="text-sm font-bold text-surface-700 uppercase tracking-wide border-b border-surface-100 pb-3">
-                      {prefix}
-                    </h3>
-                    {items.map((b) => (
-                      <ContentField
-                        key={b.key}
-                        block={b}
-                        value={values[b.key] ?? ''}
-                        onChange={handleChange}
-                      />
-                    ))}
+              <div className="bg-white rounded-2xl border border-surface-200 divide-y divide-surface-50">
+                {section.fields.map(field => (
+                  <div key={field.key} className="p-5">
+                    <div className="flex items-start justify-between gap-4 mb-2">
+                      <label className="block text-sm font-bold text-surface-800">
+                        {field.label}{field.required && <span className="text-red-500 mr-1">*</span>}
+                      </label>
+                      <span className="text-xs bg-surface-50 text-surface-400 border border-surface-100 px-2 py-0.5 rounded-full font-mono flex-shrink-0">{field.key}</span>
+                    </div>
+                    {field.hint && <p className="text-xs text-surface-400 mb-2 leading-relaxed">{field.hint}</p>}
+                    <CmsInput field={field} value={getValue(field)} onChange={v => setValue(field, v)} />
+                    {values[getKey(field)] !== initial.current[getKey(field)] && (
+                      <p className="text-xs text-amber-600 mt-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 inline-block ml-1" />
+                        تغییر داده شده — هنوز ذخیره نشده
+                      </p>
+                    )}
                   </div>
-                ))
-              })()}
+                ))}
+              </div>
 
               <div className="flex justify-end pt-2">
-                <button onClick={handleSave} disabled={saving} className="btn btn-primary py-2.5 px-6">
-                  {saving ? '\u062f\u0631 \u062d\u0627\u0644 \u0630\u062e\u06cc\u0631\u0647...' : '\ud83d\udcbe \u0630\u062e\u06cc\u0631\u0647 \u062a\u063a\u06cc\u06cc\u0631\u0627\u062a'}
+                <button onClick={save} disabled={saving || !changed}
+                  className={`btn text-sm py-3 px-8 ${changed ? 'btn-primary' : 'btn-outline opacity-50 cursor-not-allowed'}`}>
+                  {saving ? 'ذخیره...' : '\u{1F4BE} ذخیره همه تغییرات'}
                 </button>
               </div>
             </div>
-          )}
+          ) : null}
         </div>
       </div>
     </div>
