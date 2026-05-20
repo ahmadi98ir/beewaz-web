@@ -262,7 +262,7 @@ export default function LeadsPage() {
                 {tab.label}
                 {counts[tab.key] !== undefined && (
                   <span className="mr-1.5 opacity-60">
-                    {counts[tab.key]!.toLocaleString('fa-IR')}
+                    {(counts[tab.key] ?? 0).toLocaleString('fa-IR')}
                   </span>
                 )}
               </button>
