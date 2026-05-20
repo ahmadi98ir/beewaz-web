@@ -50,7 +50,8 @@ export async function GET(req: Request) {
   }
 
   const authority = zpData.data.authority
-  await db.update(orders).set({ paymentAuthority: authority }).where(eq(orders.id, order.id))
+  // Store authority in transactionId for later verification
+  await db.update(orders).set({ transactionId: authority }).where(eq(orders.id, order.id))
 
   return NextResponse.redirect(`${ZARINPAL_STARTPAY_URL}${authority}`)
 }
