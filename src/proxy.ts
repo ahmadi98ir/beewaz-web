@@ -9,13 +9,16 @@ const { auth } = NextAuth(authConfig)
 export default auth((req) => {
   const { pathname } = req.nextUrl
 
+  // اضافه کردن x-pathname برای استفاده در root layout
+  const requestId = crypto.randomUUID()
+
   if (pathname.startsWith('/admin')) {
     if (!req.auth) {
       const loginUrl = new URL('/login', req.url)
       loginUrl.searchParams.set('callbackUrl', pathname)
       return NextResponse.redirect(loginUrl)
     }
-    // @ts-expect-error — custom role field
+    // @ts-expect-error -- custom role field
     if (req.auth.user?.role !== 'admin') {
       return NextResponse.redirect(new URL('/', req.url))
     }
@@ -26,8 +29,16 @@ export default auth((req) => {
     loginUrl.searchParams.set('callbackUrl', pathname)
     return NextResponse.redirect(loginUrl)
   }
+
+  // pass-through: اضافه کردن هدرها
+  const response = NextResponse.next()
+  response.headers.set('x-pathname', pathname)
+  response.headers.set('x-request-id', requestId)
+  return response
 })
 
 export const config = {
-  matcher: ['/admin/:path*', '/profile/:path*'],
+  matcher: [
+    '/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|fonts|images|icons).*)'
+  ],
 }
