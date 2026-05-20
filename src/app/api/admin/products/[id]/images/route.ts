@@ -6,8 +6,8 @@ import { eq } from 'drizzle-orm'
 import { z } from 'zod'
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const { error } = await requireAdmin()
-  if (error) return error
+  const _auth = await requireAdmin()
+  if (!_auth.ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { id } = await params
   const images = await db.select().from(productImages).where(eq(productImages.productId, id)).orderBy(productImages.sortOrder)
   return NextResponse.json({ images })
@@ -16,8 +16,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 const addSchema = z.object({ url: z.string().url().or(z.string().startsWith('/')), alt: z.string().max(200).optional() })
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const { error } = await requireAdmin()
-  if (error) return error
+  const _auth = await requireAdmin()
+  if (!_auth.ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { id } = await params
   const body = await req.json() as unknown
   const parsed = addSchema.safeParse(body)
@@ -37,8 +37,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 }
 
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const { error } = await requireAdmin()
-  if (error) return error
+  const _auth = await requireAdmin()
+  if (!_auth.ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { searchParams } = new URL(req.url)
   const imageId = searchParams.get('imageId')
   if (!imageId) return NextResponse.json({ error: 'imageId الزامی است' }, { status: 400 })
