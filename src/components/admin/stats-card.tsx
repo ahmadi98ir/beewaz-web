@@ -1,9 +1,11 @@
+import type { ReactNode } from 'react'
+
 interface StatsCardProps {
   label: string
   value: string
   sub?: string
   color?: 'brand' | 'blue' | 'green' | 'amber' | 'red'
-  icon?: React.ReactNode
+  icon?: ReactNode
   trend?: { value: number; label: string }
 }
 
@@ -34,8 +36,4 @@ export function StatsCard({ label, value, sub, color = 'brand', icon, trend }: S
       {trend && (
         <div className={`text-xs font-semibold ${trend.value >= 0 ? 'text-green-600' : 'text-red-500'}`}>
           {trend.value >= 0 ? '↑' : '↓'} {Math.abs(trend.value)}٪ {trend.label}
-        </div>
-      )}
-    </div>
-  )
-}
+       
