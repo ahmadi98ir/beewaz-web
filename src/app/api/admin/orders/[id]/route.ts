@@ -1,53 +1,68 @@
+/**
+ * GET   /api/admin/orders/[id] — جزئیات سفارش + آیتم‌ها
+ * PATCH /api/admin/orders/[id] — تغییر وضعیت، کد پیگیری، یادداشت ادمین
+ */
 import { NextRequest, NextResponse } from 'next/server'
-import { eq } from 'drizzle-orm'
 import { db } from '@/lib/db'
-import { orders } from '@/lib/db/schema'
+import { orders, orderItems } from '@/lib/db/schema'
 import { requireAdmin } from '@/lib/admin-auth'
+import { eq } from 'drizzle-orm'
+import type { OrderStatus } from '@/lib/db/schema'
 
 type Params = { params: Promise<{ id: string }> }
 
-const VALID_STATUSES = ['pending', 'paid', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded'] as const
-type OrderStatus = (typeof VALID_STATUSES)[number]
-
-export async function GET(_req: NextRequest, { params }: Params) {
-  const guard = await requireAdmin()
-  if (guard.error) return guard.error
-
+export async function GET(req: NextRequest, { params }: Params) {
+  const auth = await requireAdmin(req)
+  if (!auth.ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { id } = await params
+
   try {
-    const order = await db.query.orders.findFirst({
-      where: eq(orders.id, id),
-      with: { items: true, user: true },
-    })
+    const [order] = await db.select().from(orders).where(eq(orders.id, id)).limit(1)
     if (!order) return NextResponse.json({ error: 'سفارش یافت نشد' }, { status: 404 })
-    return NextResponse.json({ order })
+
+    const items = await db.select().from(orderItems).where(eq(orderItems.orderId, id))
+    return NextResponse.json({ order, items })
   } catch (err) {
-    console.error('[API GET /admin/orders/:id]', err)
-    return NextResponse.json({ error: 'خطای سرور' }, { status: 500 })
+    console.error('[order GET]', err)
+    return NextResponse.json({ error: 'خطا' }, { status: 500 })
   }
 }
 
-export async function PUT(req: NextRequest, { params }: Params) {
-  const guard = await requireAdmin()
-  if (guard.error) return guard.error
-
+export async function PATCH(req: NextRequest, { params }: Params) {
+  const auth = await requireAdmin(req)
+  if (!auth.ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { id } = await params
+
   try {
-    const body = await req.json()
-    if (!VALID_STATUSES.includes(body.status)) {
-      return NextResponse.json({ error: 'وضعیت نامعتبر' }, { status: 400 })
+    const body = await req.json() as {
+      status?: OrderStatus
+      trackingCode?: string
+      adminNote?: string
+      shippedAt?: string
+      deliveredAt?: string
     }
 
-    const [updated] = await db
-      .update(orders)
-      .set({ status: body.status as OrderStatus, updatedAt: new Date() })
-      .where(eq(orders.id, id))
-      .returning()
+    const validStatuses: OrderStatus[] = ['pending','paid','processing','shipped','delivered','cancelled','refunded']
+    // biome-ignore lint/suspicious/noExplicitAny: dynamic update
+    const update: Record<string, any> = { updatedAt: new Date() }
 
+    if (body.status && validStatuses.includes(body.status)) {
+      update.status = body.status
+      if (body.status === 'shipped' && !body.shippedAt) update.shippedAt = new Date()
+      if (body.status === 'delivered' && !body.deliveredAt) update.deliveredAt = new Date()
+      if (body.status === 'paid') update.paidAt = new Date()
+    }
+    if (body.trackingCode !== undefined) update.trackingCode = body.trackingCode
+    if (body.adminNote !== undefined)    update.adminNote = body.adminNote
+    if (body.shippedAt)   update.shippedAt = new Date(body.shippedAt)
+    if (body.deliveredAt) update.deliveredAt = new Date(body.deliveredAt)
+
+    const [updated] = await db.update(orders).set(update).where(eq(orders.id, id)).returning()
     if (!updated) return NextResponse.json({ error: 'سفارش یافت نشد' }, { status: 404 })
-    return NextResponse.json({ ok: true })
+
+    return NextResponse.json({ order: updated })
   } catch (err) {
-    console.error('[API PUT /admin/orders/:id]', err)
-    return NextResponse.json({ error: 'خطا در بروزرسانی' }, { status: 500 })
+    console.error('[order PATCH]', err)
+    return NextResponse.json({ error: 'خطا' }, { status: 500 })
   }
 }
