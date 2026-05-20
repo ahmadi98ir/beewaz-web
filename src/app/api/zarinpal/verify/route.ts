@@ -21,12 +21,12 @@ export async function GET(req: Request) {
   }
 
   const [order] = await db
-    .select({ id: orders.id, totalAmount: orders.totalAmount, status: orders.status, paymentAuthority: orders.paymentAuthority })
+    .select({ id: orders.id, totalAmount: orders.totalAmount, status: orders.status, transactionId: orders.transactionId })
     .from(orders)
     .where(eq(orders.id, orderId))
     .limit(1)
 
-  if (!order || order.paymentAuthority !== authority) {
+  if (!order || order.transactionId !== authority) {
     return NextResponse.redirect(new URL('/shop', req.url))
   }
 
@@ -50,9 +50,10 @@ export async function GET(req: Request) {
     return NextResponse.redirect(new URL(`/checkout?error=payment_failed`, req.url))
   }
 
+  // Store ref_id in trackingCode after successful payment
   await db.update(orders).set({
     status: 'paid',
-    paymentRef: String(zpData.data?.ref_id ?? ''),
+    trackingCode: String(zpData.data?.ref_id ?? ''),
     paidAt: new Date(),
   }).where(eq(orders.id, order.id))
 
