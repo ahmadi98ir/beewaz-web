@@ -11,7 +11,7 @@ function AnimateIn({ children, delay = 0, className = '' }: { children: React.Re
   const [visible, setVisible] = useState(false)
   useEffect(() => {
     const el = ref.current; if (!el) return
-    const obs = new IntersectionObserver(([e]) => { if (e.isIntersecting) { setVisible(true); obs.disconnect() } }, { threshold: 0.15 })
+    const obs = new IntersectionObserver((entries) => { const e = entries[0]; if (!e) return; if (e.isIntersecting) { setVisible(true); obs.disconnect() } }, { threshold: 0.15 })
     obs.observe(el); return () => obs.disconnect()
   }, [])
   return (
