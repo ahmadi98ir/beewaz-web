@@ -165,7 +165,7 @@ function CmsInput({ field, value, onChange }: { field: CmsField; value: string; 
 }
 
 export default function ContentPage() {
-  const [activeSection, setActiveSection] = useState(FIELD_SECTIONS[0].id)
+  const [activeSection, setActiveSection] = useState(FIELD_SECTIONS[0]!.id)
   const [values, setValues]               = useState<Record<string, string>>({})
   const [loading, setLoading]             = useState(true)
   const [saving, setSaving]               = useState(false)
