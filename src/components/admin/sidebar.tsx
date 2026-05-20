@@ -1,16 +1,16 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import type { ReactNode } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useSession } from 'next-auth/react'
 import { BeewazLogo } from '@/components/ui/logo'
 import { MenuIcon, XIcon } from '@/components/ui/icons'
 
 type NavItem = {
   href: string
   label: string
-  icon: React.ReactNode
+  icon: ReactNode
 }
 
 function NavIcon({ d }: { d: string }) {
@@ -26,9 +26,7 @@ const navItems: NavItem[] = [
   { href: '/admin/leads',    label: 'لیدها',      icon: <NavIcon d="M17 21v-2a4 4 0 00-4-4H7a4 4 0 00-4 4v2M12 11a4 4 0 100-8 4 4 0 000 8z" /> },
   { href: '/admin/orders',   label: 'سفارشات',   icon: <NavIcon d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /> },
   { href: '/admin/products', label: 'محصولات',   icon: <NavIcon d="M20 7H4a2 2 0 00-2 2v10a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2zM16 3H8M12 12v4M10 14h4" /> },
-  { href: '/admin/articles', label: 'مقالات',    icon: <NavIcon d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zM14 2v6h6M16 13H8M16 17H8M10 9H8" /> },
-  { href: '/admin/users',    label: 'کاربران',   icon: <NavIcon d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8zM23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" /> },
-  { href: '/admin/content',   label: 'محتوای صفحات', icon: <NavIcon d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" /> },
+  { href: '/admin/content',  label: 'محتوای صفحات', icon: <NavIcon d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" /> },
   { href: '/admin/analytics', label: 'آمار بازدید',   icon: <NavIcon d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /> },
 ]
 
@@ -38,19 +36,14 @@ const bottomItems: NavItem[] = [
 ]
 
 function UserCard() {
-  const { data: session } = useSession()
-  const name = session?.user?.name ?? 'مدیر'
-  const email = session?.user?.email ?? ''
-  const initial = name[0] ?? 'م'
-
   return (
     <div className="flex items-center gap-3 px-3 py-3 mt-2 rounded-xl bg-white/5">
       <div className="w-8 h-8 rounded-xl bg-brand-600 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
-        {initial}
+        م
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-xs font-semibold text-white/80 truncate">{name}</p>
-        <p className="text-[10px] text-white/40 truncate">{email}</p>
+        <p className="text-xs font-semibold text-white/80 truncate">مدیر بیواز</p>
+        <p className="text-[10px] text-white/40 truncate">admin@beewaz.ir</p>
       </div>
     </div>
   )
@@ -114,7 +107,6 @@ export function AdminSidebar() {
 
   return (
     <>
-      {/* ── Mobile top bar ──────────────────────────────────────────────── */}
       <div className="lg:hidden fixed top-0 inset-x-0 z-40 bg-surface-900 border-b border-white/10 flex items-center h-14 px-4 gap-3">
         <button
           onClick={() => setMobileOpen(true)}
@@ -127,7 +119,6 @@ export function AdminSidebar() {
         <span className="ms-auto text-xs text-white/30">پنل مدیریت</span>
       </div>
 
-      {/* ── Desktop static sidebar ──────────────────────────────────────── */}
       <aside className="hidden lg:flex flex-col w-64 bg-surface-900 min-h-screen flex-shrink-0">
         <div className="p-5 border-b border-white/10">
           <BeewazLogo variant="light" size="sm" />
@@ -136,7 +127,6 @@ export function AdminSidebar() {
         <NavLinks />
       </aside>
 
-      {/* ── Mobile backdrop ─────────────────────────────────────────────── */}
       {mobileOpen && (
         <div
           className="fixed inset-0 z-50 bg-surface-950/70 lg:hidden animate-fade-in"
@@ -145,7 +135,6 @@ export function AdminSidebar() {
         />
       )}
 
-      {/* ── Mobile drawer ───────────────────────────────────────────────── */}
       <aside
         role="dialog"
         aria-modal="true"
