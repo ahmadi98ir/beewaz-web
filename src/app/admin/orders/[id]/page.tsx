@@ -1,275 +1,229 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
-import { formatPrice } from '@/lib/utils'
-
-type OrderStatus = 'pending' | 'paid' | 'processing' | 'shipped' | 'delivered' | 'cancelled' | 'refunded'
+import { useParams } from 'next/navigation'
 
 interface OrderItem {
-  id: string
-  productId: string | null
-  productName: string
-  quantity: number
-  unitPrice: number
-  totalPrice: number
+  id: string; productName: string; variantName: string | null
+  sku: string | null; quantity: number; unitPrice: string; totalPrice: string
 }
-
 interface Order {
-  id: string
-  status: OrderStatus
-  totalAmount: number
-  shippingCost: number | null
-  paymentMethod: string | null
-  paymentRef: string | null
-  notes: string | null
-  createdAt: string
-  updatedAt: string
-  shippingAddress: {
-    fullName: string
-    phone: string
-    province: string
-    city: string
-    address: string
-    postalCode: string
-  } | null
-  items: OrderItem[]
-  user: { id: string; fullName: string | null; phone: string; email: string | null } | null
+  id: string; status: string; totalAmount: string; shippingAmount: string
+  discountAmount: string; paymentMethod: string | null; trackingCode: string | null
+  customerNote: string | null; adminNote: string | null
+  shippingAddress: { fullName?: string; phone?: string; city?: string; province?: string; address?: string; postalCode?: string } | null
+  createdAt: string; paidAt: string | null; shippedAt: string | null; deliveredAt: string | null
 }
 
-const statusConfig: Record<OrderStatus, { label: string; cls: string; next: OrderStatus[] }> = {
-  pending:    { label: 'در انتظار پرداخت', cls: 'bg-amber-100 text-amber-800',  next: ['paid', 'cancelled'] },
-  paid:       { label: 'پرداخت شده',       cls: 'bg-blue-100 text-blue-800',    next: ['processing', 'cancelled'] },
-  processing: { label: 'در حال آماده‌سازی', cls: 'bg-purple-100 text-purple-800', next: ['shipped', 'cancelled'] },
-  shipped:    { label: 'ارسال شده',        cls: 'bg-indigo-100 text-indigo-800', next: ['delivered'] },
-  delivered:  { label: 'تحویل شده',       cls: 'bg-green-100 text-green-800',  next: ['refunded'] },
-  cancelled:  { label: 'لغو شده',         cls: 'bg-red-100 text-red-800',      next: [] },
-  refunded:   { label: 'بازگشت وجه',      cls: 'bg-surface-100 text-surface-700', next: [] },
+const STATUS_MAP: Record<string, { label: string; cls: string }> = {
+  pending:    { label: 'در انتظار پرداخت',   cls: 'bg-amber-50 text-amber-700 border-amber-200' },
+  paid:       { label: 'پرداخت شده',         cls: 'bg-blue-50 text-blue-700 border-blue-200' },
+  processing: { label: 'در حال آماده‌سازی', cls: 'bg-violet-50 text-violet-700 border-violet-200' },
+  shipped:    { label: 'ارسال شده',          cls: 'bg-indigo-50 text-indigo-700 border-indigo-200' },
+  delivered:  { label: 'تحویل داده شده',    cls: 'bg-green-50 text-green-700 border-green-200' },
+  cancelled:  { label: 'لغو شده',           cls: 'bg-red-50 text-red-600 border-red-200' },
+  refunded:   { label: 'مسترد شده',         cls: 'bg-surface-50 text-surface-500 border-surface-200' },
 }
+const STATUS_FLOW = ['pending','paid','processing','shipped','delivered']
 
-const paymentLabel: Record<string, string> = {
-  online: 'پرداخت آنلاین',
-  cod: 'پرداخت در محل',
-  transfer: 'کارت به کارت',
+function fmt(v: string | number) {
+  const n = typeof v === 'string' ? parseInt(v) : v
+  return `${(n/10).toLocaleString('fa-IR')} تومان`
+}
+function fdate(d: string | null) {
+  if (!d) return '—'
+  return new Intl.DateTimeFormat('fa-IR', { dateStyle:'medium', timeStyle:'short' }).format(new Date(d))
 }
 
 export default function OrderDetailPage() {
   const { id } = useParams<{ id: string }>()
-  const router = useRouter()
   const [order, setOrder] = useState<Order | null>(null)
+  const [items, setItems] = useState<OrderItem[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const printRef = useRef<HTMLDivElement>(null)
+  const [toast, setToast] = useState('')
+  const [tracking, setTracking] = useState('')
+  const [adminNote, setAdminNote] = useState('')
 
-  useEffect(() => {
-    if (!id) return
-    fetch(`/api/admin/orders/${id}`)
-      .then(async (r) => {
-        const d = await r.json()
-        if (!r.ok) { setError(d.error || 'خطا'); return }
-        setOrder(d.order)
-      })
-      .catch(() => setError('خطای شبکه'))
-      .finally(() => setLoading(false))
+  const fetchOrder = useCallback(async () => {
+    setLoading(true)
+    try {
+      const res = await fetch(`/api/admin/orders/${id}`)
+      const j = await res.json() as { order: Order; items: OrderItem[] }
+      setOrder(j.order); setItems(j.items)
+      setTracking(j.order.trackingCode ?? ''); setAdminNote(j.order.adminNote ?? '')
+    } finally { setLoading(false) }
   }, [id])
 
-  const changeStatus = async (status: OrderStatus) => {
-    if (!order) return
+  useEffect(() => { fetchOrder() }, [fetchOrder])
+
+  const patch = async (body: Record<string, unknown>) => {
     setSaving(true)
-    try {
-      const r = await fetch(`/api/admin/orders/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status }),
-      })
-      if (r.ok) setOrder((o) => o ? { ...o, status } : o)
-    } finally { setSaving(false) }
+    const res = await fetch(`/api/admin/orders/${id}`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+    const j = await res.json() as { order: Order }
+    setOrder(j.order); setTracking(j.order.trackingCode ?? ''); setAdminNote(j.order.adminNote ?? '')
+    setSaving(false); setToast('ذخیره شد'); setTimeout(() => setToast(''), 2500)
   }
 
-  const handlePrint = () => window.print()
-
-  if (loading) return (
-    <div className="flex-1 flex items-center justify-center">
-      <span className="text-surface-400 text-sm">در حال بارگذاری...</span>
-    </div>
+  if (loading || !order) return (
+    <div className="flex-1 flex items-center justify-center text-surface-300">بارگذاری...</div>
   )
 
-  if (error || !order) return (
-    <div className="flex-1 flex items-center justify-center gap-3 flex-col">
-      <span className="text-red-500 text-sm">{error ?? 'سفارش یافت نشد'}</span>
-      <Link href="/admin/orders" className="text-sm text-brand-600">← بازگشت</Link>
-    </div>
-  )
-
-  const cfg = statusConfig[order.status]
-  const nextStatuses = cfg.next
+  const cfg = STATUS_MAP[order.status] ?? STATUS_MAP.pending
 
   return (
-    <>
-      {/* Print Styles */}
-      <style>{`
-        @media print {
-          body * { visibility: hidden; }
-          #invoice-print, #invoice-print * { visibility: visible; }
-          #invoice-print { position: fixed; inset: 0; padding: 2rem; background: white; }
-          .no-print { display: none !important; }
-        }
-      `}</style>
+    <div className="flex-1 overflow-y-auto">
+      {toast && (
+        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 bg-green-600 text-white px-5 py-3 rounded-2xl shadow-xl text-sm font-semibold">
+          ✅ {toast}
+        </div>
+      )}
 
-      <div className="flex-1 overflow-y-auto">
-        {/* Header */}
-        <header className="bg-white border-b border-surface-200 px-6 py-4 flex items-center justify-between sticky top-0 z-10 no-print">
-          <div className="flex items-center gap-3">
-            <Link href="/admin/orders" className="text-surface-400 hover:text-surface-700 transition-colors">
-              <svg viewBox="0 0 20 20" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2}><path d="M13 5l-5 5 5 5" strokeLinecap="round" /></svg>
-            </Link>
-            <div>
-              <h1 className="text-lg font-black text-surface-900">سفارش #{order.id.slice(0, 8).toUpperCase()}</h1>
-              <p className="text-xs text-surface-400">
-                {new Intl.DateTimeFormat('fa-IR', { dateStyle: 'full', timeStyle: 'short' }).format(new Date(order.createdAt))}
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handlePrint}
-              className="btn btn-outline py-2 px-4 text-sm flex items-center gap-2"
-            >
-              <svg viewBox="0 0 20 20" className="w-4 h-4" fill="currentColor"><path fillRule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v5a2 2 0 002 2h1v2a1 1 0 001 1h8a1 1 0 001-1v-2h1a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a1 1 0 00-1-1H6a1 1 0 00-1 1zm2 0h6v3H7V4zm-1 9a1 1 0 112 0 1 1 0 01-2 0zm1 3v-2h6v2H7z" clipRule="evenodd" /></svg>
-              چاپ فاکتور
-            </button>
-          </div>
-        </header>
+      <header className="bg-white border-b border-surface-200 px-6 py-4 flex items-center gap-4">
+        <Link href="/admin/orders" className="p-2 rounded-xl hover:bg-surface-100 text-surface-400">
+          <svg viewBox="0 0 20 20" className="w-4 h-4" fill="currentColor">
+            <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
+          </svg>
+        </Link>
+        <div className="flex-1">
+          <h1 className="text-lg font-black text-surface-900">سفارش #{order.id.slice(0,8).toUpperCase()}</h1>
+          <p className="text-xs text-surface-400 mt-0.5">{fdate(order.createdAt)}</p>
+        </div>
+        <span className={`px-3 py-1.5 rounded-xl border text-sm font-semibold ${cfg.cls}`}>{cfg.label}</span>
+      </header>
 
-        <div className="p-6 max-w-4xl space-y-5">
-          {/* Status + Actions */}
-          <div className="bg-white rounded-2xl border border-surface-200 p-5 no-print">
-            <div className="flex items-center justify-between flex-wrap gap-3">
-              <div className="flex items-center gap-3">
-                <span className="text-sm font-semibold text-surface-600">وضعیت فعلی:</span>
-                <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-sm font-bold ${cfg.cls}`}>
-                  {cfg.label}
-                </span>
-              </div>
-              {nextStatuses.length > 0 && (
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-surface-400">تغییر به:</span>
-                  {nextStatuses.map((s) => (
-                    <button
-                      key={s}
-                      onClick={() => changeStatus(s)}
-                      disabled={saving}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all ${statusConfig[s].cls} border-current opacity-80 hover:opacity-100`}
-                    >
-                      {statusConfig[s].label}
+      <div className="p-6 max-w-5xl mx-auto grid lg:grid-cols-3 gap-6">
+        {/* Left */}
+        <div className="lg:col-span-2 space-y-5">
+          {/* Status pipeline */}
+          <div className="bg-white rounded-2xl border border-surface-200 p-6">
+            <h3 className="font-bold text-surface-900 mb-4">مرحله سفارش</h3>
+            <div className="flex items-center gap-1 overflow-x-auto pb-2">
+              {STATUS_FLOW.map((s, i) => {
+                const idx = STATUS_FLOW.indexOf(order.status)
+                const past = i < idx; const active = i === idx; const future = i > idx
+                return (
+                  <div key={s} className="flex items-center gap-1 flex-shrink-0">
+                    <button onClick={() => patch({ status: s })} disabled={saving || s === order.status}
+                      className={`px-3 py-2 rounded-xl border text-xs font-semibold transition-all ${active ? `${STATUS_MAP[s]?.cls} shadow-sm` : past ? 'bg-surface-50 text-surface-400 border-surface-100 hover:bg-surface-100' : 'bg-white text-surface-300 border-surface-200 hover:bg-surface-50'} disabled:cursor-default`}>
+                      {past && '✓ '}{STATUS_MAP[s]?.label}
                     </button>
-                  ))}
-                </div>
-              )}
+                    {i < STATUS_FLOW.length - 1 && <svg viewBox="0 0 20 20" className="w-3 h-3 text-surface-200 rotate-180 flex-shrink-0" fill="currentColor"><path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" /></svg>}
+                  </div>
+                )
+              })}
+              <button onClick={() => patch({ status: 'cancelled' })} disabled={saving || order.status === 'cancelled' || order.status === 'delivered'}
+                className="mr-2 px-3 py-2 rounded-xl border border-red-200 text-red-500 text-xs font-semibold hover:bg-red-50 disabled:opacity-40 flex-shrink-0">
+                لغو
+              </button>
             </div>
           </div>
 
-          {/* Invoice print area */}
-          <div id="invoice-print" ref={printRef}>
-            {/* Invoice Header */}
-            <div className="bg-white rounded-2xl border border-surface-200 p-6">
-              <div className="flex items-start justify-between mb-6">
-                <div>
-                  <h2 className="text-xl font-black text-surface-900">فاکتور فروش</h2>
-                  <p className="text-sm text-surface-500 mt-1">شماره: {order.id.slice(0, 8).toUpperCase()}</p>
-                  <p className="text-sm text-surface-500">
-                    تاریخ: {new Intl.DateTimeFormat('fa-IR', { dateStyle: 'long' }).format(new Date(order.createdAt))}
-                  </p>
-                </div>
-                <div className="text-left">
-                  <p className="font-black text-lg text-brand-700">بیواز</p>
-                  <p className="text-xs text-surface-500">سیستم دزدگیر اماکن</p>
-                  <p className="text-xs text-surface-500">bz360.ir</p>
-                </div>
-              </div>
-
-              {/* Customer Info */}
-              {order.shippingAddress && (
-                <div className="grid md:grid-cols-2 gap-6 pt-5 border-t border-surface-100">
-                  <div>
-                    <p className="text-xs font-bold text-surface-500 uppercase mb-2">اطلاعات خریدار</p>
-                    <p className="font-semibold text-surface-900">{order.shippingAddress.fullName}</p>
-                    <p className="text-sm text-surface-600" dir="ltr">{order.shippingAddress.phone}</p>
-                    {order.user?.email && <p className="text-sm text-surface-500">{order.user.email}</p>}
-                  </div>
-                  <div>
-                    <p className="text-xs font-bold text-surface-500 uppercase mb-2">آدرس تحویل</p>
-                    <p className="text-sm text-surface-700 leading-6">
-                      {order.shippingAddress.province}، {order.shippingAddress.city}،{' '}
-                      {order.shippingAddress.address}
-                    </p>
-                    <p className="text-sm text-surface-500">کد پستی: {order.shippingAddress.postalCode}</p>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Items Table */}
-            <div className="bg-white rounded-2xl border border-surface-200 overflow-hidden">
+          {/* Items */}
+          <div className="bg-white rounded-2xl border border-surface-200 overflow-hidden">
+            <div className="px-6 py-4 border-b border-surface-100 font-bold text-surface-900">آیتم‌های سفارش</div>
+            {items.length === 0 ? (
+              <p className="text-center py-8 text-surface-300 text-sm">آیتمی ثبت نشده</p>
+            ) : (
               <table className="w-full text-sm">
-                <thead className="bg-surface-50">
-                  <tr>
-                    {['ردیف', 'محصول', 'تعداد', 'قیمت واحد', 'جمع'].map((h) => (
-                      <th key={h} className="text-start px-5 py-3 font-bold text-surface-600 text-xs">{h}</th>
-                    ))}
-                  </tr>
+                <thead className="bg-surface-50 text-xs text-surface-500">
+                  <tr>{['محصول','واریانت','SKU','تعداد','قیمت واحد','جمع'].map(h => <th key={h} className="text-start px-5 py-3 font-semibold">{h}</th>)}</tr>
                 </thead>
-                <tbody className="divide-y divide-surface-100">
-                  {order.items.map((item, i) => (
+                <tbody className="divide-y divide-surface-50">
+                  {items.map(item => (
                     <tr key={item.id}>
-                      <td className="px-5 py-4 text-surface-400 text-xs">{(i + 1).toLocaleString('fa-IR')}</td>
-                      <td className="px-5 py-4 font-semibold text-surface-900">{item.productName}</td>
-                      <td className="px-5 py-4 text-surface-700">{item.quantity.toLocaleString('fa-IR')}</td>
-                      <td className="px-5 py-4 text-surface-700">{formatPrice(item.unitPrice)}</td>
-                      <td className="px-5 py-4 font-bold text-surface-900">{formatPrice(item.totalPrice)}</td>
+                      <td className="px-5 py-3.5 font-semibold text-surface-900">{item.productName}</td>
+                      <td className="px-5 py-3.5 text-surface-500">{item.variantName ?? '—'}</td>
+                      <td className="px-5 py-3.5 text-surface-400 font-mono text-xs">{item.sku ?? '—'}</td>
+                      <td className="px-5 py-3.5 font-bold">{item.quantity.toLocaleString('fa-IR')}</td>
+                      <td className="px-5 py-3.5 text-surface-600">{fmt(item.unitPrice)}</td>
+                      <td className="px-5 py-3.5 font-bold text-surface-900">{fmt(item.totalPrice)}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-
-              {/* Totals */}
-              <div className="border-t border-surface-200 p-5">
-                <div className="max-w-xs ms-auto space-y-2">
-                  {order.shippingCost != null && order.shippingCost > 0 && (
-                    <div className="flex justify-between text-sm">
-                      <span className="text-surface-500">هزینه ارسال</span>
-                      <span>{formatPrice(order.shippingCost)}</span>
-                    </div>
-                  )}
-                  <div className="flex justify-between font-black text-base pt-2 border-t border-surface-200">
-                    <span>مبلغ کل</span>
-                    <span className="text-brand-700">{formatPrice(order.totalAmount)}</span>
-                  </div>
-                  <div className="flex justify-between text-xs text-surface-400">
-                    <span>روش پرداخت</span>
-                    <span>{paymentLabel[order.paymentMethod ?? ''] ?? order.paymentMethod ?? '—'}</span>
-                  </div>
-                  {order.paymentRef && (
-                    <div className="flex justify-between text-xs text-surface-400">
-                      <span>کد پیگیری</span>
-                      <span dir="ltr">{order.paymentRef}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {order.notes && (
-              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
-                <p className="text-xs font-bold text-amber-700 mb-1">یادداشت سفارش</p>
-                <p className="text-sm text-amber-800">{order.notes}</p>
-              </div>
             )}
+            <div className="px-6 py-4 bg-surface-50 border-t border-surface-100 flex justify-end gap-8 text-sm">
+              {order.discountAmount !== '0' && <span className="text-red-600">تخفیف: -{fmt(order.discountAmount)}</span>}
+              {order.shippingAmount !== '0' && <span className="text-surface-600">ارسال: {fmt(order.shippingAmount)}</span>}
+              <span className="font-black text-surface-900">جمع کل: {fmt(order.totalAmount)}</span>
+            </div>
+          </div>
+
+          {/* Tracking + Admin Note */}
+          <div className="bg-white rounded-2xl border border-surface-200 p-6 space-y-4">
+            <h3 className="font-bold text-surface-900">اطلاعات ارسال و یادداشت</h3>
+            <div>
+              <label className="block text-xs font-semibold text-surface-500 mb-1.5">کد پیگیری مرسوله</label>
+              <input type="text" value={tracking} onChange={e => setTracking(e.target.value)}
+                placeholder="کد پیگیری پست..."
+                className="w-full px-3.5 py-2.5 text-sm border border-surface-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-300" dir="ltr" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-surface-500 mb-1.5">یادداشت داخلی (فقط ادمین)</label>
+              <textarea value={adminNote} onChange={e => setAdminNote(e.target.value)} rows={3}
+                placeholder="یادداشت برای تیم..."
+                className="w-full px-3.5 py-2.5 text-sm border border-surface-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-300 resize-none" />
+            </div>
+            <button onClick={() => patch({ trackingCode: tracking, adminNote })} disabled={saving}
+              className="btn btn-primary text-sm py-2.5 px-5 disabled:opacity-50">
+              {saving ? 'ذخیره...' : 'ذخیره تغییرات'}
+            </button>
+          </div>
+        </div>
+
+        {/* Right sidebar */}
+        <div className="space-y-5">
+          {/* Customer */}
+          <div className="bg-white rounded-2xl border border-surface-200 p-5">
+            <h3 className="font-bold text-surface-900 mb-4">اطلاعات مشتری</h3>
+            <div className="space-y-3 text-sm">
+              {[
+                ['نام', order.shippingAddress?.fullName],
+                ['تلفن', order.shippingAddress?.phone],
+                ['استان', order.shippingAddress?.province],
+                ['شهر', order.shippingAddress?.city],
+                ['آدرس', order.shippingAddress?.address],
+                ['کد پستی', order.shippingAddress?.postalCode],
+              ].map(([k,v]) => v ? (
+                <div key={k} className="flex justify-between gap-2">
+                  <span className="text-surface-400 flex-shrink-0">{k}</span>
+                  <span className="font-semibold text-surface-800 text-end">{v}</span>
+                </div>
+              ) : null)}
+              {order.customerNote && (
+                <div className="mt-3 pt-3 border-t border-surface-100">
+                  <p className="text-xs text-surface-400 mb-1">یادداشت مشتری</p>
+                  <p className="text-surface-700 text-sm">{order.customerNote}</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Timestamps */}
+          <div className="bg-white rounded-2xl border border-surface-200 p-5">
+            <h3 className="font-bold text-surface-900 mb-4">تاریخ‌ها</h3>
+            <div className="space-y-2.5 text-xs">
+              {[['ثبت سفارش', order.createdAt], ['پرداخت', order.paidAt], ['ارسال', order.shippedAt], ['تحویل', order.deliveredAt]].map(([k,v]) => (
+                <div key={k} className="flex justify-between">
+                  <span className="text-surface-400">{k}</span>
+                  <span className={`font-semibold ${v ? 'text-surface-800' : 'text-surface-300'}`}>{fdate(v as string|null)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Payment */}
+          <div className="bg-surface-50 rounded-2xl border border-surface-100 p-5">
+            <p className="text-xs text-surface-400 mb-1">روش پرداخت</p>
+            <p className="font-bold text-surface-800">{{ online:'درگاه آنلاین', card_to_card:'کارت به کارت', cash_on_delivery:'پرداخت در محل', installment:'اقساطی' }[order.paymentMethod ?? ''] ?? '—'}</p>
           </div>
         </div>
       </div>
-    </>
+    </div>
   )
 }
