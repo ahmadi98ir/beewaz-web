@@ -160,7 +160,7 @@ export default function AnalyticsPage() {
               <div className="flex justify-between mt-2 text-xs text-surface-400">
                 <span>
                   {data.viewsByDay[0]
-                    ? new Intl.DateTimeFormat('fa-IR', { month: 'short', day: 'numeric' }).format(new Date(data.viewsByDay[0].date))
+                    ? new Intl.DateTimeFormat('fa-IR', { month: 'short', day: 'numeric' }).format(new Date(data.viewsByDay[0]!.date))
                     : ''}
                 </span>
                 <span>
