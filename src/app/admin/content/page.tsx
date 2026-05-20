@@ -204,10 +204,12 @@ export default function ContentPage() {
       if (k.startsWith('s::')) { settings[k.slice(3)] = v }
       else if (k.startsWith('c::')) {
         const parts = k.split('::')
-        const page = parts[1] as string
-        const key = parts[2] as string
-        if (!content[page]) content[page] = {}
-        content[page]![key] = v
+        const page = parts[1]
+        const key  = parts[2]
+        if (page !== undefined && key !== undefined) {
+          if (!content[page]) content[page] = {}
+          content[page]![key] = v
+        }
       }
     }
     const res = await fetch('/api/admin/cms', {
@@ -309,12 +311,4 @@ export default function ContentPage() {
                 <button onClick={save} disabled={saving || !changed}
                   className={`btn text-sm py-3 px-8 ${changed ? 'btn-primary' : 'btn-outline opacity-50 cursor-not-allowed'}`}>
                   {saving ? 'ذخیره...' : '\u{1F4BE} ذخیره همه تغییرات'}
-                </button>
-              </div>
-            </div>
-          ) : null}
-        </div>
-      </div>
-    </div>
-  )
-}
+        
