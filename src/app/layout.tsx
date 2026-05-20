@@ -73,4 +73,22 @@ export default async function RootLayout({
           <>
             <a
               href="#main-content"
-              className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:start-4 focus:z-50 focus:px
+              className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:start-4 focus:z-50 focus:px-4 focus:py-2 focus:rounded-lg focus:bg-brand-600 focus:text-white focus:font-semibold focus:shadow-lg"
+            >
+              پرش به محتوای اصلی
+            </a>
+            <Header />
+            <main className="flex-1" id="main-content">
+              <PageTransition>{children}</PageTransition>
+            </main>
+            <Footer />
+            <ChatWidget />
+            <QuickViewModal />
+            <ToastContainer />
+            <PageTracker />
+          </>
+        )}
+      </body>
+    </html>
+  )
+}
