@@ -37,7 +37,7 @@ export default async function AdminDashboard() {
   let recentOrders: {
     id: string
     status: string
-    totalAmount: number
+    totalAmount: string | null
     shippingAddress: { fullName?: string; city?: string } | null
     createdAt: Date
   }[] = []
@@ -54,7 +54,7 @@ export default async function AdminDashboard() {
   let newLeadsCount = 0
   let totalLeads = 0
 
-  // Analytics — ۷ روز گذشته
+  // Analytics
   let totalViewsWeek = 0
   let uniqueVisitorsWeek = 0
   let topPages: { path: string; views: number }[] = []
@@ -96,6 +96,49 @@ export default async function AdminDashboard() {
         .from(orders),
     ])
 
+    // Analytics — ۷ روز گذشته (جداگانه تا خطا کل بلاک را خراب نکند)
+    try {
+      const weekAgo = new Date()
+      weekAgo.setDate(weekAgo.getDate() - 7)
+
+      const [viewStats, pagesStats, devicesStats] = await Promise.all([
+        db
+          .select({
+            total: sql<number>`count(*)::int`,
+            unique: sql<number>`count(distinct ${pageViews.sessionId})::int`,
+          })
+          .from(pageViews)
+          .where(gte(pageViews.createdAt, weekAgo)),
+
+        db
+          .select({
+            path: pageViews.path,
+            views: sql<number>`count(*)::int`,
+          })
+          .from(pageViews)
+          .where(gte(pageViews.createdAt, weekAgo))
+          .groupBy(pageViews.path)
+          .orderBy(desc(sql`count(*)`))
+          .limit(5),
+
+        db
+          .select({
+            device: pageViews.device,
+            count: sql<number>`count(*)::int`,
+          })
+          .from(pageViews)
+          .where(gte(pageViews.createdAt, weekAgo))
+          .groupBy(pageViews.device),
+      ])
+
+      totalViewsWeek = viewStats[0]?.total ?? 0
+      uniqueVisitorsWeek = viewStats[0]?.unique ?? 0
+      topPages = pagesStats
+      deviceBreakdown = devicesStats
+    } catch {
+      // جدول page_views هنوز ایجاد نشده — داده‌ها صفر می‌مانند
+    }
+
     recentOrders = ordersResult
     recentLeads = leadsResult
 
@@ -105,27 +148,6 @@ export default async function AdminDashboard() {
       totalRevenueThisMonth = Number(s.revenue ?? 0)
       newLeadsCount = s.newLeads ?? 0
       totalLeads = s.totalLeads ?? 0
-    }
-
-    // Analytics — جداگانه تا خطا کل بلاک را متوقف نکند
-    try {
-      const weekAgo = new Date()
-      weekAgo.setDate(weekAgo.getDate() - 7)
-      const [viewStats, pagesStats, devicesStats] = await Promise.all([
-        db.select({ total: sql<number>`count(*)::int`, unique: sql<number>`count(distinct ${pageViews.sessionId})::int` })
-          .from(pageViews).where(gte(pageViews.createdAt, weekAgo)),
-        db.select({ path: pageViews.path, views: sql<number>`count(*)::int` })
-          .from(pageViews).where(gte(pageViews.createdAt, weekAgo))
-          .groupBy(pageViews.path).orderBy(desc(sql`count(*)`)).limit(5),
-        db.select({ device: pageViews.device, count: sql<number>`count(*)::int` })
-          .from(pageViews).where(gte(pageViews.createdAt, weekAgo)).groupBy(pageViews.device),
-      ])
-      totalViewsWeek = viewStats[0]?.total ?? 0
-      uniqueVisitorsWeek = viewStats[0]?.unique ?? 0
-      topPages = pagesStats
-      deviceBreakdown = devicesStats
-    } catch {
-      // جدول page_views هنوز ساخته نشده
     }
   } catch {
     // DB might not be available during SSR — show zeros gracefully
@@ -186,8 +208,9 @@ export default async function AdminDashboard() {
           />
         </div>
 
-        {/* ── Analytics ─────────────────────────────────────────────── */}
+        {/* ── Analytics Row ─────────────────────────────────────────────── */}
         <div className="grid lg:grid-cols-3 gap-6">
+          {/* بازدید ۷ روز */}
           <div className="bg-white rounded-2xl border border-surface-200 p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-bold text-surface-900">بازدید سایت</h3>
@@ -203,6 +226,7 @@ export default async function AdminDashboard() {
                 <p className="text-xs text-green-600 mt-1">بازدیدکنندگان یکتا</p>
               </div>
             </div>
+            {/* دستگاه‌ها */}
             {deviceBreakdown.length > 0 && (
               <div className="space-y-2">
                 <p className="text-xs font-semibold text-surface-500 mb-2">تفکیک دستگاه</p>
@@ -217,7 +241,7 @@ export default async function AdminDashboard() {
                       <div key={key} className="flex items-center gap-2">
                         <span className="text-xs text-surface-600 w-20 flex-shrink-0">{labels[key] ?? key}</span>
                         <div className="flex-1 h-1.5 bg-surface-100 rounded-full overflow-hidden">
-                          <div className={`h-full rounded-full \${colors[key] ?? 'bg-surface-400'}`} style={{ width: `\${pct}%` }} />
+                          <div className={`h-full rounded-full ${colors[key] ?? 'bg-surface-400'}`} style={{ width: `${pct}%` }} />
                         </div>
                         <span className="text-xs text-surface-500 w-9 text-end">{pct}٪</span>
                       </div>
@@ -226,8 +250,12 @@ export default async function AdminDashboard() {
                 })()}
               </div>
             )}
-            {totalViewsWeek === 0 && <p className="text-xs text-surface-400 text-center py-2">هنوز بازدیدی ثبت نشده</p>}
+            {totalViewsWeek === 0 && (
+              <p className="text-xs text-surface-400 text-center py-2">هنوز بازدیدی ثبت نشده</p>
+            )}
           </div>
+
+          {/* صفحات پربازدید */}
           <div className="lg:col-span-2 bg-white rounded-2xl border border-surface-200 p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-bold text-surface-900">صفحات پربازدید</h3>
@@ -248,7 +276,10 @@ export default async function AdminDashboard() {
                           <span className="text-xs font-bold text-surface-900 flex-shrink-0 ms-2">{p.views.toLocaleString('fa-IR')}</span>
                         </div>
                         <div className="h-1.5 bg-surface-100 rounded-full overflow-hidden">
-                          <div className="h-full rounded-full bg-brand-400" style={{ width: `\${Math.round((p.views / maxViews) * 100)}%` }} />
+                          <div
+                            className="h-full rounded-full bg-brand-400"
+                            style={{ width: `${Math.round((p.views / maxViews) * 100)}%` }}
+                          />
                         </div>
                       </div>
                     </div>
@@ -341,5 +372,3 @@ export default async function AdminDashboard() {
         </div>
       </div>
     </div>
-  )
-}
