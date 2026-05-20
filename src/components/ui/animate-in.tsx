@@ -35,7 +35,7 @@ export function AnimateIn({
     if (!el) return
 
     const observer = new IntersectionObserver(
-      ([entry]) => {
+      (entries) => { const entry = entries[0]; if (!entry) return;
         if (entry?.isIntersecting) {
           const timer = setTimeout(() => el.classList.add('visible'), delay)
           if (once) observer.unobserve(el)
