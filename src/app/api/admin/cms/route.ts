@@ -25,14 +25,14 @@ export async function GET(req: NextRequest) {
     const settingsByGroup: Record<string, typeof settings> = {}
     for (const s of settings) {
       if (!settingsByGroup[s.group]) settingsByGroup[s.group] = []
-      settingsByGroup[s.group].push(s)
+      settingsByGroup[s.group]!.push(s)
     }
 
     // گروه‌بندی content بر اساس page
     const contentByPage: Record<string, typeof content> = {}
     for (const c of content) {
       if (!contentByPage[c.page]) contentByPage[c.page] = []
-      contentByPage[c.page].push(c)
+      contentByPage[c.page]!.push(c)
     }
 
     // flat map برای UI
@@ -42,7 +42,7 @@ export async function GET(req: NextRequest) {
     const contentMap: Record<string, Record<string, string>> = {}
     for (const c of content) {
       if (!contentMap[c.page]) contentMap[c.page] = {}
-      contentMap[c.page][c.key] = c.valueFa ?? ''
+      contentMap[c.page]![c.key] = c.valueFa ?? ''
     }
 
     return NextResponse.json({ settings, content, settingsByGroup, contentByPage, settingsMap, contentMap })
@@ -111,4 +111,3 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     return NextResponse.json({ error: 'خطا' }, { status: 500 })
   }
-}
