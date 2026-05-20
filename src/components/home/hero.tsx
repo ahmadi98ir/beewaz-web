@@ -27,7 +27,7 @@ export function Hero({ cms }: HeroProps) {
   const [mousePos, setMousePos] = useState({ x: 0.5, y: 0.5 })
   const [scrollY, setScrollY] = useState(0)
   const heroRef = useRef<HTMLElement>(null)
-  const rafRef = useRef<number>()
+  const rafRef = useRef<number>(0)
 
   useEffect(() => { setMounted(true) }, [])
 
