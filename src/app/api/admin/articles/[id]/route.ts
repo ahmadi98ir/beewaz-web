@@ -8,7 +8,7 @@ type Params = { params: Promise<{ id: string }> }
 
 export async function GET(_req: NextRequest, { params }: Params) {
   const guard = await requireAdmin()
-  if (guard.error) return guard.error
+  if (!guard.ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { id } = await params
   const [article] = await db.select().from(articles).where(eq(articles.id, id))
@@ -19,7 +19,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
 
 export async function PUT(req: NextRequest, { params }: Params) {
   const guard = await requireAdmin()
-  if (guard.error) return guard.error
+  if (!guard.ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { id } = await params
   try {
@@ -58,7 +58,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
 
 export async function DELETE(_req: NextRequest, { params }: Params) {
   const guard = await requireAdmin()
-  if (guard.error) return guard.error
+  if (!guard.ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { id } = await params
   const [deleted] = await db.delete(articles).where(eq(articles.id, id)).returning({ id: articles.id })
