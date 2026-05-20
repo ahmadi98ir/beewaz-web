@@ -1,10 +1,10 @@
 /**
- * GET  /api/admin/products — لیست محصولات
- * POST /api/admin/products — ایجاد محصول جدید
+ * GET  /api/admin/products
+ * POST /api/admin/products
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { products, productImages } from '@/lib/db/schema'
+import { products, productImages, categories } from '@/lib/db/schema'
 import { requireAdmin } from '@/lib/admin-auth'
 import { eq, desc, ilike, or, sql, and, isNull, inArray } from 'drizzle-orm'
 
@@ -22,17 +22,17 @@ export async function GET(req: NextRequest) {
   try {
     const conditions = [isNull(products.deletedAt)]
     if (status && status !== 'all') conditions.push(eq(products.status, status as 'draft'|'active'|'archived'|'out_of_stock'))
-    if (search) conditions.push(or(ilike(products.name, `%${search}%`), ilike(products.modelCode, `%${search}%`)) as ReturnType<typeof and>)
+    if (search) conditions.push(or(ilike(products.nameFa, `%${search}%`), ilike(products.sku, `%${search}%`)) as ReturnType<typeof and>)
 
     const where = and(...conditions)
 
     const [rows, countResult, statusCounts] = await Promise.all([
       db.select({
-        id: products.id, slug: products.slug, name: products.name,
-        modelCode: products.modelCode, status: products.status,
-        basePrice: products.basePrice, isFeatured: products.isFeatured,
+        id: products.id, slug: products.slug, nameFa: products.nameFa,
+        sku: products.sku, status: products.status,
+        price: products.price, comparePrice: products.comparePrice,
+        isFeatured: products.isFeatured, stock: products.stock,
         ratingAvg: products.ratingAvg, ratingCount: products.ratingCount,
-        salesCount: products.salesCount, publishedAt: products.publishedAt,
         createdAt: products.createdAt,
       }).from(products).where(where).orderBy(desc(products.createdAt)).limit(limit).offset(offset),
 
@@ -41,7 +41,6 @@ export async function GET(req: NextRequest) {
         .from(products).where(isNull(products.deletedAt)).groupBy(products.status),
     ])
 
-    // تصویر اصلی هر محصول
     const productIds = rows.map(r => r.id)
     let imageMap: Record<string, string> = {}
     if (productIds.length > 0) {
@@ -54,10 +53,14 @@ export async function GET(req: NextRequest) {
     const counts: Record<string, number> = { all: countResult[0]?.total ?? 0 }
     for (const r of statusCounts) counts[r.status] = r.count
 
-    return NextResponse.json({ products: rows.map(r => ({ ...r, imageUrl: imageMap[r.id] ?? null })), total: countResult[0]?.total ?? 0, counts })
+    return NextResponse.json({
+      products: rows.map(r => ({ ...r, imageUrl: imageMap[r.id] ?? null })),
+      total: countResult[0]?.total ?? 0,
+      counts,
+    })
   } catch (err) {
     console.error('[products GET]', err)
-    return NextResponse.json({ error: 'خطا' }, { status: 500 })
+    return NextResponse.json({ error: 'Server error' }, { status: 500 })
   }
 }
 
@@ -67,25 +70,27 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json() as {
-      name: string; slug: string; modelCode?: string; shortDescription?: string
-      description?: string; basePrice?: number; status?: string; isFeatured?: boolean; categoryId?: string
+      nameFa: string; slug: string; sku?: string
+      descriptionFa?: string; price?: number; comparePrice?: number
+      status?: string; isFeatured?: boolean; categoryId?: string
     }
-    if (!body.name || !body.slug) return NextResponse.json({ error: 'نام و slug الزامی است' }, { status: 400 })
+    if (!body.nameFa || !body.slug) return NextResponse.json({ error: 'nameFa and slug are required' }, { status: 400 })
 
     const [product] = await db.insert(products).values({
-      name: body.name, slug: body.slug,
-      modelCode: body.modelCode || null,
-      shortDescription: body.shortDescription || null,
-      description: body.description || null,
-      basePrice: body.basePrice ? String(body.basePrice) : null,
-      status: (body.status as 'draft'|'active') ?? 'draft',
-      isFeatured: body.isFeatured ?? false,
-      categoryId: body.categoryId || null,
+      nameFa:       body.nameFa,
+      slug:         body.slug,
+      sku:          body.sku ?? body.slug,
+      descriptionFa: body.descriptionFa ?? null,
+      price:        body.price ?? 0,
+      comparePrice: body.comparePrice ?? null,
+      status:       (body.status as 'draft'|'active') ?? 'draft',
+      isFeatured:   body.isFeatured ?? false,
+      categoryId:   body.categoryId ?? null,
     }).returning()
 
     return NextResponse.json({ product }, { status: 201 })
   } catch (err) {
     console.error('[products POST]', err)
-    return NextResponse.json({ error: 'خطا در ایجاد محصول' }, { status: 500 })
+    return NextResponse.json({ error: 'Server error' }, { status: 500 })
   }
 }
