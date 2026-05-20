@@ -36,4 +36,8 @@ export function StatsCard({ label, value, sub, color = 'brand', icon, trend }: S
       {trend && (
         <div className={`text-xs font-semibold ${trend.value >= 0 ? 'text-green-600' : 'text-red-500'}`}>
           {trend.value >= 0 ? '↑' : '↓'} {Math.abs(trend.value)}٪ {trend.label}
-       
+        </div>
+      )}
+    </div>
+  )
+}
