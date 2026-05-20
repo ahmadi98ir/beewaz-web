@@ -7,8 +7,8 @@ interface Step {
   icon: string
   title: string
   desc: string
-  color: string
-  glow: string
+  color?: string
+  glow?: string
 }
 
 const DEFAULT_STEPS: Step[] = [
@@ -44,7 +44,7 @@ export function HowItWorks({ cms = {} }: HowItWorksProps) {
     try {
       const parsed = JSON.parse(cms.how_steps)
       if (Array.isArray(parsed) && parsed.length > 0) {
-        steps = parsed.map((s: { icon: string; title: string; desc: string }, i: number) => ({ ...DEFAULT_STEPS[i] || DEFAULT_STEPS[0], ...s }))
+        steps = parsed.map((s: { icon: string; title: string; desc: string }, i: number) => ({ ...(DEFAULT_STEPS[i] ?? DEFAULT_STEPS[0]!), ...s }))
       }
     } catch { /* use defaults */ }
   }
@@ -72,17 +72,17 @@ export function HowItWorks({ cms = {} }: HowItWorksProps) {
 
           {steps.map((step, i) => (
             <AnimateIn key={i} delay={i * 120}>
-              <div className={`group relative bg-white/[0.03] border border-white/[0.08] rounded-2xl p-6 text-center hover:bg-white/[0.06] hover:border-white/20 transition-all duration-500 shadow-xl ${step.glow}`}>
-                <div className={`inline-flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-br ${step.color} text-white font-black text-sm mb-5 shadow-lg`}>
+              <div className={`group relative bg-white/[0.03] border border-white/[0.08] rounded-2xl p-6 text-center hover:bg-white/[0.06] hover:border-white/20 transition-all duration-500 shadow-xl ${step.glow ?? 'shadow-blue-500/30'}\`}>
+                <div className={`inline-flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-br ${step.color ?? 'from-blue-500 to-cyan-400'} text-white font-black text-sm mb-5 shadow-lg`}>
                   {(i + 1).toLocaleString('fa-IR')}
                 </div>
                 <div className="relative mx-auto w-20 h-20 mb-5">
-                  <div className={`absolute inset-0 rounded-2xl bg-gradient-to-br ${step.color} opacity-15 group-hover:opacity-25 transition-opacity blur-sm`} />
-                  <div className={`relative w-full h-full rounded-2xl bg-gradient-to-br ${step.color} bg-opacity-10 border border-white/10 flex items-center justify-center text-4xl`}>{step.icon}</div>
+                  <div className={`absolute inset-0 rounded-2xl bg-gradient-to-br ${step.color ?? 'from-blue-500 to-cyan-400'} opacity-15 group-hover:opacity-25 transition-opacity blur-sm`} />
+                  <div className={`relative w-full h-full rounded-2xl bg-gradient-to-br ${step.color ?? 'from-blue-500 to-cyan-400'} bg-opacity-10 border border-white/10 flex items-center justify-center text-4xl`}>{step.icon}</div>
                 </div>
                 <h3 className="text-white font-bold text-lg mb-3">{step.title}</h3>
                 <p className="text-white/45 text-sm leading-relaxed">{step.desc}</p>
-                <div className={`absolute bottom-0 left-6 right-6 h-0.5 rounded-full bg-gradient-to-r ${step.color} opacity-0 group-hover:opacity-60 transition-opacity`} />
+                <div className={`absolute bottom-0 left-6 right-6 h-0.5 rounded-full bg-gradient-to-r ${step.color ?? 'from-blue-500 to-cyan-400'} opacity-0 group-hover:opacity-60 transition-opacity`} />
               </div>
             </AnimateIn>
           ))}
