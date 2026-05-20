@@ -583,5 +583,3 @@ function AddLeadModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =
         </form>
       </div>
     </div>
-  )
-}
