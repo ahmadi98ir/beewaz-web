@@ -6,7 +6,7 @@
  * page_views    : آمار بازدید صفحات (analytics سبک)
  */
 
-import { pgTable, pgEnum, text, boolean, timestamp, integer, varchar, uuid, jsonb } from 'drizzle-orm/pg-core'
+import { pgTable, pgEnum, text, boolean, timestamp, integer, varchar, uuid, jsonb, unique } from 'drizzle-orm/pg-core'
 import { sql } from 'drizzle-orm'
 
 // ─── Enums ────────────────────────────────────────────────────────────────────
@@ -99,7 +99,9 @@ export const pageContent = pgTable('page_content', {
     .notNull()
     .default(sql`now()`)
     .$onUpdate(() => new Date()),
-})
+}, (t) => [
+  unique('page_content_page_key_unique').on(t.page, t.key),
+])
 
 export type PageContent = typeof pageContent.$inferSelect
 export type NewPageContent = typeof pageContent.$inferInsert
@@ -133,5 +135,4 @@ export const pageViews = pgTable('page_views', {
     .default(sql`now()`),
 })
 
-export type PageView = typeof pageViews.$inferSelect
-export type NewPageView = typeof pageViews.$inferInsert
+export type PageView = typeof
