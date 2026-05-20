@@ -1,40 +1,33 @@
 import {
-  pgTable, pgEnum, uuid, varchar, text, numeric, integer, boolean, timestamp
+  pgTable, pgEnum, uuid, varchar, text, numeric, bigint, integer, boolean, timestamp
 } from 'drizzle-orm/pg-core'
 import { relations } from 'drizzle-orm'
-
-// ─── Enums ─────────────────────────────────────────────────────────────────────────────
+import { categories } from './categories'
 
 export const productStatusEnum = pgEnum('product_status', [
-  'draft',
-  'active',
-  'archived',
-  'out_of_stock',
+  'draft', 'active', 'archived', 'out_of_stock',
 ])
 
-// ─── Products ──────────────────────────────────────────────────────────────────────────
-
 export const products = pgTable('products', {
-  id:               uuid('id').primaryKey().defaultRandom(),
-  categoryId:       uuid('category_id'),
-  name:             varchar('name', { length: 200 }).notNull(),
-  slug:             varchar('slug', { length: 200 }).unique().notNull(),
-  modelCode:        varchar('model_code', { length: 64 }),
-  shortDescription: text('short_description'),
-  description:      text('description'),
-  basePrice:        numeric('base_price', { precision: 14, scale: 0 }),
-  status:           productStatusEnum('status').default('draft').notNull(),
-  isFeatured:       boolean('is_featured').default(false).notNull(),
-  ratingAvg:        numeric('rating_avg', { precision: 3, scale: 2 }).default('0'),
-  ratingCount:      integer('rating_count').default(0).notNull(),
-  salesCount:       integer('sales_count').default(0).notNull(),
-  publishedAt:      timestamp('published_at', { withTimezone: true }),
-  deletedAt:        timestamp('deleted_at', { withTimezone: true }),
-  createdAt:        timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-  updatedAt:        timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  id:           uuid('id').primaryKey().defaultRandom(),
+  categoryId:   uuid('category_id').references(() => categories.id, { onDelete: 'set null' }),
+  sku:          varchar('sku', { length: 50 }).unique().notNull(),
+  nameFa:       text('name_fa').notNull(),
+  slug:         varchar('slug', { length: 160 }).unique().notNull(),
+  descriptionFa: text('description_fa'),
+  price:        bigint('price', { mode: 'number' }).notNull().default(0),
+  comparePrice: bigint('compare_price', { mode: 'number' }),
+  stock:        integer('stock').default(0).notNull(),
+  status:       productStatusEnum('status').default('draft').notNull(),
+  isFeatured:   boolean('is_featured').default(false).notNull(),
+  ratingAvg:    numeric('rating_avg', { precision: 3, scale: 2 }).default('0'),
+  ratingCount:  integer('rating_count').default(0).notNull(),
+  metaTitle:    text('meta_title'),
+  metaDesc:     text('meta_desc'),
+  deletedAt:    timestamp('deleted_at', { withTimezone: true }),
+  createdAt:    timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt:    timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 })
-
-// ─── Product Variants ────────────────────────────────────────────────────────────────
 
 export const productVariants = pgTable('product_variants', {
   id:        uuid('id').primaryKey().defaultRandom(),
@@ -46,8 +39,6 @@ export const productVariants = pgTable('product_variants', {
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 })
 
-// ─── Product Images ───────────────────────────────────────────────────────────────────
-
 export const productImages = pgTable('product_images', {
   id:        uuid('id').primaryKey().defaultRandom(),
   productId: uuid('product_id').notNull().references(() => products.id, { onDelete: 'cascade' }),
@@ -57,8 +48,6 @@ export const productImages = pgTable('product_images', {
   sortOrder: integer('sort_order').default(0).notNull(),
 })
 
-// ─── Product Specs ───────────────────────────────────────────────────────────────────
-
 export const productSpecs = pgTable('product_specs', {
   id:        uuid('id').primaryKey().defaultRandom(),
   productId: uuid('product_id').notNull().references(() => products.id, { onDelete: 'cascade' }),
@@ -67,9 +56,8 @@ export const productSpecs = pgTable('product_specs', {
   sortOrder: integer('sort_order').default(0).notNull(),
 })
 
-// ─── Relations ────────────────────────────────────────────────────────────────────────────
-
-export const productsRelations = relations(products, ({ many }) => ({
+export const productsRelations = relations(products, ({ one, many }) => ({
+  category: one(categories, { fields: [products.categoryId], references: [categories.id] }),
   images:   many(productImages),
   variants: many(productVariants),
   specs:    many(productSpecs),
@@ -86,8 +74,6 @@ export const productImagesRelations = relations(productImages, ({ one }) => ({
 export const productSpecsRelations = relations(productSpecs, ({ one }) => ({
   product: one(products, { fields: [productSpecs.productId], references: [products.id] }),
 }))
-
-// ─── Types ───────────────────────────────────────────────────────────────────────────────
 
 export type Product         = typeof products.$inferSelect
 export type NewProduct      = typeof products.$inferInsert
