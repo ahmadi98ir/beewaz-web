@@ -73,7 +73,7 @@ export default function OrderDetailPage() {
     <div className="flex-1 flex items-center justify-center text-surface-300">بارگذاری...</div>
   )
 
-  const cfg = STATUS_MAP[order.status] ?? STATUS_MAP.pending
+  const cfg = STATUS_MAP[order.status] ?? STATUS_MAP.pending ?? { cls: '', label: '' }
 
   return (
     <div className="flex-1 overflow-y-auto">
