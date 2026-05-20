@@ -1,63 +1,72 @@
-import {
-  pgTable,
-  pgEnum,
-  uuid,
-  text,
-  integer,
-  bigint,
-  timestamp,
-  jsonb,
-} from 'drizzle-orm/pg-core'
-import { relations } from 'drizzle-orm'
+/**
+ * اسکیمای سفارشات
+ */
+
+import { pgTable, pgEnum, uuid, varchar, text, numeric, integer, jsonb, timestamp, boolean } from 'drizzle-orm/pg-core'
+import { relations, sql } from 'drizzle-orm'
 import { users } from './users'
-import { products } from './products'
+import { products, productVariants } from './products'
 
 // ─── Enums ────────────────────────────────────────────────────────────────────
 
 export const orderStatusEnum = pgEnum('order_status', [
-  'pending',
-  'paid',
-  'processing',
-  'shipped',
-  'delivered',
-  'cancelled',
-  'refunded',
+  'pending',    // در انتظار پرداخت
+  'paid',       // پرداخت شده
+  'processing', // در حال آماده‌سازی
+  'shipped',    // ارسال شده
+  'delivered',  // تحویل داده شده
+  'cancelled',  // لغو شده
+  'refunded',   // مسترد شده
 ])
 
 export const paymentMethodEnum = pgEnum('payment_method', [
-  'zarinpal',
-  'idpay',
-  'wallet',
-  'cod',
+  'online',       // درگاه آنلاین
+  'card_to_card', // کارت به کارت
+  'cash_on_delivery', // پرداخت در محل
+  'installment',  // اقساطی
 ])
 
 // ─── Orders ───────────────────────────────────────────────────────────────────
 
 export const orders = pgTable('orders', {
   id: uuid('id').primaryKey().defaultRandom(),
-  userId: uuid('user_id')
-    .references(() => users.id, { onDelete: 'restrict' })
-    .notNull(),
 
-  status: orderStatusEnum('status').default('pending').notNull(),
-  totalAmount: bigint('total_amount', { mode: 'number' }).notNull(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
 
-  // آدرس ارسال — ذخیره snapshot در زمان سفارش
+  /** اطلاعات ارسال */
   shippingAddress: jsonb('shipping_address').$type<{
-    fullName: string
-    phone: string
-    province: string
-    city: string
-    address: string
-    postalCode: string
+    fullName?: string
+    phone?: string
+    city?: string
+    province?: string
+    address?: string
+    postalCode?: string
   }>(),
 
+  status: orderStatusEnum('status').notNull().default('pending'),
   paymentMethod: paymentMethodEnum('payment_method'),
-  paymentRef: text('payment_ref'),      // شناسه تراکنش درگاه
-  paymentAuthority: text('payment_authority'),
 
-  notes: text('notes'),
+  /** مبلغ کل به ریال */
+  totalAmount: numeric('total_amount', { precision: 14, scale: 0 }).notNull().default('0'),
+  /** هزینه ارسال */
+  shippingAmount: numeric('shipping_amount', { precision: 14, scale: 0 }).notNull().default('0'),
+  /** تخفیف */
+  discountAmount: numeric('discount_amount', { precision: 14, scale: 0 }).notNull().default('0'),
+
+  /** کد تراکنش درگاه */
+  transactionId: varchar('transaction_id', { length: 100 }),
+  /** کد پیگیری */
+  trackingCode: varchar('tracking_code', { length: 100 }),
+
+  /** یادداشت مشتری */
+  customerNote: text('customer_note'),
+  /** یادداشت داخلی ادمین */
+  adminNote: text('admin_note'),
+
   paidAt: timestamp('paid_at', { withTimezone: true }),
+  shippedAt: timestamp('shipped_at', { withTimezone: true }),
+  deliveredAt: timestamp('delivered_at', { withTimezone: true }),
+
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 })
@@ -67,21 +76,25 @@ export const orders = pgTable('orders', {
 export const orderItems = pgTable('order_items', {
   id: uuid('id').primaryKey().defaultRandom(),
   orderId: uuid('order_id')
-    .references(() => orders.id, { onDelete: 'cascade' })
-    .notNull(),
-  productId: uuid('product_id')
-    .references(() => products.id, { onDelete: 'restrict' })
-    .notNull(),
+    .notNull()
+    .references(() => orders.id, { onDelete: 'cascade' }),
 
-  quantity: integer('quantity').notNull(),
-  unitPrice: bigint('unit_price', { mode: 'number' }).notNull(),
+  productId: uuid('product_id').references(() => products.id, { onDelete: 'set null' }),
+  variantId: uuid('variant_id').references(() => productVariants.id, { onDelete: 'set null' }),
 
-  // snapshot محصول در لحظه خرید — برای تاریخچه سفارش
-  snapshot: jsonb('snapshot').$type<{
-    name: string
-    sku: string
-    imageUrl?: string
-  }>().notNull(),
+  /** اطلاعات snapshot محصول در لحظه خرید */
+  productName: varchar('product_name', { length: 200 }).notNull(),
+  variantName: varchar('variant_name', { length: 128 }),
+  sku: varchar('sku', { length: 64 }),
+
+  quantity: integer('quantity').notNull().default(1),
+  unitPrice: numeric('unit_price', { precision: 14, scale: 0 }).notNull(),
+  totalPrice: numeric('total_price', { precision: 14, scale: 0 }).notNull(),
+
+  /** snapshot مشخصات محصول */
+  meta: jsonb('meta').default(sql`'{}'::jsonb`),
+
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 })
 
 // ─── Relations ────────────────────────────────────────────────────────────────
@@ -93,10 +106,8 @@ export const ordersRelations = relations(orders, ({ one, many }) => ({
 
 export const orderItemsRelations = relations(orderItems, ({ one }) => ({
   order: one(orders, { fields: [orderItems.orderId], references: [orders.id] }),
-  product: one(products, {
-    fields: [orderItems.productId],
-    references: [products.id],
-  }),
+  product: one(products, { fields: [orderItems.productId], references: [products.id] }),
+  variant: one(productVariants, { fields: [orderItems.variantId], references: [productVariants.id] }),
 }))
 
 // ─── Types ────────────────────────────────────────────────────────────────────
