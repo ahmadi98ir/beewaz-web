@@ -41,7 +41,7 @@ const TABS = [
 ]
 
 function OrderBadge({ status }: { status: string }) {
-  const cfg = STATUS_MAP[status] ?? STATUS_MAP.pending
+  const cfg = STATUS_MAP[status] ?? STATUS_MAP['pending'] ?? { label: '', cls: '', dot: '' }
   return (
     <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold border ${cfg.cls}`}>
       <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
@@ -196,8 +196,4 @@ export default function OrdersPage() {
               </table>
             </div>
           )}
-        </div>
-      </div>
-    </div>
-  )
-}
+       
