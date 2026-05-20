@@ -5,8 +5,8 @@ import { join } from 'path'
 import { randomUUID } from 'crypto'
 
 export async function POST(req: Request) {
-  const { error } = await requireAdmin()
-  if (error) return error
+  const _auth = await requireAdmin()
+  if (!_auth.ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const formData = await req.formData()
   const file = formData.get('file') as File | null
