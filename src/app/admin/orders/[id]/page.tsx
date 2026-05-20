@@ -73,7 +73,7 @@ export default function OrderDetailPage() {
     <div className="flex-1 flex items-center justify-center text-surface-300">بارگذاری...</div>
   )
 
-  const cfg = STATUS_MAP[order.status] ?? STATUS_MAP.pending
+  const cfg = STATUS_MAP[order.status] ?? STATUS_MAP['pending'] ?? { label: '', cls: '' }
 
   return (
     <div className="flex-1 overflow-y-auto">
@@ -223,7 +223,4 @@ export default function OrderDetailPage() {
             <p className="font-bold text-surface-800">{{ online:'درگاه آنلاین', card_to_card:'کارت به کارت', cash_on_delivery:'پرداخت در محل', installment:'اقساطی' }[order.paymentMethod ?? ''] ?? '—'}</p>
           </div>
         </div>
-      </div>
-    </div>
-  )
-}
+ 
