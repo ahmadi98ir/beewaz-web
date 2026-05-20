@@ -4,7 +4,7 @@ import { requireAdmin } from '@/lib/admin-auth'
 
 export async function GET() {
   const guard = await requireAdmin()
-  if (guard.error) return guard.error
+  if (!guard.ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   try {
     const list = await db.query.categories.findMany({
