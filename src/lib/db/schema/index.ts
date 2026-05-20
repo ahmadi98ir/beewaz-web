@@ -1,69 +1,35 @@
-// ─── Enums (shared) ──────────────────────────────────────────────────────────────────────────────
+// ─── Users ───────────────────────────────────────────────────────────────────────────────
 export {
   userRoleEnum,
-  userStatusEnum,
-  otpPurposeEnum,
-  productStatusEnum,
-  productConditionEnum,
-  reviewStatusEnum,
-} from './enums'
-
-// ─── Users ─────────────────────────────────────────────────────────────────────────────────
-export {
   users,
-  addresses,
-  otpCodes,
-  sessions,
-  accounts,
-  verificationTokens,
-  auditLogs,
-  usersRelations,
-  addressesRelations,
-  sessionsRelations,
-  accountsRelations,
-  auditLogsRelations,
   type User,
   type NewUser,
-  type Address,
-  type NewAddress,
-  type OtpCode,
-  type NewOtpCode,
-  type AuditLog,
-  type NewAuditLog,
+  type UserRole,
 } from './users'
 
-// ─── Products (includes brands, categories, variants, inventory, images, reviews) ──
+// ─── Products ─────────────────────────────────────────────────────────────────────────────
 export {
-  brands,
-  categories,
+  productStatusEnum,
   products,
   productVariants,
-  inventory,
   productImages,
-  reviews,
-  brandsRelations,
-  categoriesRelations,
+  productSpecs,
   productsRelations,
   productVariantsRelations,
-  inventoryRelations,
   productImagesRelations,
-  reviewsRelations,
-  type Brand,
-  type NewBrand,
-  type Category,
-  type NewCategory,
+  productSpecsRelations,
   type Product,
   type NewProduct,
   type ProductVariant,
   type NewProductVariant,
-  type Inventory,
   type ProductImage,
   type NewProductImage,
-  type Review,
-  type NewReview,
+  type ProductSpec,
+  type NewProductSpec,
+  type ProductStatus,
 } from './products'
 
-// ─── Orders ────────────────────────────────────────────────────────────────────────────────
+// ─── Orders ───────────────────────────────────────────────────────────────────────────────
 export {
   orderStatusEnum,
   paymentMethodEnum,
@@ -78,7 +44,7 @@ export {
   type NewOrderItem,
 } from './orders'
 
-// ─── Chat & CRM ────────────────────────────────────────────────────────────────────────
+// ─── Chat & CRM ───────────────────────────────────────────────────────────────────────────
 export {
   sessionStatusEnum,
   messageRoleEnum,
