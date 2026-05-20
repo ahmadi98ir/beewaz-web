@@ -1,41 +1,69 @@
-// ─── Users ────────────────────────────────────────────────────────────────────
+// ─── Enums (shared) ──────────────────────────────────────────────────────────────────────────────
 export {
   userRoleEnum,
+  userStatusEnum,
+  otpPurposeEnum,
+  productStatusEnum,
+  productConditionEnum,
+  reviewStatusEnum,
+} from './enums'
+
+// ─── Users ─────────────────────────────────────────────────────────────────────────────────
+export {
   users,
+  addresses,
+  otpCodes,
+  sessions,
+  accounts,
+  verificationTokens,
+  auditLogs,
   usersRelations,
+  addressesRelations,
+  sessionsRelations,
+  accountsRelations,
+  auditLogsRelations,
   type User,
   type NewUser,
-  type UserRole,
+  type Address,
+  type NewAddress,
+  type OtpCode,
+  type NewOtpCode,
+  type AuditLog,
+  type NewAuditLog,
 } from './users'
 
-// ─── Categories ───────────────────────────────────────────────────────────────
+// ─── Products (includes brands, categories, variants, inventory, images, reviews) ──
 export {
+  brands,
   categories,
+  products,
+  productVariants,
+  inventory,
+  productImages,
+  reviews,
+  brandsRelations,
   categoriesRelations,
+  productsRelations,
+  productVariantsRelations,
+  inventoryRelations,
+  productImagesRelations,
+  reviewsRelations,
+  type Brand,
+  type NewBrand,
   type Category,
   type NewCategory,
-} from './categories'
-
-// ─── Products ─────────────────────────────────────────────────────────────────
-export {
-  productStatusEnum,
-  products,
-  productImages,
-  productSpecs,
-  productsRelations,
-  productImagesRelations,
-  productSpecsRelations,
   type Product,
   type NewProduct,
-  type ProductStatus,
+  type ProductVariant,
+  type NewProductVariant,
+  type Inventory,
   type ProductImage,
   type NewProductImage,
-  type ProductSpec,
-  type NewProductSpec,
-  type ProductWithDetails,
+  type Review,
+  type NewReview,
 } from './products'
 
-// ─── Orders ───────────────────────────────────────────────────────────────────
+// ─── Orders ────────────────────────────────────────────────────────────────────────────────
 export {
   orderStatusEnum,
   paymentMethodEnum,
@@ -50,19 +78,7 @@ export {
   type NewOrderItem,
 } from './orders'
 
-// ─── Articles ─────────────────────────────────────────────────────────────────
-export {
-  articleCategoryEnum,
-  articleStatusEnum,
-  articles,
-  articlesRelations,
-  type Article,
-  type NewArticle,
-  type ArticleCategory,
-  type ArticleStatus,
-} from './articles'
-
-// ─── Chat & CRM ───────────────────────────────────────────────────────────────
+// ─── Chat & CRM ────────────────────────────────────────────────────────────────────────
 export {
   sessionStatusEnum,
   messageRoleEnum,
@@ -82,7 +98,7 @@ export {
   type LeadStatus,
 } from './chat'
 
-// ─── CMS ──────────────────────────────────────────────────────────────────────
+// ─── CMS ──────────────────────────────────────────────────────────────────────────────────
 export {
   contentTypeEnum,
   siteSettings,
