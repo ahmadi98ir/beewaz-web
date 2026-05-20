@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next'
+import { headers } from 'next/headers'
 import { Header } from '@/components/layout/header'
 import { Footer } from '@/components/layout/footer'
 import { ChatWidget } from '@/components/chat/chat-widget'
@@ -6,8 +7,6 @@ import { ToastContainer } from '@/components/ui/toast'
 import { PageTransition } from '@/components/ui/page-transition'
 import { QuickViewModal } from '@/components/shop/quick-view-modal'
 import { PageTracker } from '@/components/analytics/page-tracker'
-import { AdminBanner } from '@/components/admin/admin-banner'
-import { AppSessionProvider } from '@/components/providers/session-provider'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -21,9 +20,17 @@ export const metadata: Metadata = {
   authors: [{ name: 'بیواز' }],
   creator: 'بیواز',
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'),
-  openGraph: { type: 'website', locale: 'fa_IR', siteName: 'بیواز' },
+  openGraph: {
+    type: 'website',
+    locale: 'fa_IR',
+    siteName: 'بیواز',
+  },
   twitter: { card: 'summary_large_image' },
-  robots: { index: true, follow: true, googleBot: { index: true, follow: true } },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: { index: true, follow: true },
+  },
 }
 
 export const viewport: Viewport = {
@@ -32,36 +39,38 @@ export const viewport: Viewport = {
   initialScale: 1,
 }
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
+  const headersList = await headers()
+  const pathname = headersList.get('x-pathname') ?? ''
+  const isAdmin = pathname.startsWith('/admin')
+
   return (
     <html lang="fa" dir="rtl">
       <head>
-        <link rel="preconnect" href="https://cdn.jsdelivr.net" crossOrigin="anonymous" />
+        <link
+          rel="preconnect"
+          href="https://cdn.jsdelivr.net"
+          crossOrigin="anonymous"
+        />
         <link
           rel="stylesheet"
           href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css"
         />
       </head>
-      <body className="min-h-screen flex flex-col bg-surface-50 antialiased font-sans">
-        <AppSessionProvider>
-          <a
-            href="#main-content"
-            className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:start-4 focus:z-50 focus:px-4 focus:py-2 focus:rounded-lg focus:bg-brand-600 focus:text-white focus:font-semibold focus:shadow-lg"
-          >
-            پرش به محتوای اصلی
-          </a>
-          <AdminBanner />
-          <Header />
-          <main className="flex-1" id="main-content">
-            <PageTransition>{children}</PageTransition>
-          </main>
-          <Footer />
-          <ChatWidget />
-          <QuickViewModal />
-          <ToastContainer />
-          <PageTracker />
-        </AppSessionProvider>
-      </body>
-    </html>
-  )
-}
+      <body className={`antialiased font-sans ${isAdmin ? 'bg-surface-50' : 'min-h-screen flex flex-col bg-surface-50'}`}>
+        {isAdmin ? (
+          // admin shell — sidebar layout is handled by /admin/layout.tsx
+          <>
+            {children}
+            <ToastContainer />
+          </>
+        ) : (
+          // public site
+          <>
+            <a
+              href="#main-content"
+              className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:start-4 focus:z-50 focus:px
