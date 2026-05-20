@@ -19,8 +19,10 @@ export async function GET(req: NextRequest) {
     const conditions = [isNull(products.deletedAt)]
     if (status && status !== 'all')
       conditions.push(eq(products.status, status as 'draft'|'active'|'archived'|'out_of_stock'))
-    if (search)
-      conditions.push(or(ilike(products.nameFa, `%${search}%`), ilike(products.slug, `%${search}%`)) as ReturnType<typeof and>)
+    if (search) {
+      const searchCond = or(ilike(products.nameFa, `%${search}%`), ilike(products.slug, `%${search}%`))
+      if (searchCond) conditions.push(searchCond)
+    }
 
     const where = and(...conditions)
 
