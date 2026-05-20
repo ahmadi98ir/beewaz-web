@@ -1,6 +1,5 @@
 /**
  * Admin Layout — sidebar + main area
- * تمام صفحات /admin/* داخل این layout رندر می‌شوند
  */
 import type { Metadata } from 'next'
 import type { ReactNode } from 'react'
