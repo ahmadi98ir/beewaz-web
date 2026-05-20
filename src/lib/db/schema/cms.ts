@@ -135,4 +135,5 @@ export const pageViews = pgTable('page_views', {
     .default(sql`now()`),
 })
 
-export type PageView = typeof
+export type PageView = typeof pageViews.$inferSelect
+export type NewPageView = typeof pageViews.$inferInsert
