@@ -6,7 +6,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { products, categories, productImages } from '@/lib/db/schema'
 import { requireAdmin } from '@/lib/admin-auth'
-import { eq, desc, ilike, or, sql, and, isNull } from 'drizzle-orm'
+import { eq, desc, ilike, or, sql, and, isNull, inArray } from 'drizzle-orm'
 
 export async function GET(req: NextRequest) {
   const auth = await requireAdmin(req)
@@ -47,7 +47,7 @@ export async function GET(req: NextRequest) {
     if (productIds.length > 0) {
       const imgs = await db.select({ productId: productImages.productId, url: productImages.url })
         .from(productImages)
-        .where(and(eq(productImages.isPrimary, true), sql`${productImages.productId} = ANY(${sql.raw(`ARRAY[${productIds.map(id => `'${id}'::uuid`).join(',')}]`)}`)))
+        .where(and(eq(productImages.isPrimary, true), inArray(productImages.productId, productIds)))
       imageMap = Object.fromEntries(imgs.map(i => [i.productId, i.url]))
     }
 
