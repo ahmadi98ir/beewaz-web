@@ -1,64 +1,27 @@
-import {
-  pgTable,
-  pgEnum,
-  uuid,
-  text,
-  varchar,
-  integer,
-  timestamp,
-} from 'drizzle-orm/pg-core'
-import { relations } from 'drizzle-orm'
-import { users } from './users'
+import { pgTable, pgEnum, uuid, varchar, text, integer, timestamp, jsonb } from 'drizzle-orm/pg-core'
+import { sql } from 'drizzle-orm'
 
-// ─── Enums ────────────────────────────────────────────────────────────────────
-
-export const articleCategoryEnum = pgEnum('article_category', [
-  'blog',
-  'knowledge_base',
-])
-
-export const articleStatusEnum = pgEnum('article_status', [
-  'draft',
-  'published',
-  'archived',
-])
-
-// ─── Table ────────────────────────────────────────────────────────────────────
+export const articleStatusEnum = pgEnum('article_status', ['draft', 'published', 'archived'])
 
 export const articles = pgTable('articles', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  authorId: uuid('author_id').references(() => users.id, { onDelete: 'set null' }),
-
-  category: articleCategoryEnum('category').notNull(),
-  status: articleStatusEnum('status').default('draft').notNull(),
-
-  titleFa: text('title_fa').notNull(),
-  slug: varchar('slug', { length: 200 }).unique().notNull(),
-  bodyFa: text('body_fa').notNull(),            // MDX / Rich text
-  excerptFa: text('excerpt_fa'),                // خلاصه برای کارت‌ها
-
-  coverImage: text('cover_image'),
-  tags: text('tags').array().default([]).notNull(),
-  readingTime: integer('reading_time'),          // دقیقه
-
-  // SEO
-  metaTitle: text('meta_title'),
-  metaDesc: text('meta_desc'),
-
+  id:          uuid('id').primaryKey().defaultRandom(),
+  authorId:    uuid('author_id'),
+  slug:        varchar('slug', { length: 200 }).unique().notNull(),
+  titleFa:     varchar('title_fa', { length: 300 }).notNull(),
+  excerptFa:   text('excerpt_fa'),
+  bodyFa:      text('body_fa'),
+  coverImage:  text('cover_image'),
+  category:    varchar('category', { length: 64 }),
+  tags:        jsonb('tags').default(sql`'[]'::jsonb`).$type<string[]>(),
+  readingTime: integer('reading_time'),
+  status:      articleStatusEnum('status').default('draft').notNull(),
+  metaTitle:   text('meta_title'),
+  metaDesc:    text('meta_desc'),
   publishedAt: timestamp('published_at', { withTimezone: true }),
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  createdAt:   timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt:   timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 })
 
-// ─── Relations ────────────────────────────────────────────────────────────────
-
-export const articlesRelations = relations(articles, ({ one }) => ({
-  author: one(users, { fields: [articles.authorId], references: [users.id] }),
-}))
-
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-export type Article = typeof articles.$inferSelect
+export type Article    = typeof articles.$inferSelect
 export type NewArticle = typeof articles.$inferInsert
-export type ArticleCategory = (typeof articleCategoryEnum.enumValues)[number]
 export type ArticleStatus = (typeof articleStatusEnum.enumValues)[number]
