@@ -1,4 +1,4 @@
-﻿import { notFound } from 'next/navigation'
+import { notFound } from 'next/navigation'
 import { db } from '@/lib/db'
 import { articles } from '@/lib/db/schema'
 import { eq, and } from 'drizzle-orm'
@@ -41,6 +41,8 @@ export default async function BlogArticlePage({ params }: { params: Promise<{ sl
   const article = await getArticle(slug)
   if (!article) notFound()
 
+  const tags = article.tags ?? []
+
   return (
     <main className="min-h-screen bg-surface-50">
       {article.coverImage && (
@@ -59,9 +61,9 @@ export default async function BlogArticlePage({ params }: { params: Promise<{ sl
           {article.readingTime && <span>{article.readingTime} دقیقه مطالعه</span>}
         </div>
 
-        {article.tags.length > 0 && (
+        {tags.length > 0 && (
           <div className="flex flex-wrap gap-2 mb-8">
-            {article.tags.map((tag) => (
+            {tags.map((tag) => (
               <span key={tag} className="px-3 py-1 bg-surface-100 text-surface-600 rounded-full text-xs font-medium">{tag}</span>
             ))}
           </div>
