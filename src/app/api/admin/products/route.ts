@@ -4,7 +4,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { products, categories, productImages } from '@/lib/db/schema'
+import { products, productImages } from '@/lib/db/schema'
 import { requireAdmin } from '@/lib/admin-auth'
 import { eq, desc, ilike, or, sql, and, isNull, inArray } from 'drizzle-orm'
 
