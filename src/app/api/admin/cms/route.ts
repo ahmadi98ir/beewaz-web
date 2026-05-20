@@ -111,3 +111,4 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     return NextResponse.json({ error: 'خطا' }, { status: 500 })
   }
+}
