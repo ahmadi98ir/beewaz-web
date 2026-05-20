@@ -3,15 +3,15 @@
  * آمار بازدید برای داشبورد ادمین
  */
 
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { pageViews } from '@/lib/db/schema'
 import { gte, sql, desc } from 'drizzle-orm'
 import { requireAdmin } from '@/lib/admin-auth'
 
-export async function GET(req: Request) {
-  const auth = await requireAdmin()
-  if ('error' in auth) return auth.error
+export async function GET(req: NextRequest) {
+  const auth = await requireAdmin(req)
+  if (!auth.ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { searchParams } = new URL(req.url)
   const days = parseInt(searchParams.get('days') ?? '30', 10)
