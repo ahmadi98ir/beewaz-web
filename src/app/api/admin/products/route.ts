@@ -1,66 +1,91 @@
+/**
+ * GET  /api/admin/products — لیست محصولات
+ * POST /api/admin/products — ایجاد محصول جدید
+ */
 import { NextRequest, NextResponse } from 'next/server'
-import { z } from 'zod'
 import { db } from '@/lib/db'
-import { products } from '@/lib/db/schema'
+import { products, categories, productImages } from '@/lib/db/schema'
 import { requireAdmin } from '@/lib/admin-auth'
+import { eq, desc, ilike, or, sql, and, isNull } from 'drizzle-orm'
 
-const productSchema = z.object({
-  categoryId: z.string().uuid().nullable().optional(),
-  sku: z.string().trim().min(1).max(50),
-  nameFa: z.string().trim().min(1),
-  nameEn: z.string().trim().optional().nullable(),
-  slug: z.string().trim().min(1).max(160).regex(/^[a-z0-9-]+$/i, 'slug فقط شامل حروف، اعداد و خط تیره'),
-  descriptionFa: z.string().optional().nullable(),
-  price: z.number().int().nonnegative(),
-  comparePrice: z.number().int().nonnegative().nullable().optional(),
-  stock: z.number().int().nonnegative().default(0),
-  status: z.enum(['draft', 'active', 'archived']).default('draft'),
-  isFeatured: z.boolean().default(false),
-  metaTitle: z.string().optional().nullable(),
-  metaDesc: z.string().optional().nullable(),
-})
+export async function GET(req: NextRequest) {
+  const auth = await requireAdmin(req)
+  if (!auth.ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-export async function GET() {
-  const guard = await requireAdmin()
-  if (guard.error) return guard.error
+  const { searchParams } = new URL(req.url)
+  const status = searchParams.get('status')
+  const search = searchParams.get('q')?.trim()
+  const page   = Math.max(1, parseInt(searchParams.get('page') ?? '1', 10))
+  const limit  = Math.min(100, parseInt(searchParams.get('limit') ?? '50', 10))
+  const offset = (page - 1) * limit
 
   try {
-    const list = await db.query.products.findMany({
-      with: { category: true },
-      orderBy: (p, { desc }) => [desc(p.createdAt)],
-    })
-    return NextResponse.json({ products: list })
+    const conditions = [isNull(products.deletedAt)]
+    if (status && status !== 'all') conditions.push(eq(products.status, status as 'draft'|'active'|'archived'|'out_of_stock'))
+    if (search) conditions.push(or(ilike(products.name, `%${search}%`), ilike(products.modelCode, `%${search}%`)) as ReturnType<typeof and>)
+
+    const where = and(...conditions)
+
+    const [rows, countResult, statusCounts] = await Promise.all([
+      db.select({
+        id: products.id, slug: products.slug, name: products.name,
+        modelCode: products.modelCode, status: products.status,
+        basePrice: products.basePrice, isFeatured: products.isFeatured,
+        ratingAvg: products.ratingAvg, ratingCount: products.ratingCount,
+        salesCount: products.salesCount, publishedAt: products.publishedAt,
+        createdAt: products.createdAt,
+      }).from(products).where(where).orderBy(desc(products.createdAt)).limit(limit).offset(offset),
+
+      db.select({ total: sql<number>`count(*)::int` }).from(products).where(where),
+      db.select({ status: products.status, count: sql<number>`count(*)::int` })
+        .from(products).where(isNull(products.deletedAt)).groupBy(products.status),
+    ])
+
+    // تصویر اصلی هر محصول
+    const productIds = rows.map(r => r.id)
+    let imageMap: Record<string, string> = {}
+    if (productIds.length > 0) {
+      const imgs = await db.select({ productId: productImages.productId, url: productImages.url })
+        .from(productImages)
+        .where(and(eq(productImages.isPrimary, true), sql`${productImages.productId} = ANY(${sql.raw(`ARRAY[${productIds.map(id => `'${id}'::uuid`).join(',')}]`)}`)))
+      imageMap = Object.fromEntries(imgs.map(i => [i.productId, i.url]))
+    }
+
+    const counts: Record<string, number> = { all: countResult[0]?.total ?? 0 }
+    for (const r of statusCounts) counts[r.status] = r.count
+
+    return NextResponse.json({ products: rows.map(r => ({ ...r, imageUrl: imageMap[r.id] ?? null })), total: countResult[0]?.total ?? 0, counts })
   } catch (err) {
-    console.error('[API GET /admin/products]', err)
-    return NextResponse.json({ error: 'خطا در بارگیری محصولات' }, { status: 500 })
+    console.error('[products GET]', err)
+    return NextResponse.json({ error: 'خطا' }, { status: 500 })
   }
 }
 
 export async function POST(req: NextRequest) {
-  const guard = await requireAdmin()
-  if (guard.error) return guard.error
+  const auth = await requireAdmin(req)
+  if (!auth.ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   try {
-    const body = await req.json()
-    const parsed = productSchema.safeParse(body)
-    if (!parsed.success) {
-      return NextResponse.json(
-        { error: parsed.error.errors[0]?.message ?? 'داده‌ها معتبر نیست' },
-        { status: 400 },
-      )
+    const body = await req.json() as {
+      name: string; slug: string; modelCode?: string; shortDescription?: string
+      description?: string; basePrice?: number; status?: string; isFeatured?: boolean; categoryId?: string
     }
+    if (!body.name || !body.slug) return NextResponse.json({ error: 'نام و slug الزامی است' }, { status: 400 })
 
-    const [created] = await db.insert(products).values(parsed.data).returning()
-    return NextResponse.json({ product: created }, { status: 201 })
+    const [product] = await db.insert(products).values({
+      name: body.name, slug: body.slug,
+      modelCode: body.modelCode || null,
+      shortDescription: body.shortDescription || null,
+      description: body.description || null,
+      basePrice: body.basePrice ? String(body.basePrice) : null,
+      status: (body.status as 'draft'|'active') ?? 'draft',
+      isFeatured: body.isFeatured ?? false,
+      categoryId: body.categoryId || null,
+    }).returning()
+
+    return NextResponse.json({ product }, { status: 201 })
   } catch (err) {
-    const msg = err instanceof Error ? err.message : ''
-    if (msg.includes('unique') || msg.includes('duplicate')) {
-      return NextResponse.json(
-        { error: 'SKU یا slug تکراری است' },
-        { status: 409 },
-      )
-    }
-    console.error('[API POST /admin/products]', err)
+    console.error('[products POST]', err)
     return NextResponse.json({ error: 'خطا در ایجاد محصول' }, { status: 500 })
   }
 }
