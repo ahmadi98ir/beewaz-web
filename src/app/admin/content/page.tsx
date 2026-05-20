@@ -311,4 +311,14 @@ export default function ContentPage() {
                 <button onClick={save} disabled={saving || !changed}
                   className={`btn text-sm py-3 px-8 ${changed ? 'btn-primary' : 'btn-outline opacity-50 cursor-not-allowed'}`}>
                   {saving ? 'ذخیره...' : '\u{1F4BE} ذخیره همه تغییرات'}
+                </button>
+              </div>
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  )
+}
+
         
