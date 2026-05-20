@@ -50,29 +50,34 @@ export async function POST(req: Request) {
 
   const productMap = new Map(dbProducts.map((p) => [p.id, p]))
   let totalAmount = 0
-  const orderItemsData: { productId: string; quantity: number; unitPrice: number; snapshot: { name: string; sku: string } }[] = []
+  const orderItemsData: { productId: string; productName: string; sku: string | null; quantity: number; unitPrice: string; totalPrice: string }[] = []
 
   for (const item of items) {
     const p = productMap.get(item.id)!
-    if (p.stock < item.quantity) {
+    const price = typeof p.price === 'string' ? parseInt(p.price, 10) : (p.price ?? 0)
+    const stock = typeof p.stock === 'string' ? parseInt(p.stock, 10) : (p.stock ?? 0)
+    if (stock < item.quantity) {
       return NextResponse.json({ error: `موجودی کافی برای "${p.nameFa}" وجود ندارد` }, { status: 400 })
     }
-    totalAmount += p.price * item.quantity
+    const lineTotal = price * item.quantity
+    totalAmount += lineTotal
     orderItemsData.push({
       productId: p.id,
+      productName: p.nameFa ?? '',
+      sku: p.sku ?? null,
       quantity: item.quantity,
-      unitPrice: p.price,
-      snapshot: { name: p.nameFa, sku: p.sku },
+      unitPrice: String(price),
+      totalPrice: String(lineTotal),
     })
   }
 
   const [order] = await db.insert(orders).values({
     userId: session.user.id,
     status: 'pending',
-    totalAmount,
+    totalAmount: String(totalAmount),
     shippingAddress: address,
-    paymentMethod: 'zarinpal',
-    notes: notes ?? null,
+    paymentMethod: 'online',
+    customerNote: notes ?? null,
   }).returning({ id: orders.id })
 
   if (!order) {
