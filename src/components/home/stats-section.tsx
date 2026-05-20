@@ -100,7 +100,7 @@ function StatCard({ stat, index }: { stat: typeof STATS[0]; index: number }) {
   useEffect(() => {
     const el = ref.current
     if (!el) return
-    const obs = new IntersectionObserver(([e]) => {
+    const obs = new IntersectionObserver((entries) => {
       if (e.isIntersecting) {
         setActive(true)
         el.style.opacity = '1'
