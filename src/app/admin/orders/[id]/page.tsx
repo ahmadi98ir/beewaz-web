@@ -223,4 +223,9 @@ export default function OrderDetailPage() {
             <p className="font-bold text-surface-800">{{ online:'درگاه آنلاین', card_to_card:'کارت به کارت', cash_on_delivery:'پرداخت در محل', installment:'اقساطی' }[order.paymentMethod ?? ''] ?? '—'}</p>
           </div>
         </div>
+      </div>
+    </div>
+  )
+}
+
  
