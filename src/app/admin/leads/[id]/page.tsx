@@ -307,7 +307,7 @@ export default function LeadDetailPage() {
               {/* Avatar */}
               <div className="flex items-center gap-4 mb-6">
                 <div className="w-16 h-16 rounded-2xl bg-brand-100 flex items-center justify-center text-brand-700 font-black text-2xl">
-                  {(lead.fullName ?? lead.phone ?? '')[0]?.toUpperCase() ?? '?'}
+                  {(lead.fullName ?? lead.phone)[0]?.toUpperCase() ?? '?'}
                 </div>
                 <div>
                   {editMode ? (
@@ -578,6 +578,4 @@ export default function LeadDetailPage() {
           </div>
         </div>
       </div>
-    </div>
-  )
-}
+    </div
