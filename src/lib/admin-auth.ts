@@ -1,14 +1,31 @@
-import { NextResponse } from 'next/server'
-import { auth } from '@/lib/auth'
+/**
+ * ادمین‌ آتنتیکیشن — Phase 1
+ *
+ * در فاز ۱ از یک env token ساده استفاده می‌شود.
+ * در فاز ۲ با NextAuth/Better-Auth و session مناسب جایگزین می‌شود.
+ */
 
-export async function requireAdmin() {
-  const session = await auth()
-  if (!session?.user) {
-    return { error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) }
+import { cookies } from 'next/headers'
+import { NextRequest } from 'next/server'
+
+export async function requireAdmin(req?: NextRequest): Promise<{ ok: boolean; error?: string }> {
+  const token = process.env.ADMIN_TOKEN
+
+  // اگر ADMIN_TOKEN تنظیم نشده، همه دسترسی دارند (محیط dev)
+  if (!token) return { ok: true }
+
+  // بررسی کوکی ادمین
+  try {
+    const cookieStore = await cookies()
+    const cookieToken = cookieStore.get('admin_token')?.value
+    if (cookieToken === token) return { ok: true }
+  } catch {
+    // در برخی محیط‌ها cookies() در route handler کار نمی‌کند
   }
-  // @ts-expect-error — custom role field
-  if (session.user.role !== 'admin') {
-    return { error: NextResponse.json({ error: 'Forbidden' }, { status: 403 }) }
-  }
-  return { session }
+
+  // بررسی Authorization header
+  const authHeader = req?.headers?.get('authorization')
+  if (authHeader === `Bearer ${token}`) return { ok: true }
+
+  return { ok: false, error: 'Unauthorized' }
 }
