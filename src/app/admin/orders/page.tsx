@@ -1,218 +1,200 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import Link from 'next/link'
-import { formatPrice } from '@/lib/utils'
-import { SearchIcon } from '@/components/ui/icons'
-
-type OrderStatus = 'pending' | 'paid' | 'processing' | 'shipped' | 'delivered' | 'cancelled' | 'refunded'
-type Filter = OrderStatus | 'all'
-
-interface ShippingAddress {
-  fullName: string
-  phone: string
-  province: string
-  city: string
-  address: string
-  postalCode: string
-}
 
 interface Order {
   id: string
-  status: OrderStatus
-  totalAmount: number
-  shippingAddress: ShippingAddress | null
+  status: string
+  totalAmount: string
   paymentMethod: string | null
+  trackingCode: string | null
+  shippingAddress: { fullName?: string; phone?: string; city?: string } | null
   createdAt: string
-  itemCount: number
+  paidAt: string | null
 }
 
-const statusConfig: Record<OrderStatus, { label: string; cls: string }> = {
-  pending:    { label: 'در انتظار پرداخت', cls: 'bg-amber-50 text-amber-700 border-amber-200' },
-  paid:       { label: 'پرداخت شده',       cls: 'bg-blue-50 text-blue-700 border-blue-200' },
-  processing: { label: 'در حال آماده‌سازی', cls: 'bg-purple-50 text-purple-700 border-purple-200' },
-  shipped:    { label: 'ارسال شده',        cls: 'bg-indigo-50 text-indigo-700 border-indigo-200' },
-  delivered:  { label: 'تحویل شده',       cls: 'bg-green-50 text-green-700 border-green-200' },
-  cancelled:  { label: 'لغو شده',         cls: 'bg-red-50 text-red-700 border-red-200' },
-  refunded:   { label: 'بازگشت وجه',      cls: 'bg-surface-100 text-surface-700 border-surface-200' },
+interface ApiResponse {
+  orders: Order[]
+  total: number
+  counts: Record<string, number>
+}
+
+const STATUS_MAP: Record<string, { label: string; cls: string; dot: string }> = {
+  pending:    { label: 'در انتظار پرداخت',   cls: 'bg-amber-50 text-amber-700 border-amber-200',    dot: 'bg-amber-400' },
+  paid:       { label: 'پرداخت شده',         cls: 'bg-blue-50 text-blue-700 border-blue-200',       dot: 'bg-blue-400' },
+  processing: { label: 'در حال آماده‌سازی', cls: 'bg-violet-50 text-violet-700 border-violet-200', dot: 'bg-violet-400' },
+  shipped:    { label: 'ارسال شده',          cls: 'bg-indigo-50 text-indigo-700 border-indigo-200', dot: 'bg-indigo-400' },
+  delivered:  { label: 'تحویل داده شده',    cls: 'bg-green-50 text-green-700 border-green-200',    dot: 'bg-green-400' },
+  cancelled:  { label: 'لغو شده',           cls: 'bg-red-50 text-red-600 border-red-200',           dot: 'bg-red-400' },
+  refunded:   { label: 'مسترد شده',         cls: 'bg-surface-50 text-surface-500 border-surface-200', dot: 'bg-surface-400' },
+}
+
+const TABS = [
+  { key: 'all', label: 'همه' },
+  { key: 'pending', label: 'در انتظار' },
+  { key: 'paid', label: 'پرداخت شده' },
+  { key: 'processing', label: 'در حال آماده‌سازی' },
+  { key: 'shipped', label: 'ارسال شده' },
+  { key: 'delivered', label: 'تحویل شده' },
+  { key: 'cancelled', label: 'لغو شده' },
+]
+
+function OrderBadge({ status }: { status: string }) {
+  const cfg = STATUS_MAP[status] ?? STATUS_MAP.pending
+  return (
+    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold border ${cfg.cls}`}>
+      <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
+      {cfg.label}
+    </span>
+  )
+}
+
+function formatPrice(v: string | number) {
+  const n = typeof v === 'string' ? parseInt(v) : v
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
+  if (n >= 1_000)     return `${(n / 1_000).toFixed(0)}K`
+  return n.toLocaleString('fa-IR')
 }
 
 export default function OrdersPage() {
-  const [filter, setFilter] = useState<Filter>('all')
-  const [search, setSearch] = useState('')
-  const [orders, setOrders] = useState<Order[]>([])
+  const [data, setData] = useState<ApiResponse | null>(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState('all')
+  const [updatingId, setUpdatingId] = useState<string | null>(null)
 
-  const loadOrders = async () => {
+  const fetchOrders = useCallback(async (status: string) => {
     setLoading(true)
     try {
-      const res = await fetch('/api/admin/orders')
-      const data = await res.json()
-      if (!res.ok) { setError(data.error || 'خطا در بارگیری'); return }
-      setOrders(data.orders || [])
-    } catch {
-      setError('خطای شبکه')
+      const params = new URLSearchParams({ status, limit: '100' })
+      const res = await fetch(`/api/admin/orders?${params}`)
+      setData(await res.json() as ApiResponse)
     } finally {
       setLoading(false)
     }
+  }, [])
+
+  useEffect(() => { fetchOrders(activeTab) }, [fetchOrders, activeTab])
+
+  const handleStatusChange = async (id: string, status: string) => {
+    setUpdatingId(id)
+    await fetch(`/api/admin/orders/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status }),
+    })
+    await fetchOrders(activeTab)
+    setUpdatingId(null)
   }
 
-  useEffect(() => { loadOrders() }, [])
-
-  const updateStatus = async (id: string, status: OrderStatus) => {
-    setOrders(prev => prev.map(o => o.id === id ? { ...o, status } : o))
-    try {
-      await fetch(`/api/admin/orders/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status }),
-      })
-    } catch {
-      loadOrders()
-    }
-  }
-
-  const filtered = orders.filter((o) => {
-    const matchStatus = filter === 'all' || o.status === filter
-    const name = o.shippingAddress?.fullName ?? ''
-    const phone = o.shippingAddress?.phone ?? ''
-    const matchSearch = !search || o.id.includes(search) || name.includes(search) || phone.includes(search)
-    return matchStatus && matchSearch
-  })
-
-  const totalRevenue = filtered.reduce((s, o) => s + o.totalAmount, 0)
-
-  const tabs: { key: Filter; label: string }[] = [
-    { key: 'all',        label: 'همه' },
-    { key: 'pending',    label: 'در انتظار' },
-    { key: 'processing', label: 'در حال پردازش' },
-    { key: 'shipped',    label: 'ارسال شده' },
-    { key: 'delivered',  label: 'تحویل شده' },
-  ]
+  const orders = data?.orders ?? []
+  const counts = data?.counts ?? {}
 
   return (
     <div className="flex-1 overflow-y-auto">
-      <header className="bg-white border-b border-surface-200 px-6 py-4 flex items-center justify-between">
-        <div>
-          <h1 className="text-lg font-black text-surface-900">مدیریت سفارشات</h1>
-          <p className="text-xs text-surface-400 mt-0.5">{orders.length} سفارش ثبت شده</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="text-end">
-            <p className="text-xs text-surface-400">جمع درآمد (فیلترشده)</p>
-            <p className="font-black text-surface-900">{formatPrice(totalRevenue)}</p>
+      <header className="bg-white border-b border-surface-200 px-6 py-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-lg font-black text-surface-900">مدیریت سفارشات</h1>
+            <p className="text-xs text-surface-400 mt-0.5">{(counts.all ?? 0).toLocaleString('fa-IR')} سفارش</p>
           </div>
+          <button
+            onClick={() => fetchOrders(activeTab)}
+            disabled={loading}
+            className="p-2 rounded-xl border border-surface-100 text-surface-400 hover:text-surface-700 hover:bg-surface-50 transition-all"
+          >
+            <svg viewBox="0 0 20 20" className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} fill="currentColor">
+              <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
+            </svg>
+          </button>
         </div>
       </header>
 
-      <div className="p-6">
-        <div className="bg-white rounded-2xl border border-surface-200 overflow-hidden">
-          <div className="flex items-center justify-between gap-4 p-4 border-b border-surface-100 flex-wrap">
-            <div className="flex gap-0.5 bg-surface-50 p-1 rounded-xl flex-wrap">
-              {tabs.map(({ key, label }) => (
-                <button
-                  key={key}
-                  onClick={() => setFilter(key)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${filter === key ? 'bg-white text-surface-900 shadow-sm border border-surface-200' : 'text-surface-500 hover:text-surface-700'}`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-            <div className="relative">
-              <SearchIcon size={14} className="absolute start-3 top-1/2 -translate-y-1/2 text-surface-400" />
-              <input
-                type="text"
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                placeholder="جستجوی سفارش..."
-                className="ps-9 pe-4 py-2 text-sm border border-surface-200 rounded-xl w-48 focus:outline-none focus:border-brand-600 transition-colors"
-              />
-            </div>
-          </div>
+      <div className="p-6 space-y-5">
+        {/* KPI strip */}
+        <div className="grid grid-cols-3 sm:grid-cols-7 gap-2">
+          {TABS.map((tab) => (
+            <button key={tab.key} onClick={() => setActiveTab(tab.key)}
+              className={`rounded-xl border px-3 py-2.5 text-center transition-all ${activeTab === tab.key ? 'bg-brand-600 text-white border-brand-600 shadow-sm' : 'bg-white border-surface-100 hover:border-surface-200'}`}>
+              <p className={`text-lg font-black ${activeTab === tab.key ? 'text-white' : 'text-surface-900'}`}>
+                {(counts[tab.key] ?? 0).toLocaleString('fa-IR')}
+              </p>
+              <p className={`text-[10px] mt-0.5 leading-tight ${activeTab === tab.key ? 'text-white/80' : 'text-surface-400'}`}>{tab.label}</p>
+            </button>
+          ))}
+        </div>
 
-          {loading ? (
-            <div className="text-center py-12 text-surface-400">در حال بارگیری...</div>
-          ) : error ? (
-            <div className="text-center py-12">
-              <p className="text-red-600 text-sm">{error}</p>
-              <button onClick={loadOrders} className="mt-3 btn btn-outline text-xs py-2 px-4">تلاش مجدد</button>
+        {/* Table */}
+        <div className="bg-white rounded-2xl border border-surface-200 overflow-hidden">
+          {orders.length === 0 && !loading ? (
+            <div className="py-20 text-center text-surface-300">
+              <p className="font-semibold text-surface-400">سفارشی یافت نشد</p>
             </div>
           ) : (
-            <>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-surface-50 text-surface-500 text-xs">
-                    <tr>
-                      {['شناسه', 'مشتری', 'شهر', 'تعداد کالا', 'مبلغ کل', 'وضعیت', 'تاریخ', 'تغییر وضعیت'].map(h => (
-                        <th key={h} className="text-start px-5 py-3 font-semibold whitespace-nowrap">{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-surface-100">
-                    {filtered.map((order) => {
-                      const sc = statusConfig[order.status]
-                      return (
-                        <tr key={order.id} className="hover:bg-surface-50 transition-colors cursor-pointer">
-                          <td className="px-5 py-4 font-mono text-xs font-bold text-surface-600">
-                            <Link href={`/admin/orders/${order.id}`} className="font-mono text-brand-600 hover:underline">{order.id.slice(0, 8).toUpperCase()}</Link>
-                          </td>
-                          <td className="px-5 py-4">
-                            <p className="font-semibold text-surface-900">
-                              {order.shippingAddress?.fullName ?? '—'}
-                            </p>
-                            <p className="text-xs font-mono text-surface-400" dir="ltr">
-                              {order.shippingAddress?.phone ?? ''}
-                            </p>
-                          </td>
-                          <td className="px-5 py-4 text-surface-600">
-                            {order.shippingAddress?.city ?? '—'}
-                          </td>
-                          <td className="px-5 py-4 text-center">
-                            <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-surface-100 text-surface-700 text-xs font-bold">
-                              {order.itemCount}
-                            </span>
-                          </td>
-                          <td className="px-5 py-4 font-bold text-surface-900 whitespace-nowrap">
-                            {formatPrice(order.totalAmount)}
-                          </td>
-                          <td className="px-5 py-4">
-                            <span className={`inline-flex px-2.5 py-1 rounded-lg text-xs font-semibold border ${sc.cls}`}>
-                              {sc.label}
-                            </span>
-                          </td>
-                          <td className="px-5 py-4 text-surface-400 text-xs whitespace-nowrap">
-                            {new Intl.DateTimeFormat('fa-IR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(order.createdAt))}
-                          </td>
-                          <td className="px-5 py-4">
-                            <select
-                              value={order.status}
-                              onChange={e => updateStatus(order.id, e.target.value as OrderStatus)}
-                              className="text-xs border border-surface-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-brand-600 bg-white w-36"
-                            >
-                              {Object.entries(statusConfig).map(([val, { label }]) => (
-                                <option key={val} value={val}>{label}</option>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-surface-50 border-b border-surface-100">
+                  <tr>
+                    {['شناسه','مشتری','شهر','مبلغ','روش پرداخت','وضعیت','تاریخ','عملیات'].map(h => (
+                      <th key={h} className="text-start px-5 py-3 text-xs font-bold text-surface-500">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-surface-50">
+                  {orders.map((order) => (
+                    <tr key={order.id} className={`hover:bg-surface-50 transition-colors ${updatingId === order.id ? 'opacity-50' : ''}`}>
+                      <td className="px-5 py-3.5 font-mono text-xs text-surface-500">
+                        #{order.id.slice(0,8).toUpperCase()}
+                      </td>
+                      <td className="px-5 py-3.5">
+                        <p className="font-semibold text-surface-900">{order.shippingAddress?.fullName ?? '—'}</p>
+                        <p className="text-xs text-surface-400 font-mono">{order.shippingAddress?.phone ?? ''}</p>
+                      </td>
+                      <td className="px-5 py-3.5 text-surface-500">{order.shippingAddress?.city ?? '—'}</td>
+                      <td className="px-5 py-3.5 font-bold text-surface-900">
+                        {formatPrice(order.totalAmount)} <span className="text-xs font-normal text-surface-400">ت</span>
+                      </td>
+                      <td className="px-5 py-3.5 text-surface-500 text-xs">
+                        {{ online:'آنلاین', card_to_card:'کارت به کارت', cash_on_delivery:'پرداخت درجا', installment:'اقساطی' }[order.paymentMethod ?? ''] ?? '—'}
+                      </td>
+                      <td className="px-5 py-3.5">
+                        <div className="flex items-center gap-2">
+                          <OrderBadge status={order.status} />
+                          {/* Quick status dropdown */}
+                          <div className="relative group">
+                            <button className="p-1 rounded-lg hover:bg-surface-100 text-surface-300 hover:text-surface-600">
+                              <svg viewBox="0 0 20 20" className="w-3.5 h-3.5" fill="currentColor">
+                                <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                              </svg>
+                            </button>
+                            <div className="absolute right-0 top-7 bg-white border border-surface-200 rounded-xl shadow-lg py-1 min-w-[160px] z-10 hidden group-hover:block">
+                              {Object.entries(STATUS_MAP).map(([s, cfg]) => (
+                                <button key={s} onClick={() => handleStatusChange(order.id, s)}
+                                  className={`w-full text-start px-3 py-2 text-xs hover:bg-surface-50 flex items-center gap-2 ${s === order.status ? 'font-bold' : ''}`}>
+                                  <span className={`w-2 h-2 rounded-full ${cfg.dot}`} />{cfg.label}
+                                </button>
                               ))}
-                            </select>
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-                {filtered.length === 0 && (
-                  <div className="text-center py-12 text-surface-400 text-sm">
-                    {orders.length === 0 ? 'هنوز سفارشی ثبت نشده.' : 'سفارشی با این فیلتر یافت نشد.'}
-                  </div>
-                )}
-              </div>
-
-              <div className="px-5 py-3 border-t border-surface-100 bg-surface-50 flex items-center justify-between text-sm">
-                <span className="text-surface-500">{filtered.length} سفارش</span>
-                <span className="font-bold text-surface-900">{formatPrice(totalRevenue)}</span>
-              </div>
-            </>
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-5 py-3.5 text-surface-400 text-xs">
+                        {new Intl.DateTimeFormat('fa-IR', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' }).format(new Date(order.createdAt))}
+                      </td>
+                      <td className="px-5 py-3.5">
+                        <Link href={`/admin/orders/${order.id}`}
+                          className="p-1.5 rounded-lg hover:bg-brand-50 text-surface-400 hover:text-brand-600 transition-colors inline-flex">
+                          <svg viewBox="0 0 20 20" className="w-4 h-4" fill="currentColor">
+                            <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
+                            <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
+                          </svg>
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
       </div>
