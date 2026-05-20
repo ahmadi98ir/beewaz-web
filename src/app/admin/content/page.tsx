@@ -203,9 +203,11 @@ export default function ContentPage() {
     for (const [k, v] of Object.entries(values)) {
       if (k.startsWith('s::')) { settings[k.slice(3)] = v }
       else if (k.startsWith('c::')) {
-        const [, page, key] = k.split('::')
+        const parts = k.split('::')
+        const page = parts[1] as string
+        const key = parts[2] as string
         if (!content[page]) content[page] = {}
-        content[page][key] = v
+        content[page]![key] = v
       }
     }
     const res = await fetch('/api/admin/cms', {
