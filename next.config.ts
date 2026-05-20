@@ -13,8 +13,7 @@ const nextConfig: NextConfig = {
     serverActions: {
       bodySizeLimit: '10mb',
     },
-    // typed routes برای type-safety در لینک‌ها
-    typedRoutes: true,
+    // typedRoutes: disabled — codebase uses dynamic router.push(string) extensively
   },
 
   // تنظیمات تصاویر — Liara Bucket یا CDN ایرانی
