@@ -1,4 +1,4 @@
-﻿import { notFound } from 'next/navigation'
+import { notFound } from 'next/navigation'
 import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { orders, orderItems } from '@/lib/db/schema'
@@ -8,8 +8,9 @@ import type { Metadata } from 'next'
 
 export const metadata: Metadata = { title: 'تایید سفارش', robots: { index: false, follow: false } }
 
-function formatPrice(n: number) {
-  return new Intl.NumberFormat('fa-IR').format(n)
+function formatPrice(n: number | string) {
+  const num = typeof n === 'string' ? parseInt(n, 10) : n
+  return new Intl.NumberFormat('fa-IR').format(isNaN(num) ? 0 : num)
 }
 
 export default async function ConfirmationPage({ params }: { params: Promise<{ id: string }> }) {
@@ -26,7 +27,12 @@ export default async function ConfirmationPage({ params }: { params: Promise<{ i
   if (!order || order.status === 'pending') notFound()
 
   const items = await db
-    .select({ quantity: orderItems.quantity, unitPrice: orderItems.unitPrice, snapshot: orderItems.snapshot })
+    .select({
+      quantity: orderItems.quantity,
+      unitPrice: orderItems.unitPrice,
+      totalPrice: orderItems.totalPrice,
+      productName: orderItems.productName,
+    })
     .from(orderItems)
     .where(eq(orderItems.orderId, id))
 
@@ -42,8 +48,8 @@ export default async function ConfirmationPage({ params }: { params: Promise<{ i
             </svg>
           </div>
           <h1 className="text-2xl font-black text-surface-900 mb-2">سفارش شما با موفقیت ثبت شد!</h1>
-          {order.paymentRef && (
-            <p className="text-sm text-surface-500">کد رهگیری: <span className="font-mono font-bold text-surface-700">{order.paymentRef}</span></p>
+          {order.trackingCode && (
+            <p className="text-sm text-surface-500">کد رهگیری: <span className="font-mono font-bold text-surface-700">{order.trackingCode}</span></p>
           )}
         </div>
 
@@ -53,8 +59,10 @@ export default async function ConfirmationPage({ params }: { params: Promise<{ i
             <div className="space-y-2">
               {items.map((item, i) => (
                 <div key={i} className="flex justify-between text-sm py-2 border-b border-surface-50 last:border-0">
-                  <span className="text-surface-700">{item.snapshot.name} <span className="text-surface-400">x{item.quantity}</span></span>
-                  <span className="font-semibold">{formatPrice(item.unitPrice * item.quantity)} ریال</span>
+                  <span className="text-surface-700">
+                    {item.productName} <span className="text-surface-400">x{item.quantity}</span>
+                  </span>
+                  <span className="font-semibold">{formatPrice(item.totalPrice)} ریال</span>
                 </div>
               ))}
             </div>
