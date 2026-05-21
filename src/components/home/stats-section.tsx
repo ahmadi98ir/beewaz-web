@@ -129,7 +129,6 @@ function StatCard({ stat, index }: { stat: typeof STATS[0]; index: number }) {
         position: 'relative',
         overflow: 'hidden',
         cursor: 'default',
-        transition: 'all 0.3s ease',
       }}
       onMouseEnter={e => {
         const el = e.currentTarget
