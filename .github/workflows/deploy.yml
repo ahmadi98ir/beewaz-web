@@ -36,7 +36,6 @@ jobs:
           docker save beewaz-web:latest | gzip -1 > /tmp/beewaz-web.tar.gz
           SIZE=$(du -sh /tmp/beewaz-web.tar.gz | cut -f1)
           echo "Compressed size: $SIZE"
-          echo "IMAGE_SIZE=$SIZE" >> $GITHUB_ENV
 
       - name: Delete previous release asset
         env:
@@ -59,22 +58,33 @@ jobs:
             --notes "Auto-built from commit ${{ github.sha }}" \
             --target ${{ github.sha }} \
             /tmp/beewaz-web.tar.gz#beewaz-web.tar.gz
-          echo "Release created: https://github.com/${{ github.repository }}/releases/download/docker-latest/beewaz-web.tar.gz"
+          echo "Release URL: https://github.com/${{ github.repository }}/releases/download/docker-latest/beewaz-web.tar.gz"
 
-      - name: Trigger Coolify deployment
-        continue-on-error: true
-        run: |
-          echo "Triggering Coolify deploy..."
-          RESPONSE=$(curl -s -o /tmp/coolify_resp.txt -w "%{http_code}" \
-            -X GET "http://cool.rpim.ir/api/v1/deploy?uuid=ai1rr235nbzmyyvd6nuxaynd&force=false" \
-            -H "Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}" \
-            -H "Accept: application/json" \
-            --max-time 30)
-          echo "HTTP Status: $RESPONSE"
-          cat /tmp/coolify_resp.txt
-          if [ "$RESPONSE" = "200" ]; then
-            echo "Coolify deploy queued successfully!"
-          else
-            echo "WARNING: Coolify API returned $RESPONSE — manual deploy may be needed"
-            echo "Go to http://cool.rpim.ir to trigger deploy from UI"
-          fi
+      - name: Deploy via SSH (trigger Coolify from localhost)
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: root
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script: |
+            echo "=== Triggering Coolify deploy from localhost ==="
+            RESPONSE=$(curl -s -o /tmp/coolify_resp.txt -w "%{http_code}" \
+              "http://localhost:8000/api/v1/deploy?uuid=ai1rr235nbzmyyvd6nuxaynd&force=false" \
+              -H "Authorization: Bearer 5|wmPEJblDJiNLZSTVjaWVkU8hplMJjunnQsG30tVw2b19f363" \
+              -H "Accept: application/json" \
+              --max-time 30)
+            echo "Coolify API HTTP status: $RESPONSE"
+            cat /tmp/coolify_resp.txt
+            echo ""
+            if [ "$RESPONSE" = "200" ]; then
+              echo "Deploy queued successfully!"
+            else
+              # try port 80 via localhost
+              RESPONSE2=$(curl -s -o /tmp/coolify_resp2.txt -w "%{http_code}" \
+                "http://127.0.0.1/api/v1/deploy?uuid=ai1rr235nbzmyyvd6nuxaynd&force=false" \
+                -H "Authorization: Bearer 5|wmPEJblDJiNLZSTVjaWVkU8hplMJjunnQsG30tVw2b19f363" \
+                -H "Accept: application/json" \
+                --max-time 30)
+              echo "Coolify 127.0.0.1 HTTP status: $RESPONSE2"
+              cat /tmp/coolify_resp2.txt
+            fi
