@@ -3,9 +3,7 @@ FROM node:22-alpine AS deps
 WORKDIR /app
 RUN true
 COPY package*.json ./
-RUN echo "nameserver 178.22.122.100" > /etc/resolv.conf \
-    && echo "nameserver 185.51.200.2" >> /etc/resolv.conf \
-    && npm config set registry https://registry.npmjs.org/ \
+RUN npm config set registry https://registry.npmjs.org/ \
     && npm config set fetch-timeout 300000 \
     && npm config set fetch-retry-mintimeout 20000 \
     && npm config set fetch-retry-maxtimeout 120000 \
