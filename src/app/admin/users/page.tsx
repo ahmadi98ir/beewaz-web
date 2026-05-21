@@ -5,44 +5,155 @@ import { SearchIcon } from '@/components/ui/icons'
 
 interface User {
   id: string
-  fullName: string
+  fullName: string | null
   phone: string
+  email?: string | null
   role: string
+  isVerified?: boolean
   createdAt: string
 }
+
+const ROLES = [
+  { value: 'customer', label: 'مشتری' },
+  { value: 'admin', label: 'مدیر' },
+  { value: 'sales_agent', label: 'کارشناس فروش' },
+]
+
+const roleLabel: Record<string, string> = {
+  admin: 'مدیر',
+  customer: 'مشتری',
+  sales_agent: 'کارشناس فروش',
+}
+
+const roleStyle: Record<string, string> = {
+  admin: 'bg-red-50 text-red-700 border-red-200',
+  sales_agent: 'bg-purple-50 text-purple-700 border-purple-200',
+  customer: 'bg-blue-50 text-blue-700 border-blue-200',
+}
+
+// ── Modal ─────────────────────────────────────────────────────────────────────
+
+interface ModalProps {
+  user: Partial<User> | null
+  onClose: () => void
+  onSaved: () => void
+}
+
+function UserModal({ user, onClose, onSaved }: ModalProps) {
+  const isNew = !user?.id
+  const [form, setForm] = useState({
+    fullName: user?.fullName ?? '',
+    phone: user?.phone ?? '',
+    email: user?.email ?? '',
+    role: user?.role ?? 'customer',
+    password: '',
+  })
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const set = (k: string, v: string) => setForm((p) => ({ ...p, [k]: v }))
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setSaving(true)
+    setError(null)
+    try {
+      const body = isNew
+        ? form
+        : { id: user!.id, ...form }
+      const res = await fetch('/api/admin/users', {
+        method: isNew ? 'POST' : 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      const data = await res.json()
+      if (!res.ok) { setError(data.error || 'خطا'); return }
+      onSaved()
+    } catch {
+      setError('خطا در ارتباط با سرور')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-surface-100">
+          <h2 className="font-black text-surface-900">{isNew ? 'کاربر جدید' : 'ویرایش کاربر'}</h2>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-surface-100 text-surface-400 text-lg leading-none">✕</button>
+        </div>
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          <div>
+            <label className="block text-sm font-semibold text-surface-700 mb-1">نام کامل</label>
+            <input value={form.fullName} onChange={(e) => set('fullName', e.target.value)} className="input w-full" placeholder="نام و نام خانوادگی" />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-surface-700 mb-1">شماره موبایل <span className="text-red-500">*</span></label>
+            <input value={form.phone} onChange={(e) => set('phone', e.target.value)} className="input w-full font-mono" placeholder="09xxxxxxxxx" dir="ltr" required />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-surface-700 mb-1">ایمیل</label>
+            <input type="email" value={form.email} onChange={(e) => set('email', e.target.value)} className="input w-full" placeholder="example@email.com" dir="ltr" />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-surface-700 mb-1">سطح دسترسی</label>
+            <select value={form.role} onChange={(e) => set('role', e.target.value)} className="input w-full">
+              {ROLES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-surface-700 mb-1">{isNew ? 'رمز عبور' : 'رمز عبور جدید (اختیاری)'}</label>
+            <input type="password" value={form.password} onChange={(e) => set('password', e.target.value)} className="input w-full" placeholder={isNew ? 'رمز عبور' : 'خالی بگذارید تا تغییر نکند'} dir="ltr" />
+          </div>
+          {error && <p className="text-red-600 text-sm bg-red-50 rounded-lg px-3 py-2">{error}</p>}
+          <div className="flex justify-end gap-3 pt-2">
+            <button type="button" onClick={onClose} className="btn btn-outline py-2 px-4 text-sm">انصراف</button>
+            <button type="submit" disabled={saving} className="btn btn-primary py-2 px-5 text-sm">
+              {saving ? 'در حال ذخیره...' : isNew ? 'ایجاد کاربر' : 'ذخیره تغییرات'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+// ── Page ─────────────────────────────────────────────────────────────────────
 
 export default function AdminUsersPage() {
   const [search, setSearch] = useState('')
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [modal, setModal] = useState<Partial<User> | null | false>(false)
 
-  useEffect(() => {
-    async function fetchUsers() {
-      try {
-        const res = await fetch('/api/admin/users')
-        if (!res.ok) throw new Error('Failed to fetch users')
-        const data = await res.json()
-        setUsers(data.users || [])
-      } catch (err) {
-        console.error('Error fetching users:', err)
-        setError('خطا در بارگیری کاربران')
-      } finally {
-        setLoading(false)
-      }
+  const fetchUsers = async () => {
+    try {
+      setLoading(true)
+      const res = await fetch('/api/admin/users')
+      if (!res.ok) throw new Error()
+      const data = await res.json()
+      setUsers(data.users || [])
+      setError(null)
+    } catch {
+      setError('خطا در بارگیری کاربران')
+    } finally {
+      setLoading(false)
     }
-    fetchUsers()
-  }, [])
-
-  const filtered = users.filter((u) => {
-    const matchSearch = !search || u.fullName.includes(search) || u.phone.includes(search)
-    return matchSearch
-  })
-
-  const roleLabel: Record<string, string> = {
-    admin: 'مدیر',
-    customer: 'مشتری',
   }
+
+  useEffect(() => { fetchUsers() }, [])
+
+  const handleDelete = async (user: User) => {
+    if (!confirm(`آیا از حذف کاربر "${user.fullName || user.phone}" اطمینان دارید؟`)) return
+    await fetch(`/api/admin/users?id=${user.id}`, { method: 'DELETE' })
+    fetchUsers()
+  }
+
+  const filtered = users.filter((u) =>
+    !search || (u.fullName ?? '').includes(search) || u.phone.includes(search) || (u.email ?? '').includes(search)
+  )
 
   return (
     <div className="flex-1 overflow-y-auto">
@@ -51,11 +162,13 @@ export default function AdminUsersPage() {
           <h1 className="text-lg font-black text-surface-900">مدیریت کاربران</h1>
           <p className="text-xs text-surface-400 mt-0.5">{users.length} کاربر ثبت شده</p>
         </div>
+        <button onClick={() => setModal({})} className="btn btn-primary text-sm py-2 px-4">
+          + کاربر جدید
+        </button>
       </header>
 
       <div className="p-6">
         <div className="bg-white rounded-2xl border border-surface-200 overflow-hidden">
-          {/* Search */}
           <div className="flex items-center justify-between gap-4 p-4 border-b border-surface-100 flex-wrap">
             <div className="relative">
               <SearchIcon size={14} className="absolute start-3 top-1/2 -translate-y-1/2 text-surface-400" />
@@ -63,16 +176,13 @@ export default function AdminUsersPage() {
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="جستجوی نام یا شماره موبایل..."
-                className="ps-9 pe-4 py-2 text-sm border border-surface-200 rounded-xl w-52 focus:outline-none focus:border-brand-600 transition-colors"
+                placeholder="جستجوی نام، موبایل یا ایمیل..."
+                className="ps-9 pe-4 py-2 text-sm border border-surface-200 rounded-xl w-60 focus:outline-none focus:border-brand-600 transition-colors"
               />
             </div>
-            <div className="text-xs text-surface-500">
-              {filtered.length} کاربر
-            </div>
+            <div className="text-xs text-surface-500">{filtered.length} کاربر</div>
           </div>
 
-          {/* Table */}
           {loading ? (
             <div className="text-center py-12 text-surface-400">درحال بارگیری...</div>
           ) : error ? (
@@ -83,7 +193,7 @@ export default function AdminUsersPage() {
                 <table className="w-full text-sm">
                   <thead className="bg-surface-50 text-surface-500 text-xs">
                     <tr>
-                      {['کاربر', 'شماره موبایل', 'سطح دسترسی', 'تاریخ ثبت', ''].map((h) => (
+                      {['کاربر', 'شماره موبایل', 'ایمیل', 'سطح دسترسی', 'تاریخ ثبت', 'عملیات'].map((h) => (
                         <th key={h} className="text-start px-5 py-3 font-semibold whitespace-nowrap">{h}</th>
                       ))}
                     </tr>
@@ -94,14 +204,15 @@ export default function AdminUsersPage() {
                         <td className="px-5 py-4">
                           <div className="flex items-center gap-3">
                             <div className="w-9 h-9 rounded-xl bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-sm flex-shrink-0">
-                              {user.fullName[0] || 'ن'}
+                              {(user.fullName?.[0]) || user.phone[1] || 'ن'}
                             </div>
-                            <span className="font-semibold text-surface-900">{user.fullName}</span>
+                            <span className="font-semibold text-surface-900">{user.fullName || '—'}</span>
                           </div>
                         </td>
                         <td className="px-5 py-4 font-mono text-xs text-surface-500" dir="ltr">{user.phone}</td>
+                        <td className="px-5 py-4 text-xs text-surface-500">{user.email || '—'}</td>
                         <td className="px-5 py-4">
-                          <span className={`inline-flex px-2.5 py-1 rounded-lg text-xs font-semibold border ${user.role === 'admin' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-blue-50 text-blue-700 border-blue-200'}`}>
+                          <span className={`inline-flex px-2.5 py-1 rounded-lg text-xs font-semibold border ${roleStyle[user.role] ?? 'bg-surface-50 text-surface-700 border-surface-200'}`}>
                             {roleLabel[user.role] || user.role}
                           </span>
                         </td>
@@ -109,9 +220,20 @@ export default function AdminUsersPage() {
                           {new Intl.DateTimeFormat('fa-IR', { month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(user.createdAt))}
                         </td>
                         <td className="px-5 py-4">
-                          <button className="text-xs font-semibold text-brand-600 hover:text-brand-700 transition-colors px-3 py-1.5 rounded-lg hover:bg-brand-50">
-                            ویرایش
-                          </button>
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => setModal(user)}
+                              className="text-xs font-semibold text-brand-600 hover:text-brand-700 transition-colors px-3 py-1.5 rounded-lg hover:bg-brand-50"
+                            >
+                              ویرایش
+                            </button>
+                            <button
+                              onClick={() => handleDelete(user)}
+                              className="text-xs font-semibold text-red-500 hover:text-red-700 transition-colors px-3 py-1.5 rounded-lg hover:bg-red-50"
+                            >
+                              حذف
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -121,7 +243,6 @@ export default function AdminUsersPage() {
                   <div className="text-center py-12 text-surface-400 text-sm">کاربری یافت نشد.</div>
                 )}
               </div>
-
               <div className="px-5 py-3 border-t border-surface-100 bg-surface-50 text-sm text-surface-500">
                 {filtered.length} از {users.length} کاربر
               </div>
@@ -129,6 +250,14 @@ export default function AdminUsersPage() {
           )}
         </div>
       </div>
+
+      {modal !== false && (
+        <UserModal
+          user={modal}
+          onClose={() => setModal(false)}
+          onSaved={() => { setModal(false); fetchUsers() }}
+        />
+      )}
     </div>
   )
 }

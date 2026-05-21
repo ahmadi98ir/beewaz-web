@@ -20,7 +20,6 @@ export function AnnouncementBar({ settings }: AnnouncementBarProps) {
 
   if (dismissed) return null
 
-  // اگر CMS مقدار داشته باشد
   const cmsActive = settings?.announcement_active === 'true'
   const cmsText   = settings?.announcement_text ?? ''
   const cmsUrl    = settings?.announcement_url ?? ''
@@ -50,7 +49,6 @@ export function AnnouncementBar({ settings }: AnnouncementBarProps) {
     )
   }
 
-  // حالت پیش‌فرض — پیام‌های چرخشی
   const msg = DEFAULT_MESSAGES[current]!
 
   return (
