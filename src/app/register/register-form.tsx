@@ -16,17 +16,23 @@ function normalizePhone(raw: string) {
     .replace(/^98/, '0')
 }
 
+type Step = 'phone' | 'otp' | 'details'
+
 export default function RegisterForm() {
   const router = useRouter()
 
-  const [phone, setPhone] = useState('')
+  const [step, setStep]         = useState<Step>('phone')
+  const [phone, setPhone]       = useState('')
+  const [otp, setOtp]           = useState('')
   const [fullName, setFullName] = useState('')
   const [password, setPassword] = useState('')
   const [showPass, setShowPass] = useState(false)
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [error, setError]       = useState('')
+  const [loading, setLoading]   = useState(false)
+  const [cooldown, setCooldown] = useState(0)
 
-  const onSubmit = async (e: React.FormEvent) => {
+  // مرحله ۱: ارسال OTP
+  const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
 
@@ -38,21 +44,66 @@ export default function RegisterForm() {
 
     setLoading(true)
     try {
-      const res = await fetch('/api/auth/register', {
+      const res = await fetch('/api/auth/send-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: normalizedPhone, password, fullName }),
+        body: JSON.stringify({ phone: normalizedPhone }),
       })
       const data = await res.json() as { ok?: boolean; error?: string }
 
       if (!res.ok) {
+        setError(data.error ?? 'خطا در ارسال کد')
+        setLoading(false)
+        return
+      }
+
+      setPhone(normalizedPhone)
+      setStep('otp')
+      startCooldown()
+    } catch {
+      setError('خطای شبکه. لطفاً دوباره تلاش کنید')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // مرحله ۲: تایید OTP
+  const handleVerifyOtp = (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
+    if (otp.length !== 6) {
+      setError('کد تایید ۶ رقم است')
+      return
+    }
+    setStep('details')
+  }
+
+  // مرحله ۳: تکمیل ثبت‌نام
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
+    setLoading(true)
+
+    try {
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone, otp, fullName, password }),
+      })
+      const data = await res.json() as { ok?: boolean; error?: string }
+
+      if (!res.ok) {
+        if (data.error?.includes('کد تایید')) {
+          setStep('otp')
+          setOtp('')
+        }
         setError(data.error ?? 'خطا در ثبت‌نام')
         setLoading(false)
         return
       }
 
       const signInRes = await signIn('credentials', {
-        phone: normalizedPhone,
+        phone,
         password,
         redirect: false,
       })
@@ -70,6 +121,36 @@ export default function RegisterForm() {
     }
   }
 
+  const startCooldown = () => {
+    setCooldown(120)
+    const interval = setInterval(() => {
+      setCooldown((v) => {
+        if (v <= 1) { clearInterval(interval); return 0 }
+        return v - 1
+      })
+    }, 1000)
+  }
+
+  const handleResend = async () => {
+    if (cooldown > 0) return
+    setError('')
+    setLoading(true)
+    try {
+      const res = await fetch('/api/auth/send-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone }),
+      })
+      const data = await res.json() as { ok?: boolean; error?: string }
+      if (!res.ok) { setError(data.error ?? 'خطا در ارسال مجدد'); return }
+      startCooldown()
+    } catch {
+      setError('خطای شبکه')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-surface-50 to-surface-100 flex items-center justify-center p-4">
       <div className="w-full max-w-sm">
@@ -78,108 +159,166 @@ export default function RegisterForm() {
             <BeewazLogo />
           </div>
           <h1 className="text-xl font-black text-surface-900">ایجاد حساب کاربری</h1>
-          <p className="text-sm text-surface-400 mt-1">برای خرید و پیگیری سفارش ثبت‌نام کنید</p>
+          <p className="text-sm text-surface-400 mt-1">
+            {step === 'phone'   && 'شماره موبایل خود را وارد کنید'}
+            {step === 'otp'     && `کد ارسال‌شده به ${phone} را وارد کنید`}
+            {step === 'details' && 'اطلاعات حساب خود را تکمیل کنید'}
+          </p>
         </div>
 
         <div className="bg-white rounded-3xl border border-surface-200 shadow-card p-7">
-          <form onSubmit={onSubmit} className="space-y-5">
-            <div>
-              <label className="block text-sm font-semibold text-surface-700 mb-1.5">
-                نام و نام خانوادگی
-              </label>
-              <input
-                type="text"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                placeholder="علی احمدی"
-                className="input w-full"
-                required
-                minLength={2}
-                maxLength={100}
-                autoComplete="name"
-              />
-            </div>
 
-            <div>
-              <label className="block text-sm font-semibold text-surface-700 mb-1.5">
-                شماره موبایل
-              </label>
-              <input
-                type="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="09123456789"
-                dir="ltr"
-                className="input w-full text-center tracking-widest"
-                required
-                maxLength={14}
-                inputMode="numeric"
-                autoComplete="tel"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-semibold text-surface-700 mb-1.5">
-                رمز عبور
-              </label>
-              <div className="relative">
+          {/* ── مرحله ۱: شماره موبایل ── */}
+          {step === 'phone' && (
+            <form onSubmit={handleSendOtp} className="space-y-5">
+              <div>
+                <label className="block text-sm font-semibold text-surface-700 mb-1.5">
+                  شماره موبایل
+                </label>
                 <input
-                  type={showPass ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="حداقل ۶ کاراکتر"
-                  className="input w-full pe-10"
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="09123456789"
+                  dir="ltr"
+                  className="input w-full text-center tracking-widest"
                   required
-                  minLength={6}
-                  autoComplete="new-password"
+                  maxLength={14}
+                  inputMode="numeric"
+                  autoComplete="tel"
+                  autoFocus
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowPass((v) => !v)}
-                  className="absolute end-3 top-1/2 -translate-y-1/2 text-surface-400 hover:text-surface-600 transition-colors"
-                  tabIndex={-1}
-                  aria-label={showPass ? 'پنهان کردن رمز' : 'نمایش رمز'}
-                >
-                  {showPass ? (
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-                    </svg>
-                  ) : (
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                    </svg>
-                  )}
-                </button>
               </div>
-            </div>
 
-            {error && (
-              <div
-                className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700 text-center animate-slide-down"
-                role="alert"
-                aria-live="polite"
+              {error && <ErrorBox>{error}</ErrorBox>}
+
+              <button type="submit" disabled={loading} className="btn btn-accent w-full py-3 text-base">
+                {loading ? <Spinner label="در حال ارسال..." /> : 'ارسال کد تایید'}
+              </button>
+            </form>
+          )}
+
+          {/* ── مرحله ۲: کد OTP ── */}
+          {step === 'otp' && (
+            <form onSubmit={handleVerifyOtp} className="space-y-5">
+              <div>
+                <label className="block text-sm font-semibold text-surface-700 mb-1.5">
+                  کد ۶ رقمی
+                </label>
+                <input
+                  type="text"
+                  value={otp}
+                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  placeholder="------"
+                  dir="ltr"
+                  className="input w-full text-center tracking-[0.5em] text-xl font-bold"
+                  required
+                  maxLength={6}
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  autoFocus
+                />
+              </div>
+
+              {error && <ErrorBox>{error}</ErrorBox>}
+
+              <button
+                type="submit"
+                disabled={otp.length !== 6}
+                className="btn btn-accent w-full py-3 text-base"
               >
-                {error}
-              </div>
-            )}
+                تایید کد
+              </button>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="btn btn-accent w-full py-3 text-base"
-            >
-              {loading ? (
-                <span className="flex items-center justify-center gap-2">
-                  <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                  </svg>
-                  در حال ثبت‌نام...
-                </span>
-              ) : 'ثبت‌نام'}
-            </button>
-          </form>
+              <div className="text-center text-sm text-surface-500">
+                {cooldown > 0 ? (
+                  <span>ارسال مجدد تا {cooldown} ثانیه دیگر</span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleResend}
+                    disabled={loading}
+                    className="text-brand-600 font-bold hover:text-brand-700"
+                  >
+                    ارسال مجدد کد
+                  </button>
+                )}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => { setStep('phone'); setOtp(''); setError('') }}
+                className="w-full text-sm text-surface-400 hover:text-surface-600 text-center"
+              >
+                تغییر شماره موبایل
+              </button>
+            </form>
+          )}
+
+          {/* ── مرحله ۳: اطلاعات حساب ── */}
+          {step === 'details' && (
+            <form onSubmit={handleRegister} className="space-y-5">
+              <div>
+                <label className="block text-sm font-semibold text-surface-700 mb-1.5">
+                  نام و نام خانوادگی
+                </label>
+                <input
+                  type="text"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  placeholder="علی احمدی"
+                  className="input w-full"
+                  required
+                  minLength={2}
+                  maxLength={100}
+                  autoComplete="name"
+                  autoFocus
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-surface-700 mb-1.5">
+                  رمز عبور
+                </label>
+                <div className="relative">
+                  <input
+                    type={showPass ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="حداقل ۶ کاراکتر"
+                    className="input w-full pe-10"
+                    required
+                    minLength={6}
+                    autoComplete="new-password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPass((v) => !v)}
+                    className="absolute end-3 top-1/2 -translate-y-1/2 text-surface-400 hover:text-surface-600 transition-colors"
+                    tabIndex={-1}
+                    aria-label={showPass ? 'پنهان کردن رمز' : 'نمایش رمز'}
+                  >
+                    {showPass ? (
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                      </svg>
+                    ) : (
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {error && <ErrorBox>{error}</ErrorBox>}
+
+              <button type="submit" disabled={loading} className="btn btn-accent w-full py-3 text-base">
+                {loading ? <Spinner label="در حال ثبت‌نام..." /> : 'ثبت‌نام'}
+              </button>
+            </form>
+          )}
 
           <div className="relative my-6">
             <div className="absolute inset-0 flex items-center">
@@ -204,5 +343,29 @@ export default function RegisterForm() {
         </div>
       </div>
     </div>
+  )
+}
+
+function ErrorBox({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700 text-center animate-slide-down"
+      role="alert"
+      aria-live="polite"
+    >
+      {children}
+    </div>
+  )
+}
+
+function Spinner({ label }: { label: string }) {
+  return (
+    <span className="flex items-center justify-center gap-2">
+      <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+      </svg>
+      {label}
+    </span>
   )
 }

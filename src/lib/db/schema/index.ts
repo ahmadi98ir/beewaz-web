@@ -38,6 +38,9 @@ export {
   type Lead, type NewLead, type LeadStatus,
 } from './chat'
 
+// ─── OTP ─────────────────────────────────────────────────────────────────────
+export { phoneOtps, type PhoneOtp, type NewPhoneOtp } from './otp'
+
 // ─── CMS ─────────────────────────────────────────────────────────────────────
 export {
   contentTypeEnum, siteSettings, pageContent, pageViews,

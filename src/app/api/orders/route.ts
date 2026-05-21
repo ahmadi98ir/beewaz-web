@@ -5,6 +5,7 @@ import { db } from '@/lib/db'
 import { orders, orderItems } from '@/lib/db/schema'
 import { products } from '@/lib/db/schema'
 import { eq, inArray } from 'drizzle-orm'
+import { sendVerifySms, SMS_TEMPLATES } from '@/lib/sms'
 
 const addressSchema = z.object({
   fullName: z.string().min(2),
@@ -87,6 +88,12 @@ export async function POST(req: Request) {
   await db.insert(orderItems).values(
     orderItemsData.map((item) => ({ orderId: order.id, ...item }))
   )
+
+  // پیامک تایید سفارش (fire-and-forget)
+  void sendVerifySms(address.phone, SMS_TEMPLATES.ORDER_CONFIRM, {
+    ORDERID: order.id.slice(0, 8).toUpperCase(),
+    PRICE:   totalAmount.toLocaleString('fa-IR'),
+  })
 
   return NextResponse.json({ orderId: order.id, totalAmount })
 }
