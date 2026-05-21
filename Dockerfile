@@ -1,7 +1,7 @@
 # Stage 1: Dependencies
 FROM node:22-alpine AS deps
 WORKDIR /app
-RUN apk add --no-cache libc6-compat
+RUN true
 COPY package*.json ./
 RUN echo "nameserver 178.22.122.100" > /etc/resolv.conf \
     && echo "nameserver 185.51.200.2" >> /etc/resolv.conf \
@@ -31,7 +31,6 @@ RUN npm run build
 # Stage 3: Runner
 FROM node:22-alpine AS runner
 WORKDIR /app
-RUN apk upgrade --no-cache && apk add --no-cache su-exec
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN addgroup --system --gid 1001 nodejs  && adduser  --system --uid 1001 nextjs
