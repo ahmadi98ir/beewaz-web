@@ -6,6 +6,7 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { leads } from '@/lib/db/schema'
+import { sendBulkSms } from '@/lib/sms'
 
 interface ContactBody {
   fullName: string
@@ -36,6 +37,15 @@ export async function POST(req: Request) {
       aiSummary:   body.message?.trim() ? `پیام فرم تماس: ${body.message.trim()}` : null,
       status:      'new',
     })
+
+    // اطلاع‌رسانی به ادمین
+    const adminPhone = process.env.ADMIN_PHONE ?? ''
+    if (adminPhone) {
+      void sendBulkSms(
+        adminPhone,
+        `بیـواز | لید جدید\nنام: ${body.fullName.trim()}\nشماره: ${cleanPhone.startsWith('0') ? cleanPhone : `0${cleanPhone}`}\nموضوع: ${body.subject ?? '-'}`,
+      )
+    }
 
     return NextResponse.json({ ok: true })
   } catch (err) {
