@@ -1,21 +1,14 @@
 /**
- * CMS Helper — خواندن محتوا از page_content برای Server Components
- *
- * استفاده:
- *   const cms = await getCmsContent('home', { hero_title: 'پیش‌فرض' })
- *   <h1>{cms.hero_title}</h1>
+ * CMS Helper — خواندن محتوا از page_content و site_settings برای Server Components
  */
 
 import { db } from '@/lib/db'
-import { pageContent } from '@/lib/db/schema'
+import { pageContent, siteSettings } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 
 export type CmsContent = Record<string, string>
 
-/**
- * دریافت محتوای یک صفحه از DB
- * اگر ردیفی در DB نباشد یا خطا رخ دهد، defaults برمی‌گردد
- */
+/** دریافت محتوای یک صفحه از page_content */
 export async function getCmsContent(
   page: string,
   defaults: CmsContent = {},
@@ -34,14 +27,32 @@ export async function getCmsContent(
     }
     return result
   } catch {
-    // DB در دسترس نیست یا جدول وجود ندارد — defaults را برمی‌گردانیم
     return defaults
   }
 }
 
-/**
- * دریافت محتوای چند صفحه در یک query
- */
+/** دریافت تنظیمات کلی سایت از site_settings */
+export async function getSiteSettings(
+  defaults: CmsContent = {},
+): Promise<CmsContent> {
+  try {
+    const rows = await db
+      .select({ key: siteSettings.key, value: siteSettings.value })
+      .from(siteSettings)
+
+    const result: CmsContent = { ...defaults }
+    for (const row of rows) {
+      if (row.value !== null && row.value !== '') {
+        result[row.key] = row.value
+      }
+    }
+    return result
+  } catch {
+    return defaults
+  }
+}
+
+/** دریافت محتوای چند صفحه در یک query */
 export async function getCmsPages(
   pages: string[],
   defaults: Record<string, CmsContent> = {},
