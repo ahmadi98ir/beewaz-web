@@ -5,11 +5,16 @@ on:
     branches: [main]
   workflow_dispatch:
 
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      packages: write   # needed for GHCR push
 
     steps:
       - name: Checkout repository
@@ -18,78 +23,121 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build Docker image
+      # ── Login to GitHub Container Registry ──────────────
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # ── Build and push to GHCR ───────────────────────────
+      - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
           context: .
           file: ./Dockerfile.ci
-          push: false
-          load: true
-          tags: beewaz-web:latest
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}:latest
+            ghcr.io/${{ github.repository }}:${{ github.sha }}
           build-args: |
             NEXT_PUBLIC_APP_URL=https://bz360.ir
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Save & compress Docker image
-        run: |
-          docker save beewaz-web:latest | gzip -1 > /tmp/beewaz-web.tar.gz
-          SIZE=$(du -sh /tmp/beewaz-web.tar.gz | cut -f1)
-          echo "Compressed size: $SIZE"
-
-      - name: Delete previous release asset
+      # ── Trigger Coolify deploy (via public API) ──────────
+      - name: Trigger Coolify deploy
+        continue-on-error: true
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
         run: |
-          RELEASE_ID=$(gh api repos/${{ github.repository }}/releases/tags/docker-latest --jq .id 2>/dev/null || echo "")
-          if [ -n "$RELEASE_ID" ]; then
-            gh api --method DELETE repos/${{ github.repository }}/releases/$RELEASE_ID || true
+          echo "Triggering Coolify deploy..."
+          HTTP=$(curl -s -o /tmp/r.txt -w "%{http_code}" \
+            "http://cool.rpim.ir/api/v1/deploy?uuid=ai1rr235nbzmyyvd6nuxaynd&force=false" \
+            -H "Authorization: Bearer ${COOLIFY_TOKEN}" \
+            -H "Accept: application/json" \
+            --max-time 30 2>/dev/null || echo "000")
+          echo "Coolify API response: HTTP $HTTP"
+          cat /tmp/r.txt || true
+          if [ "$HTTP" = "200" ]; then
+            echo "::notice ::✅ Deploy queued in Coolify!"
+          else
+            echo "::warning ::Coolify API returned $HTTP — manual deploy needed via SSH"
           fi
-          git push origin :refs/tags/docker-latest 2>/dev/null || true
 
-      - name: Create release and upload image
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          SHORT_SHA="${{ github.sha }}"
-          SHORT_SHA="${SHORT_SHA:0:8}"
-          gh release create docker-latest \
-            --title "Docker image (latest) — $SHORT_SHA" \
-            --notes "Commit: ${{ github.sha }}" \
-            --target ${{ github.sha }} \
-            /tmp/beewaz-web.tar.gz#beewaz-web.tar.gz
-          echo "::notice ::Image ready: https://github.com/${{ github.repository }}/releases/download/docker-latest/beewaz-web.tar.gz"
-
-      - name: Deploy via SSH (port 8443)
+      # ── Trigger via SSH fallback (port 8443) ─────────────
+      - name: Deploy via SSH fallback
+        continue-on-error: true
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SERVER_IP }}
           username: root
           key: ${{ secrets.SERVER_SSH_KEY }}
           port: 8443
-          timeout: 30s
-          command_timeout: 2m
+          timeout: 20s
+          command_timeout: 3m
           script: |
-            echo "=== Triggering Coolify deploy from localhost ==="
-            # Try Coolify internal port first (8000), then 80 via localhost
+            echo "=== SSH Deploy — $(date) ==="
+            IMAGE="ghcr.io/${{ github.repository }}:latest"
+
+            # Login to GHCR
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io \
+              -u ${{ github.actor }} --password-stdin 2>/dev/null || true
+
+            # Pull latest image
+            docker pull "${IMAGE}" && echo "Pull OK"
+
+            # Try Coolify API internally (NAT hairpin workaround)
             for PORT in 8000 80 3000; do
               HTTP=$(curl -s -o /tmp/cr.txt -w "%{http_code}" \
                 "http://127.0.0.1:${PORT}/api/v1/deploy?uuid=ai1rr235nbzmyyvd6nuxaynd&force=false" \
-                -H "Authorization: Bearer 5|wmPEJblDJiNLZSTVjaWVkU8hplMJjunnQsG30tVw2b19f363" \
-                -H "Accept: application/json" --max-time 15 2>/dev/null)
-              echo "Port $PORT → HTTP $HTTP: $(cat /tmp/cr.txt 2>/dev/null)"
+                -H "Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}" \
+                -H "Accept: application/json" --max-time 15 2>/dev/null || echo "000")
+              echo "Port $PORT → HTTP $HTTP"
               if [ "$HTTP" = "200" ]; then
-                echo "Deploy queued on port $PORT!"
+                echo "Deploy queued via Coolify port $PORT!"
                 exit 0
               fi
             done
-            echo "All ports tried. Check Coolify UI at http://cool.rpim.ir"
 
+            # Fallback: restart container directly
+            docker stop beewaz-web 2>/dev/null || true
+            docker rm beewaz-web 2>/dev/null || true
+
+            # Get network from existing Coolify setup
+            NETWORK=$(docker network ls --format "{{.Name}}" | grep -i coolify | head -1)
+            NET_ARG=""
+            [ -n "$NETWORK" ] && NET_ARG="--network $NETWORK"
+
+            docker run -d \
+              --name beewaz-web \
+              --restart unless-stopped \
+              $NET_ARG \
+              -p 3000:3000 \
+              -e DATABASE_URL="${{ secrets.DATABASE_URL }}" \
+              -e NODE_ENV=production \
+              -e PORT=3000 \
+              -e HOSTNAME=0.0.0.0 \
+              -v beewaz_uploads:/app/public/uploads \
+              "${IMAGE}"
+
+            echo "Container restarted with new image!"
+            sleep 5
+            docker logs beewaz-web --tail=10
+
+      # ── Summary ──────────────────────────────────────────
       - name: Deploy summary
         if: always()
         run: |
-          echo "## Build Summary" >> $GITHUB_STEP_SUMMARY
-          echo "- **Commit**: \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- **Docker image**: [beewaz-web.tar.gz](https://github.com/${{ github.repository }}/releases/download/docker-latest/beewaz-web.tar.gz)" >> $GITHUB_STEP_SUMMARY
-          echo "- **Site**: https://bz360.ir" >> $GITHUB_STEP_SUMMARY
-          echo "- **Admin**: https://bz360.ir/admin" >> $GITHUB_STEP_SUMMARY
+          SHORT="${GITHUB_SHA:0:8}"
+          echo "## 🚀 Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| | |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|" >> $GITHUB_STEP_SUMMARY
+          echo "| **Commit** | \`$SHORT\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Image** | \`ghcr.io/${{ github.repository }}:latest\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Site** | https://bz360.ir |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Admin** | https://bz360.ir/admin |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "> If auto-deploy failed, run \`server-fix.sh\` via SSH on port 8443" >> $GITHUB_STEP_SUMMARY
