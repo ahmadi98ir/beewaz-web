@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-and-upload:
+  build-and-deploy:
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -42,12 +42,10 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Delete old release if exists
           RELEASE_ID=$(gh api repos/${{ github.repository }}/releases/tags/docker-latest --jq .id 2>/dev/null || echo "")
           if [ -n "$RELEASE_ID" ]; then
             gh api --method DELETE repos/${{ github.repository }}/releases/$RELEASE_ID || true
           fi
-          # Delete the tag
           git push origin :refs/tags/docker-latest 2>/dev/null || true
 
       - name: Create release and upload image
@@ -56,11 +54,27 @@ jobs:
         run: |
           COMMIT_SHA="${{ github.sha }}"
           SHORT_SHA="${COMMIT_SHA:0:8}"
-          # Create new release
           gh release create docker-latest \
             --title "Docker image (latest) — $SHORT_SHA" \
             --notes "Auto-built from commit ${{ github.sha }}" \
             --target ${{ github.sha }} \
             /tmp/beewaz-web.tar.gz#beewaz-web.tar.gz
-          echo "Release created successfully"
-          echo "Download URL: https://github.com/${{ github.repository }}/releases/download/docker-latest/beewaz-web.tar.gz"
+          echo "Release created: https://github.com/${{ github.repository }}/releases/download/docker-latest/beewaz-web.tar.gz"
+
+      - name: Trigger Coolify deployment
+        continue-on-error: true
+        run: |
+          echo "Triggering Coolify deploy..."
+          RESPONSE=$(curl -s -o /tmp/coolify_resp.txt -w "%{http_code}" \
+            -X GET "http://cool.rpim.ir/api/v1/deploy?uuid=ai1rr235nbzmyyvd6nuxaynd&force=false" \
+            -H "Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}" \
+            -H "Accept: application/json" \
+            --max-time 30)
+          echo "HTTP Status: $RESPONSE"
+          cat /tmp/coolify_resp.txt
+          if [ "$RESPONSE" = "200" ]; then
+            echo "Coolify deploy queued successfully!"
+          else
+            echo "WARNING: Coolify API returned $RESPONSE — manual deploy may be needed"
+            echo "Go to http://cool.rpim.ir to trigger deploy from UI"
+          fi
