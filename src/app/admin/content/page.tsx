@@ -12,27 +12,27 @@ interface CmsField {
 
 const FIELD_SECTIONS: { id: string; label: string; icon: string; fields: CmsField[] }[] = [
   {
-    id: 'announcement', label: 'نوار اطلاع‌رسانی', icon: '\U0001F4E2',
+    id: 'announcement', label: 'نوار اطلاع‌رسانی', icon: '\u{1F4E2}',
     fields: [
-      { key: 'announcement_active', label: 'نوار فعال باشد',    type: 'boolean', group: 'page', page: 'global' },
-      { key: 'announcement_text',   label: 'متن نوار',          type: 'text',    group: 'page', page: 'global', placeholder: '\U0001F389 ارسال رایگان برای سفارش‌های بالای ۵۰۰ هزار تومان' },
-      { key: 'announcement_url',    label: 'لینک نوار',         type: 'url',     group: 'page', page: 'global', placeholder: '/shop' },
-      { key: 'announcement_color',  label: 'رنگ پس‌زمینه', type: 'color',   group: 'page', page: 'global' },
+      { key: 'announcement_active', label: 'نوار فعال باشد',     type: 'boolean',  group: 'page', page: 'global' },
+      { key: 'announcement_text',   label: 'متن نوار',           type: 'text',     group: 'page', page: 'global', placeholder: '\u{1F389} ارسال رایگان برای سفارش‌های بالای ۵۰۰ هزار تومان' },
+      { key: 'announcement_url',    label: 'لینک نوار',          type: 'url',      group: 'page', page: 'global', placeholder: '/shop' },
+      { key: 'announcement_color',  label: 'رنگ پس‌زمینه',  type: 'color',    group: 'page', page: 'global' },
     ],
   },
   {
-    id: 'hero', label: 'بخش Hero (تیتر اصلی)', icon: '\U0001F9B8',
+    id: 'hero', label: 'بخش Hero (تیتر اصلی)', icon: '\u{1F9B8}',
     fields: [
-      { key: 'hero_badge',             label: 'بج روی عنوان',   type: 'text',     group: 'page', page: 'home', placeholder: '\U0001F512 سیستم امنیتی فعال — پشتیبانی ۲۴/۷' },
-      { key: 'hero_title',             label: 'عنوان اصلی (هر خط یک ردیف)', type: 'textarea', group: 'page', page: 'home', rows: 3, hint: 'خط ۱: متن ساده | خط ۲: متن طلایی (هایلایت) | خط ۳: نام برند' },
-      { key: 'hero_subtitle',          label: 'زیرعنوان / توضیح', type: 'textarea', group: 'page', page: 'home', rows: 2 },
+      { key: 'hero_badge',             label: 'بج روی عنوان',   type: 'text',     group: 'page', page: 'home', placeholder: '\u{1F512} بیش از ۱۵,۰۰۰ مشتری راضی' },
+      { key: 'hero_title',             label: 'عنوان اصلی',     type: 'textarea', group: 'page', page: 'home', rows: 2 },
+      { key: 'hero_subtitle',          label: 'زیرعنوان',       type: 'textarea', group: 'page', page: 'home', rows: 2 },
       { key: 'hero_cta_primary',       label: 'دکمه اول',       type: 'text',     group: 'page', page: 'home', placeholder: 'مشاوره رایگان' },
-      { key: 'hero_cta_primary_url',   label: 'لینک دکمه اول', type: 'url',      group: 'page', page: 'home', placeholder: 'tel:02100000000' },
+      { key: 'hero_cta_primary_url',   label: 'لینک دکمه اول', type: 'url',      group: 'page', page: 'home', placeholder: '/contact' },
       { key: 'hero_cta_secondary',     label: 'دکمه دوم',       type: 'text',     group: 'page', page: 'home', placeholder: 'مشاهده محصولات' },
       { key: 'hero_cta_secondary_url', label: 'لینک دکمه دوم', type: 'url',      group: 'page', page: 'home', placeholder: '/shop' },
-      { key: 'hero_features',          label: 'ویژگی‌ها زیر دکمه (هر خط یک مورد)', type: 'textarea', group: 'page', page: 'home', rows: 4, hint: 'مثلاً: نصب رایگان' },
-      { key: 'hero_stat1_value', label: 'آمار ۱ — عدد',    type: 'text', group: 'page', page: 'home', placeholder: '۵۰۰۰+' },
-      { key: 'hero_stat1_label', label: 'آمار ۱ — برچسب', type: 'text', group: 'page', page: 'home', placeholder: 'مشتری' },
+      { key: 'hero_features',          label: 'ویژگی‌ها (هر خط یک مورد)', type: 'textarea', group: 'page', page: 'home', rows: 4, hint: 'هر خط یک ویژگی' },
+      { key: 'hero_stat1_value', label: 'آمار ۱ — عدد',    type: 'text', group: 'page', page: 'home', placeholder: '۵۰۰+' },
+      { key: 'hero_stat1_label', label: 'آمار ۱ — برچسب', type: 'text', group: 'page', page: 'home', placeholder: 'پروژه نصب' },
       { key: 'hero_stat2_value', label: 'آمار ۲ — عدد',    type: 'text', group: 'page', page: 'home', placeholder: '۱۰+' },
       { key: 'hero_stat2_label', label: 'آمار ۲ — برچسب', type: 'text', group: 'page', page: 'home', placeholder: 'سال تجربه' },
       { key: 'hero_stat3_value', label: 'آمار ۳ — عدد',    type: 'text', group: 'page', page: 'home', placeholder: '۹۸٪' },
@@ -40,30 +40,22 @@ const FIELD_SECTIONS: { id: string; label: string; icon: string; fields: CmsFiel
     ],
   },
   {
-    id: 'why', label: 'بخش «چرا بیواز؟»', icon: '\U0001F3C6',
-    fields: [
-      { key: 'why_title',    label: 'عنوان بخش',    type: 'text',     group: 'page', page: 'home', placeholder: 'چرا بیواز؟' },
-      { key: 'why_subtitle', label: 'زیرعنوان',      type: 'textarea', group: 'page', page: 'home', rows: 2 },
-      { key: 'why_features', label: 'ویژگی‌ها (JSON)', type: 'json', group: 'page', page: 'home', rows: 12,
-        hint: 'آرایه JSON با فیلدهای: icon, title, desc, color, glow' },
-    ],
-  },
-  {
-    id: 'how', label: 'بخش «چطور کار می‌کند»', icon: '\U0001F522',
+    id: 'how', label: 'بخش «چطور کار می‌کند»', icon: '\u{1F522}',
     fields: [
       { key: 'how_title',    label: 'عنوان بخش',    type: 'text',     group: 'page', page: 'home', placeholder: '۴ گام تا امنیت کامل' },
       { key: 'how_subtitle', label: 'زیرعنوان',      type: 'text',     group: 'page', page: 'home' },
-      { key: 'how_steps',    label: 'مراحل (JSON)',  type: 'json',     group: 'page', page: 'home', rows: 10,
+      { key: 'how_steps',    label: 'مراحل (JSON)', type: 'json',     group: 'page', page: 'home', rows: 10,
         hint: 'آرایه JSON با فیلدهای: icon, title, desc' },
     ],
   },
   {
-    id: 'cta', label: 'بخش CTA (دعوت به عمل)', icon: '\U0001F4E3',
+    id: 'cta', label: 'بخش CTA (دعوت به عمل)', icon: '\u{1F4E3}',
     fields: [
       { key: 'cta_title',      label: 'عنوان CTA',          type: 'text',     group: 'page', page: 'home' },
       { key: 'cta_subtitle',   label: 'زیرعنوان CTA',       type: 'textarea', group: 'page', page: 'home', rows: 2 },
       { key: 'cta_button',     label: 'متن دکمه',           type: 'text',     group: 'page', page: 'home', placeholder: 'مشاوره رایگان' },
       { key: 'cta_button_url', label: 'لینک دکمه',          type: 'url',      group: 'page', page: 'home', placeholder: '/contact' },
+      { key: 'contact_phone',  label: 'شماره تلفن نمایشی', type: 'phone',    group: 'settings', hint: 'اگر پر باشد، دکمه تماس نمایش داده می‌شود' },
     ],
   },
   {
@@ -74,13 +66,11 @@ const FIELD_SECTIONS: { id: string; label: string; icon: string; fields: CmsFiel
       { key: 'site_description', label: 'توضیح SEO سایت',         type: 'textarea', group: 'settings', rows: 2 },
       { key: 'site_keywords',    label: 'کلمات کلیدی SEO',        type: 'text',     group: 'settings', hint: 'با کاما جدا کنید' },
       { key: 'logo_url',         label: 'آدرس لوگو',              type: 'image',    group: 'settings', placeholder: '/images/logo.png' },
-      { key: 'og_image_url',     label: 'تصویر اشتراک‌گذاری', type: 'image',   group: 'settings' },
-      { key: 'contact_cta_text', label: 'متن دکمه هدر (CTA)',     type: 'text',     group: 'settings', placeholder: 'مشاوره رایگان' },
-      { key: 'contact_cta_url',  label: 'لینک دکمه هدر (CTA)',   type: 'url',      group: 'settings', placeholder: '/contact' },
+      { key: 'og_image_url',     label: 'تصویر اشتراک‌گذاری', type: 'image',  group: 'settings' },
     ],
   },
   {
-    id: 'contact', label: 'اطلاعات تماس', icon: '\U0001F4DE',
+    id: 'contact', label: 'اطلاعات تماس', icon: '\u{1F4DE}',
     fields: [
       { key: 'contact_phone',   label: 'شماره ثابت',   type: 'phone',    group: 'settings', placeholder: '021-00000000' },
       { key: 'contact_phone2',  label: 'شماره موبایل', type: 'phone',    group: 'settings' },
@@ -91,7 +81,7 @@ const FIELD_SECTIONS: { id: string; label: string; icon: string; fields: CmsFiel
     ],
   },
   {
-    id: 'social', label: 'شبکه‌های اجتماعی', icon: '\U0001F310',
+    id: 'social', label: 'شبکه‌های اجتماعی', icon: '\u{1F310}',
     fields: [
       { key: 'social_instagram', label: 'اینستاگرام', type: 'url', group: 'settings', placeholder: 'https://instagram.com/beewaz.ir' },
       { key: 'social_telegram',  label: 'تلگرام',     type: 'url', group: 'settings' },
@@ -100,13 +90,13 @@ const FIELD_SECTIONS: { id: string; label: string; icon: string; fields: CmsFiel
     ],
   },
   {
-    id: 'commerce', label: 'تنظیمات فروشگاه', icon: '\U0001F6D2',
+    id: 'commerce', label: 'تنظیمات فروشگاه', icon: '\u{1F6D2}',
     fields: [
-      { key: 'free_shipping_threshold',  label: 'حد ارسال رایگان (تومان)',        type: 'number',   group: 'settings' },
+      { key: 'free_shipping_threshold',  label: 'حد ارسال رایگان (تومان)',      type: 'number',   group: 'settings' },
       { key: 'default_warranty_months',  label: 'ماه‌های گارانتی پیش‌فرض', type: 'number', group: 'settings' },
-      { key: 'shop_enabled',             label: 'فروشگاه فعال',                   type: 'boolean',  group: 'settings' },
-      { key: 'checkout_notes',           label: 'توضیح صفحه پرداخت',              type: 'textarea', group: 'settings', rows: 2 },
-      { key: 'admin_order_notify_phone', label: 'تلفن اطلاع‌رسانی سفارش',  type: 'phone',    group: 'settings' },
+      { key: 'shop_enabled',             label: 'فروشگاه فعال',               type: 'boolean',  group: 'settings' },
+      { key: 'checkout_notes',           label: 'توضیح صفحه پرداخت',          type: 'textarea', group: 'settings', rows: 2 },
+      { key: 'admin_order_notify_phone', label: 'تلفن اطلاع‌رسانی سفارش',type: 'phone',    group: 'settings' },
     ],
   },
 ]
@@ -130,10 +120,10 @@ function CmsInput({ field, value, onChange }: { field: CmsField; value: string; 
   if (field.type === 'color') {
     return (
       <div className="flex items-center gap-3">
-        <input type="color" value={value || '#1B3A8A'} onChange={e => onChange(e.target.value)}
+        <input type="color" value={value || '#f59e0b'} onChange={e => onChange(e.target.value)}
           className="w-10 h-10 rounded-lg border border-surface-200 cursor-pointer" />
         <input type="text" value={value} onChange={e => onChange(e.target.value)}
-          className={`${cls} flex-1 font-mono`} dir="ltr" placeholder="#1B3A8A" />
+          className={`${cls} flex-1 font-mono`} dir="ltr" placeholder="#f59e0b" />
       </div>
     )
   }
@@ -277,7 +267,7 @@ export default function ContentPage() {
               <a href="https://bz360.ir" target="_blank" className="btn btn-outline text-xs py-2 px-3">مشاهده سایت</a>
               <button onClick={save} disabled={saving || !changed}
                 className={`btn text-sm py-2.5 px-5 ${changed ? 'btn-primary' : 'btn-outline opacity-50 cursor-not-allowed'}`}>
-                {saving ? 'ذخیره...' : '\U0001F4BE ذخیره تغییرات'}
+                {saving ? 'ذخیره...' : '\u{1F4BE} ذخیره تغییرات'}
               </button>
             </div>
           </div>
@@ -320,7 +310,7 @@ export default function ContentPage() {
               <div className="flex justify-end pt-2">
                 <button onClick={save} disabled={saving || !changed}
                   className={`btn text-sm py-3 px-8 ${changed ? 'btn-primary' : 'btn-outline opacity-50 cursor-not-allowed'}`}>
-                  {saving ? 'ذخیره...' : '\U0001F4BE ذخیره همه تغییرات'}
+                  {saving ? 'ذخیره...' : '\u{1F4BE} ذخیره همه تغییرات'}
                 </button>
               </div>
             </div>
@@ -330,3 +320,4 @@ export default function ContentPage() {
     </div>
   )
 }
+         
