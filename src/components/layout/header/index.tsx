@@ -7,14 +7,16 @@ import { MobileMenu } from './mobile-menu'
 import { SearchBar } from './search-bar'
 import { CartButton } from './cart-button'
 import { AnnouncementBar } from './announcement-bar'
+import { getSiteSettings } from '@/lib/cms'
 
 // Server Component — بدون 'use client'
-// فقط کامپوننت‌های تعاملی به client منتقل شده‌اند
 
-export function Header() {
+export async function Header() {
+  const settings = await getSiteSettings()
+
   return (
     <header className="sticky top-0 z-50">
-      <AnnouncementBar />
+      <AnnouncementBar settings={settings} />
 
       <div
         className="bg-white/95 backdrop-blur-md border-b border-surface-200"
@@ -26,21 +28,15 @@ export function Header() {
             {/* ── لوگو ──────────────────────────────────────────── */}
             <BeewazLogo size="md" />
 
-            {/* ── ناوبری دسکتاپ — فضای بین را پر می‌کند ────────── */}
+            {/* ── ناوبری دسکتاپ ────────────────────────────────── */}
             <DesktopNav items={navigation} />
 
-            {/* ── Spacer ─────────────────────────────────────────── */}
             <div className="flex-1" />
 
             {/* ── اکشن‌ها ───────────────────────────────────────── */}
             <div className="flex items-center gap-1">
-              {/* جستجو — Client Component */}
               <SearchBar />
-
-              {/* سبد خرید — Client Component */}
               <CartButton />
-
-              {/* ورود / حساب کاربری */}
               <Link
                 href="/login"
                 className="hidden sm:inline-flex btn btn-ghost gap-2 py-2 px-3 text-sm"
@@ -49,16 +45,12 @@ export function Header() {
                 <UserIcon size={18} />
                 <span className="hidden md:inline">ورود</span>
               </Link>
-
-              {/* مشاوره رایگان — CTA اصلی */}
               <Link
-                href="/contact"
+                href={settings.contact_cta_url ?? '/contact'}
                 className="hidden lg:inline-flex btn btn-primary py-2 px-4 text-sm"
               >
-                مشاوره رایگان
+                {settings.contact_cta_text ?? 'مشاوره رایگان'}
               </Link>
-
-              {/* منوی موبایل — Client Component */}
               <MobileMenu items={navigation} />
             </div>
 
