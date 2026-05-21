@@ -188,7 +188,6 @@ export function Testimonials() {
                   ? `0 20px 60px rgba(0,0,0,0.4), 0 0 0 1px ${item.color}20`
                   : 'none',
                 opacity: visible ? 1 : 0,
-                transition: `opacity 0.6s ease ${i * 120}ms, transform 0.35s ease, box-shadow 0.35s ease, border-color 0.35s ease, background 0.35s ease`,
               }}
             >
               {/* Quote mark */}
