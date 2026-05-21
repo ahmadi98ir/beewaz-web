@@ -72,7 +72,7 @@ export function HowItWorks({ cms = {} }: HowItWorksProps) {
 
           {steps.map((step, i) => (
             <AnimateIn key={i} delay={i * 120}>
-              <div className={`group relative bg-white/[0.03] border border-white/[0.08] rounded-2xl p-6 text-center hover:bg-white/[0.06] hover:border-white/20 transition-all duration-500 shadow-xl ${step.glow ?? 'shadow-blue-500/30'}\`}>
+              <div className={`group relative bg-white/[0.03] border border-white/[0.08] rounded-2xl p-6 text-center hover:bg-white/[0.06] hover:border-white/20 transition-all duration-500 shadow-xl ${step.glow ?? 'shadow-blue-500/30'}`}>
                 <div className={`inline-flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-br ${step.color ?? 'from-blue-500 to-cyan-400'} text-white font-black text-sm mb-5 shadow-lg`}>
                   {(i + 1).toLocaleString('fa-IR')}
                 </div>
