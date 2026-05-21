@@ -68,6 +68,7 @@ export function Testimonials() {
     const el = containerRef.current
     if (!el) return
     const obs = new IntersectionObserver((entries) => {
+      const e = entries[0]; if (!e) return
       if (e.isIntersecting) { setVisible(true); obs.disconnect() }
     }, { threshold: 0.15 })
     obs.observe(el)
