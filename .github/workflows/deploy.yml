@@ -55,36 +55,34 @@ jobs:
           SHORT_SHA="${COMMIT_SHA:0:8}"
           gh release create docker-latest \
             --title "Docker image (latest) — $SHORT_SHA" \
-            --notes "Auto-built from commit ${{ github.sha }}" \
+            --notes "Commit: ${{ github.sha }}" \
             --target ${{ github.sha }} \
             /tmp/beewaz-web.tar.gz#beewaz-web.tar.gz
-          echo "Release URL: https://github.com/${{ github.repository }}/releases/download/docker-latest/beewaz-web.tar.gz"
+          echo "IMAGE_URL=https://github.com/${{ github.repository }}/releases/download/docker-latest/beewaz-web.tar.gz" >> $GITHUB_ENV
+          echo "::notice ::Docker image ready: https://github.com/${{ github.repository }}/releases/download/docker-latest/beewaz-web.tar.gz"
 
-      - name: Deploy via SSH (trigger Coolify from localhost)
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.SERVER_IP }}
-          username: root
-          key: ${{ secrets.SERVER_SSH_KEY }}
-          script: |
-            echo "=== Triggering Coolify deploy from localhost ==="
-            RESPONSE=$(curl -s -o /tmp/coolify_resp.txt -w "%{http_code}" \
-              "http://localhost:8000/api/v1/deploy?uuid=ai1rr235nbzmyyvd6nuxaynd&force=false" \
-              -H "Authorization: Bearer 5|wmPEJblDJiNLZSTVjaWVkU8hplMJjunnQsG30tVw2b19f363" \
-              -H "Accept: application/json" \
-              --max-time 30)
-            echo "Coolify API HTTP status: $RESPONSE"
-            cat /tmp/coolify_resp.txt
-            echo ""
-            if [ "$RESPONSE" = "200" ]; then
-              echo "Deploy queued successfully!"
-            else
-              # try port 80 via localhost
-              RESPONSE2=$(curl -s -o /tmp/coolify_resp2.txt -w "%{http_code}" \
-                "http://127.0.0.1/api/v1/deploy?uuid=ai1rr235nbzmyyvd6nuxaynd&force=false" \
-                -H "Authorization: Bearer 5|wmPEJblDJiNLZSTVjaWVkU8hplMJjunnQsG30tVw2b19f363" \
-                -H "Accept: application/json" \
-                --max-time 30)
-              echo "Coolify 127.0.0.1 HTTP status: $RESPONSE2"
-              cat /tmp/coolify_resp2.txt
-            fi
+      - name: Trigger Coolify deploy (via external API)
+        continue-on-error: true
+        run: |
+          echo "Attempting Coolify deploy via API..."
+          HTTP=$(curl -s -o /tmp/cr.txt -w "%{http_code}" \
+            "http://cool.rpim.ir/api/v1/deploy?uuid=ai1rr235nbzmyyvd6nuxaynd&force=false" \
+            -H "Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}" \
+            -H "Accept: application/json" --max-time 20)
+          echo "HTTP: $HTTP"
+          cat /tmp/cr.txt
+          if [ "$HTTP" = "200" ]; then
+            echo "::notice ::Coolify deploy queued!"
+          else
+            echo "::warning ::Coolify API returned $HTTP — please trigger deploy manually at http://cool.rpim.ir"
+          fi
+
+      - name: Deploy summary
+        run: |
+          echo "## Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Docker image**: [beewaz-web.tar.gz](https://github.com/${{ github.repository }}/releases/download/docker-latest/beewaz-web.tar.gz)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Site**: https://bz360.ir" >> $GITHUB_STEP_SUMMARY
+          echo "- **Admin**: https://bz360.ir/admin" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "> If Coolify deploy was not auto-triggered, go to http://cool.rpim.ir and click Deploy." >> $GITHUB_STEP_SUMMARY
