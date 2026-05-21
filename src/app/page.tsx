@@ -27,7 +27,7 @@ export default async function HomePage() {
       <Hero cms={cms} />
       <FeaturedCategories />
       <FeaturedProducts />
-      <WhyBeewaz />
+      <WhyBeewaz cms={cms} />
       <HowItWorks cms={cms} />
       <CtaSection cms={cms} />
     </>
