@@ -101,6 +101,7 @@ function StatCard({ stat, index }: { stat: typeof STATS[0]; index: number }) {
     const el = ref.current
     if (!el) return
     const obs = new IntersectionObserver((entries) => {
+      const e = entries[0]; if (!e) return
       if (e.isIntersecting) {
         setActive(true)
         el.style.opacity = '1'
