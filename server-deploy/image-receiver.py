@@ -51,16 +51,19 @@ def load_image_bg(tmp_path: str) -> None:
             pass
 
 
-def pull_and_load(url: str) -> None:
+def pull_and_load(url: str, gh_token: str = '') -> None:
     set_status('pulling', 'downloading image…')
     try:
         fd, tmp_path = tempfile.mkstemp(suffix='.tar.gz')
         os.close(fd)
-        result = subprocess.run(
-            ['curl', '-sL', '--max-time', '600', '-o', tmp_path, url],
-            capture_output=True,
-            timeout=620,
-        )
+        cmd = ['curl', '-sL', '--max-time', '600', '-o', tmp_path]
+        if gh_token:
+            cmd += [
+                '-H', f'Authorization: token {gh_token}',
+                '-H', 'Accept: application/octet-stream',
+            ]
+        cmd.append(url)
+        result = subprocess.run(cmd, capture_output=True, timeout=620)
         if result.returncode != 0:
             set_status('error', f'download failed (curl {result.returncode}): {result.stderr.decode()[:200]}')
             try:
@@ -136,13 +139,13 @@ class Handler(BaseHTTPRequestHandler):
 
         # ── /api/upload/pull  (server pulls image from external URL) ─────────
         if parsed.path == '/api/upload/pull':
-            raw_url = qs.get('url', [''])[0]
-            url = unquote(raw_url)
+            url = unquote(qs.get('url', [''])[0])
+            gh_token = unquote(qs.get('gh_token', [''])[0])
             if not url:
                 self._resp(400, b'url param required')
                 return
             self._resp(202, b'pull started')
-            threading.Thread(target=pull_and_load, args=(url,), daemon=True).start()
+            threading.Thread(target=pull_and_load, args=(url, gh_token), daemon=True).start()
 
         # ── /api/upload/chunk ─────────────────────────────────────────────────
         elif parsed.path == '/api/upload/chunk':
