@@ -68,8 +68,8 @@ jobs:
             -H "X-Upload-Token: ${{ secrets.IMAGE_UPLOAD_TOKEN }}" \
             -H "Content-Type: application/octet-stream" \
             --data-binary @/tmp/beewaz-image.tar.gz \
-            "http://${{ env.SERVER_IP }}:5001" \
-            --max-time 600)
+            "https://bz360.ir/api/upload" \
+            --max-time 600 -k)
           echo "HTTP $HTTP_CODE — $(cat /tmp/upload-resp.txt)"
           [ "$HTTP_CODE" = "200" ] || { echo "Upload failed!"; exit 1; }
 
