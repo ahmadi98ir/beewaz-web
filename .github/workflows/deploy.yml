@@ -46,6 +46,10 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      # build-push-action فقط push می‌کند؛ برای docker save باید pull کنیم
+      - name: Pull image to local daemon
+        run: docker pull ${{ env.IMAGE }}:latest
+
       # ── Save image and push directly to server (SSH from GHA to Iran is blocked) ──
       # Secrets needed:
       #   IMAGE_UPLOAD_TOKEN  — token for the image receiver on port 5001
