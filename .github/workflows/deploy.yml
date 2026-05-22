@@ -50,7 +50,7 @@ jobs:
       - name: Pull image to local daemon
         run: docker pull ${{ env.IMAGE }}:latest
 
-      # ── Save image, split into 15 MB chunks, upload each (avoids Iran DPI 135s kill) ──
+      # ── Upload image to transfer.sh, then tell server to PULL (outbound from Iran = reliable) ──
       # Secrets needed:
       #   IMAGE_UPLOAD_TOKEN  — token for the image receiver on port 5001
       #   COOLIFY_TOKEN       — value: 5|beewaz-deploy-fix-2026
@@ -59,45 +59,27 @@ jobs:
           IMAGE="${{ env.IMAGE }}:latest"
           echo "=== Saving image to tar.gz ==="
           docker save "$IMAGE" | gzip > /tmp/beewaz-image.tar.gz
-          IMAGE_SIZE=$(stat -c%s /tmp/beewaz-image.tar.gz)
-          echo "Compressed size: $((IMAGE_SIZE / 1024 / 1024)) MB"
+          echo "Compressed size: $(($(stat -c%s /tmp/beewaz-image.tar.gz) / 1024 / 1024)) MB"
 
-          echo "=== Splitting into 15 MB chunks ==="
-          mkdir -p /tmp/bz-chunks
-          split -b 15m /tmp/beewaz-image.tar.gz /tmp/bz-chunks/part-
-          mapfile -t CHUNKS < <(ls /tmp/bz-chunks/part-* | sort)
-          TOTAL=${#CHUNKS[@]}
-          SESSION=$(date +%s)
-          echo "Chunks: $TOTAL  Session: $SESSION"
+          echo "=== Uploading to transfer.sh (GHA→outside-Iran, fast) ==="
+          TRANSFER_URL=$(curl -s --upload-file /tmp/beewaz-image.tar.gz \
+            "https://transfer.sh/beewaz-image.tar.gz" --max-time 300)
+          echo "URL: $TRANSFER_URL"
+          [ -n "$TRANSFER_URL" ] && echo "$TRANSFER_URL" | grep -q "^https://" || \
+            { echo "transfer.sh upload failed! Response: $TRANSFER_URL"; exit 1; }
 
-          echo "=== Uploading chunks (each ~15 MB, well below DPI threshold) ==="
-          for i in "${!CHUNKS[@]}"; do
-            CHUNK="${CHUNKS[$i]}"
-            PART=$((i + 1))
-            CHUNK_MB=$(( $(stat -c%s "$CHUNK") / 1024 / 1024 ))
-            echo "  Chunk $PART/$TOTAL — ${CHUNK_MB} MB"
-            HTTP_CODE=$(curl -s -o /tmp/chunk-resp.txt -w '%{http_code}' \
-              -X POST \
-              -H "X-Upload-Token: ${{ secrets.IMAGE_UPLOAD_TOKEN }}" \
-              -H "Content-Type: application/octet-stream" \
-              --data-binary @"$CHUNK" \
-              "https://bz360.ir/api/upload/chunk?session=${SESSION}&part=${PART}" \
-              --max-time 90 -k)
-            echo "  → HTTP $HTTP_CODE $(cat /tmp/chunk-resp.txt)"
-            [ "$HTTP_CODE" = "202" ] || { echo "Chunk $PART failed!"; exit 1; }
-          done
-
-          echo "=== Triggering server-side assembly + docker load ==="
-          HTTP_CODE=$(curl -s -o /tmp/assemble-resp.txt -w '%{http_code}' \
+          echo "=== Telling server to pull from transfer.sh (server→outside, reliable) ==="
+          ENCODED=$(python3 -c "import urllib.parse,sys; print(urllib.parse.quote(sys.argv[1]))" "$TRANSFER_URL")
+          HTTP_CODE=$(curl -s -o /tmp/pull-resp.txt -w '%{http_code}' \
             -X POST \
             -H "X-Upload-Token: ${{ secrets.IMAGE_UPLOAD_TOKEN }}" \
-            "https://bz360.ir/api/upload/assemble?session=${SESSION}&total=${TOTAL}" \
+            "https://bz360.ir/api/upload/pull?url=${ENCODED}" \
             --max-time 30 -k)
-          echo "Assemble: HTTP $HTTP_CODE — $(cat /tmp/assemble-resp.txt)"
-          [ "$HTTP_CODE" = "202" ] || { echo "Assembly failed!"; exit 1; }
+          echo "HTTP $HTTP_CODE — $(cat /tmp/pull-resp.txt)"
+          [ "$HTTP_CODE" = "202" ] || { echo "Pull trigger failed!"; exit 1; }
 
-          echo "=== Waiting for docker load to finish ==="
-          for i in $(seq 1 90); do
+          echo "=== Waiting for server to download + docker load ==="
+          for i in $(seq 1 120); do
             STAT=$(curl -sk "https://bz360.ir/api/upload/status" \
               -H "X-Upload-Token: ${{ secrets.IMAGE_UPLOAD_TOKEN }}" --max-time 10 2>/dev/null || echo "error: unreachable")
             echo "  [$i] $STAT"
