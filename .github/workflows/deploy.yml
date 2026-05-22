@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      packages: write   # needed for GHCR push
+      packages: write
 
     steps:
       - name: Checkout repository
@@ -31,7 +31,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # ── Build and push to GHCR ───────────────────────────
+      # ── Build and push to GHCR (using Dockerfile.ci) ────
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
@@ -46,28 +46,8 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # ── Trigger Coolify deploy (via public API) ──────────
-      - name: Trigger Coolify deploy
-        continue-on-error: true
-        env:
-          COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
-        run: |
-          echo "Triggering Coolify deploy..."
-          HTTP=$(curl -s -o /tmp/r.txt -w "%{http_code}" \
-            "http://cool.rpim.ir/api/v1/deploy?uuid=ai1rr235nbzmyyvd6nuxaynd&force=false" \
-            -H "Authorization: Bearer ${COOLIFY_TOKEN}" \
-            -H "Accept: application/json" \
-            --max-time 30 2>/dev/null || echo "000")
-          echo "Coolify API response: HTTP $HTTP"
-          cat /tmp/r.txt || true
-          if [ "$HTTP" = "200" ]; then
-            echo "::notice ::✅ Deploy queued in Coolify!"
-          else
-            echo "::warning ::Coolify API returned $HTTP — manual deploy needed via SSH"
-          fi
-
-      # ── Trigger via SSH fallback (port 8443) ─────────────
-      - name: Deploy via SSH fallback
+      # ── Fix Docker daemon proxy on server (one-time fix) ─
+      - name: Fix Docker daemon & deploy via SSH
         continue-on-error: true
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -75,56 +55,72 @@ jobs:
           username: root
           key: ${{ secrets.SERVER_SSH_KEY }}
           port: 8443
-          timeout: 20s
-          command_timeout: 3m
+          timeout: 120s
+          command_timeout: 5m
           script: |
-            echo "=== SSH Deploy — $(date) ==="
-            IMAGE="ghcr.io/${{ github.repository }}:latest"
+            echo "=== Step 1: Fix broken Docker proxy ==="
+            # Remove broken proxy from systemd override
+            rm -f /etc/systemd/system/docker.service.d/http-proxy.conf
 
-            # Login to GHCR
-            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io \
-              -u ${{ github.actor }} --password-stdin 2>/dev/null || true
+            # Fix daemon.json: remove proxy, add working DNS (Shecan)
+            cat > /etc/docker/daemon.json <<'DAEMONJSON'
+            {
+              "dns": ["178.22.122.100", "185.51.200.2", "8.8.8.8"],
+              "log-driver": "json-file",
+              "log-opts": {
+                "max-size": "10m",
+                "max-file": "3"
+              }
+            }
+            DAEMONJSON
 
-            # Pull latest image
-            docker pull "${IMAGE}" && echo "Pull OK"
+            systemctl daemon-reload
+            systemctl restart docker
+            echo "Docker restarted. Waiting 15s for recovery..."
+            sleep 15
 
-            # Try Coolify API internally (NAT hairpin workaround)
-            for PORT in 8000 80 3000; do
-              HTTP=$(curl -s -o /tmp/cr.txt -w "%{http_code}" \
-                "http://127.0.0.1:${PORT}/api/v1/deploy?uuid=ai1rr235nbzmyyvd6nuxaynd&force=false" \
-                -H "Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}" \
-                -H "Accept: application/json" --max-time 15 2>/dev/null || echo "000")
-              echo "Port $PORT → HTTP $HTTP"
-              if [ "$HTTP" = "200" ]; then
-                echo "Deploy queued via Coolify port $PORT!"
-                exit 0
+            # Wait for Coolify containers to come back
+            for i in 1 2 3 4 5; do
+              if docker ps | grep -q "coolify"; then
+                echo "Coolify is running again"
+                break
               fi
+              echo "Waiting for Coolify... ($i/5)"
+              sleep 10
             done
 
-            # Fallback: restart container directly
-            docker stop beewaz-web 2>/dev/null || true
-            docker rm beewaz-web 2>/dev/null || true
+            echo "=== Step 2: Login to GHCR and pull image ==="
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io \
+              -u ${{ github.actor }} --password-stdin
 
-            # Get network from existing Coolify setup
-            NETWORK=$(docker network ls --format "{{.Name}}" | grep -i coolify | head -1)
-            NET_ARG=""
-            [ -n "$NETWORK" ] && NET_ARG="--network $NETWORK"
+            docker pull ghcr.io/${{ github.repository }}:latest
+            echo "Image pulled successfully!"
 
-            docker run -d \
-              --name beewaz-web \
-              --restart unless-stopped \
-              $NET_ARG \
-              -p 3000:3000 \
-              -e DATABASE_URL="${{ secrets.DATABASE_URL }}" \
-              -e NODE_ENV=production \
-              -e PORT=3000 \
-              -e HOSTNAME=0.0.0.0 \
-              -v beewaz_uploads:/app/public/uploads \
-              "${IMAGE}"
-
-            echo "Container restarted with new image!"
+            echo "=== Step 3: Switch Coolify to dockerimage & deploy ==="
             sleep 5
-            docker logs beewaz-web --tail=10
+            for PORT in 8000 80 3000; do
+              # Switch buildpack to dockerimage
+              curl -s -X PATCH \
+                "http://127.0.0.1:${PORT}/api/v1/applications/jw4kpfn8utdybrmwkr80fm8f" \
+                -H "Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}" \
+                -H "Content-Type: application/json" \
+                -d '{"build_pack":"dockerimage","docker_registry_image_name":"ghcr.io/ahmadi98ir/beewaz-web","docker_registry_image_tag":"latest"}' \
+                --max-time 15 2>/dev/null && echo "Switched to dockerimage on port $PORT" && break
+            done
+            sleep 3
+            # Trigger deploy
+            for PORT in 8000 80 3000; do
+              HTTP=$(curl -s -o /tmp/cr.txt -w "%{http_code}" \
+                "http://127.0.0.1:${PORT}/api/v1/applications/jw4kpfn8utdybrmwkr80fm8f/start" \
+                -X POST \
+                -H "Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}" \
+                -H "Accept: application/json" --max-time 15 2>/dev/null || echo "000")
+              echo "Port $PORT → HTTP $HTTP: $(cat /tmp/cr.txt 2>/dev/null)"
+              if [ "$HTTP" = "200" ] || [ "$HTTP" = "201" ]; then
+                echo "Deploy queued!"
+                break
+              fi
+            done
 
       # ── Summary ──────────────────────────────────────────
       - name: Deploy summary
@@ -138,6 +134,3 @@ jobs:
           echo "| **Commit** | \`$SHORT\` |" >> $GITHUB_STEP_SUMMARY
           echo "| **Image** | \`ghcr.io/${{ github.repository }}:latest\` |" >> $GITHUB_STEP_SUMMARY
           echo "| **Site** | https://bz360.ir |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Admin** | https://bz360.ir/admin |" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "> If auto-deploy failed, run \`server-fix.sh\` via SSH on port 8443" >> $GITHUB_STEP_SUMMARY
