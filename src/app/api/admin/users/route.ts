@@ -8,7 +8,7 @@ import { requireAdmin } from '@/lib/admin-auth'
 // GET — لیست کاربران
 export async function GET() {
   const auth = await requireAdmin()
-  if ('error' in auth) return auth.error
+  if (!auth.ok) return NextResponse.json({ error: auth.error ?? 'Unauthorized' }, { status: 401 })
 
   try {
     const rows = await db.query.users.findMany({
@@ -25,7 +25,7 @@ export async function GET() {
 // POST — ایجاد کاربر جدید
 export async function POST(req: NextRequest) {
   const a = await requireAdmin()
-  if ('error' in a) return a.error
+  if (!a.ok) return NextResponse.json({ error: a.error ?? 'Unauthorized' }, { status: 401 })
 
   try {
     const body = await req.json() as { fullName: string; phone: string; email?: string; role?: string; password?: string }
@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
 // PUT — ویرایش کاربر
 export async function PUT(req: NextRequest) {
   const a = await requireAdmin()
-  if ('error' in a) return a.error
+  if (!a.ok) return NextResponse.json({ error: a.error ?? 'Unauthorized' }, { status: 401 })
 
   try {
     const body = await req.json() as { id: string; fullName?: string; phone?: string; email?: string; role?: string; password?: string }
@@ -90,7 +90,7 @@ export async function PUT(req: NextRequest) {
 // DELETE — حذف کاربر
 export async function DELETE(req: NextRequest) {
   const a = await requireAdmin()
-  if ('error' in a) return a.error
+  if (!a.ok) return NextResponse.json({ error: a.error ?? 'Unauthorized' }, { status: 401 })
 
   try {
     const { searchParams } = new URL(req.url)
