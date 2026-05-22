@@ -44,8 +44,13 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # ── از طریق SSH: تغییر buildpack به dockerimage + deploy ──
-      - name: Switch to dockerimage & deploy via SSH
+      # ── از طریق SSH: pull image + deploy ──
+      # نیاز به secrets:
+      #   SERVER_IP       — آی‌پی سرور
+      #   SERVER_SSH_KEY  — کلید SSH خصوصی root
+      #   COOLIFY_TOKEN   — API token از Coolify dashboard
+      #   GHCR_TOKEN      — GitHub PAT با scope: read:packages  (ساخته‌شده از Settings → Tokens)
+      - name: Pull image & deploy via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SERVER_IP }}
@@ -53,44 +58,82 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY }}
           port: 8443
           timeout: 60s
-          command_timeout: 3m
+          command_timeout: 5m
           script: |
-            set -e
+            set -euo pipefail
+
             TOKEN="${{ secrets.COOLIFY_TOKEN }}"
             APP_UUID="jw4kpfn8utdybrmwkr80fm8f"
             IMAGE="ghcr.io/${{ github.repository }}:latest"
+            # GHCR_TOKEN = PAT با read:packages (دائمی). اگر ست نشده، GITHUB_TOKEN جایگزین می‌شود
+            GHCR_TOKEN="${{ secrets.GHCR_TOKEN }}"
+            GHCR_USER="${{ github.actor }}"
+
+            # اگر GHCR_TOKEN ست نشده، از GITHUB_TOKEN استفاده کن
+            if [ -z "${GHCR_TOKEN}" ]; then
+              echo "⚠️  GHCR_TOKEN not set — using GITHUB_TOKEN (short-lived, may expire)"
+              GHCR_TOKEN="${{ secrets.GITHUB_TOKEN }}"
+            fi
 
             echo "=== 1. Switch buildpack to dockerimage ==="
+            SWITCHED=false
             for PORT in 8000 80; do
-              RESP=$(curl -s -w "\n%{http_code}" -X PATCH \
+              HTTP_CODE=$(curl -s -o /tmp/resp.json -w "%{http_code}" -X PATCH \
                 "http://127.0.0.1:${PORT}/api/v1/applications/${APP_UUID}" \
                 -H "Authorization: Bearer ${TOKEN}" \
                 -H "Content-Type: application/json" \
                 -d "{\"build_pack\":\"dockerimage\",\"docker_registry_image_name\":\"ghcr.io/${{ github.repository }}\",\"docker_registry_image_tag\":\"latest\"}" \
-                --max-time 10 2>/dev/null)
-              CODE=$(echo "$RESP" | tail -1)
-              echo "Port ${PORT}: HTTP ${CODE}"
-              [ "$CODE" = "200" ] && echo "Buildpack switched!" && break
+                --max-time 10 2>/dev/null || echo "000")
+              echo "  Port ${PORT}: HTTP ${HTTP_CODE}  body=$(cat /tmp/resp.json 2>/dev/null | head -c 200)"
+              if [ "${HTTP_CODE}" = "200" ]; then
+                echo "  ✅ Buildpack switched to dockerimage"
+                SWITCHED=true
+                break
+              fi
             done
+            if [ "${SWITCHED}" = "false" ]; then
+              echo "  ❌ Buildpack switch failed! Check COOLIFY_TOKEN secret in GitHub repo"
+              echo "     Go to: https://github.com/${{ github.repository }}/settings/secrets/actions"
+            fi
 
+            echo ""
             echo "=== 2. Login to GHCR on server ==="
-            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io \
-              -u "${{ github.actor }}" --password-stdin
+            echo "${GHCR_TOKEN}" | docker login ghcr.io -u "${GHCR_USER}" --password-stdin
+            echo "  ✅ Logged in to ghcr.io"
 
+            echo ""
             echo "=== 3. Pull latest image ==="
-            docker pull "${IMAGE}"
-            echo "Image pulled: ${IMAGE}"
+            if docker pull "${IMAGE}"; then
+              echo "  ✅ Image pulled: ${IMAGE}"
+            else
+              echo "  ❌ docker pull failed — VPN might be down, retrying in 30s..."
+              sleep 30
+              docker pull "${IMAGE}"
+              echo "  ✅ Image pulled on retry: ${IMAGE}"
+            fi
 
+            echo ""
             echo "=== 4. Trigger Coolify deploy ==="
+            DEPLOYED=false
             for PORT in 8000 80; do
-              CODE=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
+              HTTP_CODE=$(curl -s -o /tmp/deploy.json -w "%{http_code}" -X POST \
                 "http://127.0.0.1:${PORT}/api/v1/applications/${APP_UUID}/start" \
                 -H "Authorization: Bearer ${TOKEN}" \
                 -H "Content-Type: application/json" \
-                --max-time 15 2>/dev/null)
-              echo "Port ${PORT}: HTTP ${CODE}"
-              [ "$CODE" = "200" ] || [ "$CODE" = "201" ] && echo "Deploy queued!" && break
+                --max-time 15 2>/dev/null || echo "000")
+              echo "  Port ${PORT}: HTTP ${HTTP_CODE}  body=$(cat /tmp/deploy.json 2>/dev/null | head -c 200)"
+              if [ "${HTTP_CODE}" = "200" ] || [ "${HTTP_CODE}" = "201" ]; then
+                echo "  ✅ Deploy queued in Coolify!"
+                DEPLOYED=true
+                break
+              fi
             done
+            if [ "${DEPLOYED}" = "false" ]; then
+              echo "  ❌ Deploy trigger failed! Possible causes:"
+              echo "     - COOLIFY_TOKEN not set or invalid"
+              echo "     - Coolify API not accessible on port 8000/80"
+              exit 1
+            fi
 
       - name: Summary
         if: always()
