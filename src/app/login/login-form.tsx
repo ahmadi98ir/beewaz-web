@@ -1,53 +1,96 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { signIn } from 'next-auth/react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import Link from 'next/link'
 import { BeewazLogo } from '@/components/ui/logo'
 import { ShieldIcon } from '@/components/ui/icons'
+
+type Step = 'phone' | 'otp'
+
+const RESEND_SECONDS = 120
 
 export default function LoginForm() {
   const router = useRouter()
   const params = useSearchParams()
   const callbackUrl = params.get('callbackUrl') ?? '/'
 
+  const [step, setStep] = useState<Step>('phone')
   const [phone, setPhone] = useState('')
-  const [password, setPassword] = useState('')
-  const [showPass, setShowPass] = useState(false)
+  const [otp, setOtp] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [countdown, setCountdown] = useState(0)
+  const otpRef = useRef<HTMLInputElement>(null)
 
-  const onSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError('')
+  // تایمر ارسال مجدد
+  useEffect(() => {
+    if (countdown <= 0) return
+    const t = setTimeout(() => setCountdown((c) => c - 1), 1000)
+    return () => clearTimeout(t)
+  }, [countdown])
 
-    const normalizedPhone = phone
+  // فوکوس روی input کد بعد از رفتن به مرحله دوم
+  useEffect(() => {
+    if (step === 'otp') otpRef.current?.focus()
+  }, [step])
+
+  const normalizePhone = (v: string) =>
+    v
       .replace(/[۰-۹]/g, (d) => String.fromCharCode(d.charCodeAt(0) - 0x06f0 + 0x30))
       .replace(/[٠-٩]/g, (d) => String.fromCharCode(d.charCodeAt(0) - 0x0660 + 0x30))
       .replace(/\s|-/g, '')
       .replace(/^\+98/, '0')
       .replace(/^98/, '0')
 
-    if (!/^09\d{9}$/.test(normalizedPhone)) {
+  // مرحله اول: ارسال OTP
+  const sendOtp = async () => {
+    setError('')
+    const normalized = normalizePhone(phone)
+    if (!/^09\d{9}$/.test(normalized)) {
       setError('شماره موبایل معتبر نیست. مثال: ۰۹۱۲۳۴۵۶۷۸۹')
       return
     }
-
     setLoading(true)
-    const res = await signIn('credentials', {
-      phone: normalizedPhone,
-      password,
-      redirect: false,
-    })
+    try {
+      const res = await fetch('/api/auth/send-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: normalized }),
+      })
+      const data = await res.json() as { ok?: boolean; error?: string }
+      if (!res.ok) {
+        setError(data.error ?? 'خطا در ارسال کد')
+        return
+      }
+      setPhone(normalized)
+      setStep('otp')
+      setCountdown(RESEND_SECONDS)
+    } catch {
+      setError('خطا در ارتباط با سرور')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // مرحله دوم: تأیید OTP و ورود
+  const verifyOtp = async () => {
+    setError('')
+    if (otp.length !== 6) {
+      setError('کد تأیید باید ۶ رقم باشد')
+      return
+    }
+    setLoading(true)
+    const res = await signIn('credentials', { phone, otp, redirect: false })
     setLoading(false)
 
     if (res?.error) {
-      setError('شماره موبایل یا رمز عبور اشتباه است')
+      setError('کد وارد شده اشتباه یا منقضی شده است')
+      setOtp('')
+      otpRef.current?.focus()
       return
     }
 
-    // بررسی نقش کاربر برای ریدایرکت هوشمند
     try {
       const session = await fetch('/api/auth/session').then((r) => r.json())
       if (session?.user?.role === 'admin') {
@@ -55,10 +98,22 @@ export default function LoginForm() {
         router.refresh()
         return
       }
-    } catch { /* در صورت خطا به callbackUrl برو */ }
+    } catch { /* ignore */ }
 
     router.push(callbackUrl)
     router.refresh()
+  }
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (step === 'phone') sendOtp()
+    else verifyOtp()
+  }
+
+  const formatCountdown = (s: number) => {
+    const m = Math.floor(s / 60)
+    const sec = s % 60
+    return `${m}:${sec.toString().padStart(2, '0')}`
   }
 
   return (
@@ -73,7 +128,9 @@ export default function LoginForm() {
         </div>
 
         <div className="bg-white rounded-3xl border border-surface-200 shadow-card p-7">
-          <form onSubmit={onSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-5">
+
+            {/* ── مرحله ۱: شماره موبایل ── */}
             <div>
               <label className="block text-sm font-semibold text-surface-700 mb-1.5">
                 شماره موبایل
@@ -89,44 +146,51 @@ export default function LoginForm() {
                 maxLength={14}
                 inputMode="numeric"
                 autoComplete="tel"
+                disabled={step === 'otp'}
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-semibold text-surface-700 mb-1.5">
-                رمز عبور
-              </label>
-              <div className="relative">
+            {/* ── مرحله ۲: کد تأیید ── */}
+            {step === 'otp' && (
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-sm font-semibold text-surface-700">
+                    کد تأیید
+                  </label>
+                  <span className="text-xs text-surface-400">
+                    ارسال به {phone}
+                  </span>
+                </div>
                 <input
-                  type={showPass ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="حداقل ۶ کاراکتر"
-                  className="input w-full pe-10"
+                  ref={otpRef}
+                  type="text"
+                  value={otp}
+                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  placeholder="_ _ _ _ _ _"
+                  dir="ltr"
+                  className="input w-full text-center tracking-[0.4em] text-lg font-bold"
                   required
-                  minLength={6}
-                  autoComplete="current-password"
+                  maxLength={6}
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowPass((v) => !v)}
-                  className="absolute end-3 top-1/2 -translate-y-1/2 text-surface-400 hover:text-surface-600 transition-colors"
-                  tabIndex={-1}
-                  aria-label={showPass ? 'پنهان کردن رمز' : 'نمایش رمز'}
-                >
-                  {showPass ? (
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-                    </svg>
+                <div className="mt-2 flex items-center justify-between text-xs text-surface-400">
+                  <span>کد ۶ رقمی پیامک شد</span>
+                  {countdown > 0 ? (
+                    <span className="font-mono">{formatCountdown(countdown)}</span>
                   ) : (
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                    </svg>
+                    <button
+                      type="button"
+                      onClick={sendOtp}
+                      disabled={loading}
+                      className="text-brand-600 font-semibold hover:text-brand-700"
+                    >
+                      ارسال مجدد
+                    </button>
                   )}
-                </button>
+                </div>
               </div>
-            </div>
+            )}
 
             {error && (
               <div
@@ -149,27 +213,21 @@ export default function LoginForm() {
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                   </svg>
-                  در حال ورود...
+                  {step === 'phone' ? 'در حال ارسال کد...' : 'در حال ورود...'}
                 </span>
-              ) : 'ورود'}
+              ) : step === 'phone' ? 'ارسال کد تأیید' : 'ورود'}
             </button>
+
+            {step === 'otp' && (
+              <button
+                type="button"
+                onClick={() => { setStep('phone'); setOtp(''); setError('') }}
+                className="w-full text-center text-sm text-surface-400 hover:text-surface-600"
+              >
+                ویرایش شماره موبایل
+              </button>
+            )}
           </form>
-
-          <div className="relative my-6">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-surface-100" />
-            </div>
-            <div className="relative flex justify-center">
-              <span className="bg-white px-3 text-xs text-surface-400">یا</span>
-            </div>
-          </div>
-
-          <div className="text-center text-sm text-surface-500">
-            حساب کاربری ندارید؟{' '}
-            <Link href="/register" className="text-brand-600 font-bold hover:text-brand-700">
-              ثبت‌نام کنید
-            </Link>
-          </div>
         </div>
 
         <div className="mt-6 flex items-center justify-center gap-2 text-xs text-surface-400">
