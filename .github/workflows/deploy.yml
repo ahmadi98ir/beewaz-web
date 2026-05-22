@@ -62,7 +62,7 @@ jobs:
           IMAGE_SIZE=$(stat -c%s /tmp/beewaz-image.tar.gz)
           echo "Compressed size: $((IMAGE_SIZE / 1024 / 1024)) MB"
 
-          echo "=== Uploading to server port 5001 ==="
+          echo "=== Uploading image (server responds 202 then loads in background) ==="
           HTTP_CODE=$(curl -s -o /tmp/upload-resp.txt -w '%{http_code}' \
             -X POST \
             -H "X-Upload-Token: ${{ secrets.IMAGE_UPLOAD_TOKEN }}" \
@@ -71,7 +71,17 @@ jobs:
             "https://bz360.ir/api/upload" \
             --max-time 600 -k)
           echo "HTTP $HTTP_CODE — $(cat /tmp/upload-resp.txt)"
-          [ "$HTTP_CODE" = "200" ] || { echo "Upload failed!"; exit 1; }
+          [ "$HTTP_CODE" = "202" ] || { echo "Upload failed!"; exit 1; }
+
+          echo "=== Waiting for docker load to finish ==="
+          for i in $(seq 1 60); do
+            STAT=$(curl -sk "https://bz360.ir/api/upload/status" \
+              -H "X-Upload-Token: ${{ secrets.IMAGE_UPLOAD_TOKEN }}" --max-time 10 2>/dev/null || echo "error: unreachable")
+            echo "  [$i] $STAT"
+            if echo "$STAT" | grep -q "^done:"; then break; fi
+            if echo "$STAT" | grep -q "^error:"; then echo "docker load failed!"; exit 1; fi
+            sleep 10
+          done
 
       - name: Trigger Coolify deploy
         run: |
