@@ -6,131 +6,98 @@ on:
   workflow_dispatch:
 
 env:
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+  IMAGE: ghcr.io/${{ github.repository }}
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: read
       packages: write
 
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      # ── Login to GitHub Container Registry ──────────────
-      - name: Log in to GHCR
+      - name: Login to GHCR
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # ── Build and push to GHCR (using Dockerfile.ci) ────
-      - name: Build and push Docker image
+      # ── Build روی GitHub (اینترنت stable) و push به GHCR ──
+      - name: Build and push
         uses: docker/build-push-action@v5
         with:
           context: .
           file: ./Dockerfile.ci
           push: true
           tags: |
-            ghcr.io/${{ github.repository }}:latest
-            ghcr.io/${{ github.repository }}:${{ github.sha }}
+            ${{ env.IMAGE }}:latest
+            ${{ env.IMAGE }}:${{ github.sha }}
           build-args: |
             NEXT_PUBLIC_APP_URL=https://bz360.ir
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # ── Fix Docker daemon proxy on server (one-time fix) ─
-      - name: Fix Docker daemon & deploy via SSH
-        continue-on-error: true
+      # ── از طریق SSH: تغییر buildpack به dockerimage + deploy ──
+      - name: Switch to dockerimage & deploy via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SERVER_IP }}
           username: root
           key: ${{ secrets.SERVER_SSH_KEY }}
           port: 8443
-          timeout: 120s
-          command_timeout: 5m
+          timeout: 60s
+          command_timeout: 3m
           script: |
-            echo "=== Step 1: Fix broken Docker proxy ==="
-            # Remove broken proxy from systemd override
-            rm -f /etc/systemd/system/docker.service.d/http-proxy.conf
+            set -e
+            TOKEN="${{ secrets.COOLIFY_TOKEN }}"
+            APP_UUID="jw4kpfn8utdybrmwkr80fm8f"
+            IMAGE="ghcr.io/${{ github.repository }}:latest"
 
-            # Fix daemon.json: remove proxy, add working DNS (Shecan)
-            cat > /etc/docker/daemon.json <<'DAEMONJSON'
-            {
-              "dns": ["178.22.122.100", "185.51.200.2", "8.8.8.8"],
-              "log-driver": "json-file",
-              "log-opts": {
-                "max-size": "10m",
-                "max-file": "3"
-              }
-            }
-            DAEMONJSON
-
-            systemctl daemon-reload
-            systemctl restart docker
-            echo "Docker restarted. Waiting 15s for recovery..."
-            sleep 15
-
-            # Wait for Coolify containers to come back
-            for i in 1 2 3 4 5; do
-              if docker ps | grep -q "coolify"; then
-                echo "Coolify is running again"
-                break
-              fi
-              echo "Waiting for Coolify... ($i/5)"
-              sleep 10
-            done
-
-            echo "=== Step 2: Login to GHCR and pull image ==="
-            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io \
-              -u ${{ github.actor }} --password-stdin
-
-            docker pull ghcr.io/${{ github.repository }}:latest
-            echo "Image pulled successfully!"
-
-            echo "=== Step 3: Switch Coolify to dockerimage & deploy ==="
-            sleep 5
-            for PORT in 8000 80 3000; do
-              # Switch buildpack to dockerimage
-              curl -s -X PATCH \
-                "http://127.0.0.1:${PORT}/api/v1/applications/jw4kpfn8utdybrmwkr80fm8f" \
-                -H "Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}" \
+            echo "=== 1. Switch buildpack to dockerimage ==="
+            for PORT in 8000 80; do
+              RESP=$(curl -s -w "\n%{http_code}" -X PATCH \
+                "http://127.0.0.1:${PORT}/api/v1/applications/${APP_UUID}" \
+                -H "Authorization: Bearer ${TOKEN}" \
                 -H "Content-Type: application/json" \
-                -d '{"build_pack":"dockerimage","docker_registry_image_name":"ghcr.io/ahmadi98ir/beewaz-web","docker_registry_image_tag":"latest"}' \
-                --max-time 15 2>/dev/null && echo "Switched to dockerimage on port $PORT" && break
-            done
-            sleep 3
-            # Trigger deploy
-            for PORT in 8000 80 3000; do
-              HTTP=$(curl -s -o /tmp/cr.txt -w "%{http_code}" \
-                "http://127.0.0.1:${PORT}/api/v1/applications/jw4kpfn8utdybrmwkr80fm8f/start" \
-                -X POST \
-                -H "Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}" \
-                -H "Accept: application/json" --max-time 15 2>/dev/null || echo "000")
-              echo "Port $PORT → HTTP $HTTP: $(cat /tmp/cr.txt 2>/dev/null)"
-              if [ "$HTTP" = "200" ] || [ "$HTTP" = "201" ]; then
-                echo "Deploy queued!"
-                break
-              fi
+                -d "{\"build_pack\":\"dockerimage\",\"docker_registry_image_name\":\"ghcr.io/${{ github.repository }}\",\"docker_registry_image_tag\":\"latest\"}" \
+                --max-time 10 2>/dev/null)
+              CODE=$(echo "$RESP" | tail -1)
+              echo "Port ${PORT}: HTTP ${CODE}"
+              [ "$CODE" = "200" ] && echo "Buildpack switched!" && break
             done
 
-      # ── Summary ──────────────────────────────────────────
-      - name: Deploy summary
+            echo "=== 2. Login to GHCR on server ==="
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io \
+              -u "${{ github.actor }}" --password-stdin
+
+            echo "=== 3. Pull latest image ==="
+            docker pull "${IMAGE}"
+            echo "Image pulled: ${IMAGE}"
+
+            echo "=== 4. Trigger Coolify deploy ==="
+            for PORT in 8000 80; do
+              CODE=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
+                "http://127.0.0.1:${PORT}/api/v1/applications/${APP_UUID}/start" \
+                -H "Authorization: Bearer ${TOKEN}" \
+                -H "Content-Type: application/json" \
+                --max-time 15 2>/dev/null)
+              echo "Port ${PORT}: HTTP ${CODE}"
+              [ "$CODE" = "200" ] || [ "$CODE" = "201" ] && echo "Deploy queued!" && break
+            done
+
+      - name: Summary
         if: always()
         run: |
-          SHORT="${GITHUB_SHA:0:8}"
-          echo "## 🚀 Build Summary" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 🚀 Deploy Summary" >> $GITHUB_STEP_SUMMARY
           echo "| | |" >> $GITHUB_STEP_SUMMARY
           echo "|---|---|" >> $GITHUB_STEP_SUMMARY
-          echo "| **Commit** | \`$SHORT\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Image** | \`ghcr.io/${{ github.repository }}:latest\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Site** | https://bz360.ir |" >> $GITHUB_STEP_SUMMARY
+          echo "| Commit | \`${GITHUB_SHA:0:8}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Image | \`ghcr.io/${{ github.repository }}:latest\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Site | https://bz360.ir |" >> $GITHUB_STEP_SUMMARY
