@@ -7,6 +7,8 @@ on:
 
 env:
   IMAGE: ghcr.io/${{ github.repository }}
+  APP_UUID: jw4kpfn8utdybrmwkr80fm8f
+  SERVER_IP: 78.157.51.14
 
 jobs:
   build-and-deploy:
@@ -30,7 +32,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       # ── Build روی GitHub (اینترنت stable) و push به GHCR ──
-      - name: Build and push
+      - name: Build and push to GHCR
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -44,101 +46,46 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # ── از طریق SSH: pull image + deploy ──
-      # نیاز به secrets:
-      #   SERVER_IP       — آی‌پی سرور
-      #   SERVER_SSH_KEY  — کلید SSH خصوصی root
-      #   COOLIFY_TOKEN   — API token از Coolify dashboard
-      #   GHCR_TOKEN      — GitHub PAT با scope: read:packages  (ساخته‌شده از Settings → Tokens)
-      - name: Pull image & deploy via SSH
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.SERVER_IP }}
-          username: root
-          key: ${{ secrets.SERVER_SSH_KEY }}
-          port: 8443
-          timeout: 60s
-          command_timeout: 5m
-          script: |
-            set -euo pipefail
+      # ── Save image and push directly to server (SSH from GHA to Iran is blocked) ──
+      # Secrets needed:
+      #   IMAGE_UPLOAD_TOKEN  — token for the image receiver on port 5001
+      #   COOLIFY_TOKEN       — value: 5|beewaz-deploy-fix-2026
+      - name: Transfer image to server
+        run: |
+          IMAGE="${{ env.IMAGE }}:latest"
+          echo "=== Saving image to tar.gz ==="
+          docker save "$IMAGE" | gzip > /tmp/beewaz-image.tar.gz
+          IMAGE_SIZE=$(stat -c%s /tmp/beewaz-image.tar.gz)
+          echo "Compressed size: $((IMAGE_SIZE / 1024 / 1024)) MB"
 
-            TOKEN="${{ secrets.COOLIFY_TOKEN }}"
-            APP_UUID="jw4kpfn8utdybrmwkr80fm8f"
-            IMAGE="ghcr.io/${{ github.repository }}:latest"
-            # GHCR_TOKEN = PAT با read:packages (دائمی). اگر ست نشده، GITHUB_TOKEN جایگزین می‌شود
-            GHCR_TOKEN="${{ secrets.GHCR_TOKEN }}"
-            GHCR_USER="${{ github.actor }}"
+          echo "=== Uploading to server port 5001 ==="
+          HTTP_CODE=$(curl -s -o /tmp/upload-resp.txt -w '%{http_code}' \
+            -X POST \
+            -H "X-Upload-Token: ${{ secrets.IMAGE_UPLOAD_TOKEN }}" \
+            -H "Content-Type: application/octet-stream" \
+            --data-binary @/tmp/beewaz-image.tar.gz \
+            "http://${{ env.SERVER_IP }}:5001" \
+            --max-time 600)
+          echo "HTTP $HTTP_CODE — $(cat /tmp/upload-resp.txt)"
+          [ "$HTTP_CODE" = "200" ] || { echo "Upload failed!"; exit 1; }
 
-            # اگر GHCR_TOKEN ست نشده، از GITHUB_TOKEN استفاده کن
-            if [ -z "${GHCR_TOKEN}" ]; then
-              echo "⚠️  GHCR_TOKEN not set — using GITHUB_TOKEN (short-lived, may expire)"
-              GHCR_TOKEN="${{ secrets.GITHUB_TOKEN }}"
-            fi
-
-            echo "=== 1. Switch buildpack to dockerimage ==="
-            SWITCHED=false
-            for PORT in 8000 80; do
-              HTTP_CODE=$(curl -s -o /tmp/resp.json -w "%{http_code}" -X PATCH \
-                "http://127.0.0.1:${PORT}/api/v1/applications/${APP_UUID}" \
-                -H "Authorization: Bearer ${TOKEN}" \
-                -H "Content-Type: application/json" \
-                -d "{\"build_pack\":\"dockerimage\",\"docker_registry_image_name\":\"ghcr.io/${{ github.repository }}\",\"docker_registry_image_tag\":\"latest\"}" \
-                --max-time 10 2>/dev/null || echo "000")
-              echo "  Port ${PORT}: HTTP ${HTTP_CODE}  body=$(cat /tmp/resp.json 2>/dev/null | head -c 200)"
-              if [ "${HTTP_CODE}" = "200" ]; then
-                echo "  ✅ Buildpack switched to dockerimage"
-                SWITCHED=true
-                break
-              fi
-            done
-            if [ "${SWITCHED}" = "false" ]; then
-              echo "  ❌ Buildpack switch failed! Check COOLIFY_TOKEN secret in GitHub repo"
-              echo "     Go to: https://github.com/${{ github.repository }}/settings/secrets/actions"
-            fi
-
-            echo ""
-            echo "=== 2. Login to GHCR on server ==="
-            echo "${GHCR_TOKEN}" | docker login ghcr.io -u "${GHCR_USER}" --password-stdin
-            echo "  ✅ Logged in to ghcr.io"
-
-            echo ""
-            echo "=== 3. Pull latest image ==="
-            if docker pull "${IMAGE}"; then
-              echo "  ✅ Image pulled: ${IMAGE}"
-            else
-              echo "  ❌ docker pull failed — VPN might be down, retrying in 30s..."
-              sleep 30
-              docker pull "${IMAGE}"
-              echo "  ✅ Image pulled on retry: ${IMAGE}"
-            fi
-
-            echo ""
-            echo "=== 4. Trigger Coolify deploy ==="
-            DEPLOYED=false
-            for PORT in 8000 80; do
-              HTTP_CODE=$(curl -s -o /tmp/deploy.json -w "%{http_code}" -X POST \
-                "http://127.0.0.1:${PORT}/api/v1/applications/${APP_UUID}/start" \
-                -H "Authorization: Bearer ${TOKEN}" \
-                -H "Content-Type: application/json" \
-                --max-time 15 2>/dev/null || echo "000")
-              echo "  Port ${PORT}: HTTP ${HTTP_CODE}  body=$(cat /tmp/deploy.json 2>/dev/null | head -c 200)"
-              if [ "${HTTP_CODE}" = "200" ] || [ "${HTTP_CODE}" = "201" ]; then
-                echo "  ✅ Deploy queued in Coolify!"
-                DEPLOYED=true
-                break
-              fi
-            done
-            if [ "${DEPLOYED}" = "false" ]; then
-              echo "  ❌ Deploy trigger failed! Possible causes:"
-              echo "     - COOLIFY_TOKEN not set or invalid"
-              echo "     - Coolify API not accessible on port 8000/80"
-              exit 1
-            fi
+      - name: Trigger Coolify deploy
+        run: |
+          echo "=== Triggering deploy via Coolify API ==="
+          HTTP_CODE=$(curl -s -o /tmp/deploy-resp.json -w '%{http_code}' \
+            -X POST \
+            "http://${{ env.SERVER_IP }}:8000/api/v1/applications/${{ env.APP_UUID }}/start" \
+            -H "Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            --max-time 30)
+          echo "HTTP $HTTP_CODE — $(cat /tmp/deploy-resp.json)"
+          [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "201" ] || { echo "Deploy trigger failed!"; exit 1; }
+          echo "Deploy queued successfully"
 
       - name: Summary
         if: always()
         run: |
-          echo "## 🚀 Deploy Summary" >> $GITHUB_STEP_SUMMARY
+          echo "## Deploy Summary" >> $GITHUB_STEP_SUMMARY
           echo "| | |" >> $GITHUB_STEP_SUMMARY
           echo "|---|---|" >> $GITHUB_STEP_SUMMARY
           echo "| Commit | \`${GITHUB_SHA:0:8}\` |" >> $GITHUB_STEP_SUMMARY
