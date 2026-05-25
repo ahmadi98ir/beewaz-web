@@ -34,6 +34,20 @@ export async function register() {
       const db = drizzle(sql)
       await migrate(db, { migrationsFolder })
       console.log('[migration] ✅ DB migrations applied —', migrationsFolder)
+
+      // safety-net: اگر drizzle migration tracker اشتباه داشت، مستقیم جدول رو می‌سازیم
+      await sql.unsafe(`
+        CREATE TABLE IF NOT EXISTS "phone_otps" (
+          "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+          "phone" varchar(15) NOT NULL,
+          "code" varchar(6) NOT NULL,
+          "expires_at" timestamp with time zone NOT NULL,
+          "used_at" timestamp with time zone,
+          "created_at" timestamp with time zone DEFAULT now() NOT NULL
+        )
+      `)
+      console.log('[migration] ✅ phone_otps table ensured')
+
       await sql.end()
     } catch (err) {
       console.error('[migration] ❌ Failed:', err)
