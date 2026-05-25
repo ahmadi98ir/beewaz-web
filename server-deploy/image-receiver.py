@@ -56,7 +56,9 @@ def pull_and_load(url: str, gh_token: str = '') -> None:
     try:
         fd, tmp_path = tempfile.mkstemp(suffix='.tar.gz')
         os.close(fd)
-        cmd = ['curl', '-sL', '--max-time', '600', '-o', tmp_path]
+        cmd = ['curl', '-sL', '--max-time', '600',
+               '--doh-url', 'https://1.1.1.1/dns-query',  # bypass Iran DNS blocking
+               '-o', tmp_path]
         if gh_token:
             cmd += [
                 '-H', f'Authorization: token {gh_token}',
