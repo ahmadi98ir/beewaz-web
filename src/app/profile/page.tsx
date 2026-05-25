@@ -1,9 +1,10 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useSession } from 'next-auth/react'
+import { useSession, signOut } from 'next-auth/react'
 import Link from 'next/link'
 import { formatPrice } from '@/lib/utils'
+import { UserIcon, MailIcon, PhoneIcon, MapPinIcon, ShoppingCartIcon, CheckIcon } from '@/components/ui/icons'
 
 type ProfileData = {
   id: string
@@ -33,15 +34,27 @@ const statusMap: Record<string, { label: string; cls: string }> = {
 
 function formatJalaliDate(iso: string) {
   try {
-    return new Intl.DateTimeFormat('fa-IR', { year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(iso))
+    return new Intl.DateTimeFormat('fa-IR', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    }).format(new Date(iso))
   } catch {
     return iso
   }
 }
 
+function getLoyaltyTier(totalSpent: number) {
+  if (totalSpent >= 10_000_000) return { label: 'ویژه', color: '#9B59B6', emoji: '💎' }
+  if (totalSpent >= 2_000_000)  return { label: 'طلایی', color: '#F97316', emoji: '🥇' }
+  if (totalSpent >= 500_000)    return { label: 'نقره‌ای', color: '#64748B', emoji: '🥈' }
+  return { label: 'برنزی', color: '#C27B52', emoji: '🥉' }
+}
+
 const tabs = [
-  { key: 'orders', label: 'سفارشات' },
-  { key: 'profile', label: 'اطلاعات حساب' },
+  { key: 'orders',   label: 'سفارشات',      icon: ShoppingCartIcon },
+  { key: 'profile',  label: 'اطلاعات حساب', icon: UserIcon },
+  { key: 'address',  label: 'آدرس‌ها',       icon: MapPinIcon },
 ]
 
 export default function ProfilePage() {
@@ -77,154 +90,325 @@ export default function ProfilePage() {
       })
       setUser((u) => u ? { ...u, fullName: form.fullName, email: form.email || null } : u)
       setSaved(true)
-      setTimeout(() => setSaved(false), 2000)
+      setTimeout(() => setSaved(false), 2500)
     } catch {}
     setSaving(false)
   }
 
-  const displayName = user?.fullName ?? session?.user?.name ?? '—'
+  const displayName = user?.fullName ?? session?.user?.name ?? null
   const phone = user?.phone ?? (session?.user as { phone?: string })?.phone ?? '—'
+  const totalSpent = userOrders.reduce((sum, o) => sum + o.totalAmount, 0)
+  const tier = getLoyaltyTier(totalSpent)
 
   if (loading) {
     return (
       <div className="min-h-screen bg-surface-50 flex items-center justify-center">
-        <div className="text-surface-400 text-sm">در حال بارگذاری...</div>
+        <div className="text-surface-400 text-sm flex items-center gap-2">
+          <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+          </svg>
+          در حال بارگذاری...
+        </div>
       </div>
     )
   }
 
   return (
     <div className="min-h-screen bg-surface-50 py-8">
-      <div className="container-main max-w-4xl">
+      <div className="container-main max-w-4xl space-y-5">
 
-        {/* Header */}
-        <div className="bg-white rounded-2xl border border-surface-200 p-6 mb-6 flex items-center gap-5">
-          <div
-            className="w-16 h-16 rounded-2xl flex items-center justify-center text-white text-2xl font-black flex-shrink-0"
-            style={{ background: 'linear-gradient(135deg, #1B3A8A, #F97316)' }}
-          >
-            {displayName[0] ?? '؟'}
-          </div>
-          <div className="flex-1 min-w-0">
-            <h1 className="text-xl font-black text-surface-900">{displayName}</h1>
-            <p className="text-sm text-surface-400 font-mono mt-0.5" dir="ltr">{phone}</p>
-            {user?.createdAt && (
-              <p className="text-xs text-surface-400 mt-1">عضو از {formatJalaliDate(user.createdAt)}</p>
-            )}
-          </div>
-          <div className="text-end">
-            <p className="text-xs text-surface-400">مجموع سفارشات</p>
-            <p className="text-lg font-black text-surface-900">{userOrders.length}</p>
-          </div>
-        </div>
-
-        {/* Tabs */}
-        <div className="flex gap-0.5 bg-white border border-surface-200 rounded-2xl p-1 mb-6">
-          {tabs.map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
-              className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all ${activeTab === tab.key ? 'text-white shadow-sm' : 'text-surface-500 hover:text-surface-700'}`}
-              style={activeTab === tab.key ? { background: '#F97316' } : undefined}
+        {/* ─── بنر تکمیل پروفایل ──────────────────────────────────── */}
+        {!displayName && (
+          <div className="bg-amber-50 border border-amber-200 rounded-2xl px-5 py-4 flex items-center justify-between gap-4">
+            <div>
+              <p className="font-bold text-amber-800 text-sm">پروفایل شما ناقص است</p>
+              <p className="text-amber-600 text-xs mt-0.5">نام خود را تکمیل کنید تا تجربه بهتری داشته باشید</p>
+            </div>
+            <Link
+              href="/profile/complete"
+              className="btn text-sm py-2 px-4 flex-shrink-0 font-semibold"
+              style={{ background: '#F97316', color: '#fff' }}
             >
-              {tab.label}
-            </button>
-          ))}
+              تکمیل پروفایل
+            </Link>
+          </div>
+        )}
+
+        {/* ─── کارت باشگاه مشتریان ────────────────────────────────── */}
+        <div
+          className="rounded-3xl overflow-hidden relative"
+          style={{ background: 'linear-gradient(135deg, #1B3A8A 0%, #152E70 50%, #0F2155 100%)' }}
+        >
+          {/* Decorative circles */}
+          <div
+            className="absolute -top-10 -end-10 w-48 h-48 rounded-full opacity-10"
+            style={{ background: '#F97316' }}
+          />
+          <div
+            className="absolute -bottom-8 -start-8 w-36 h-36 rounded-full opacity-10"
+            style={{ background: '#F97316' }}
+          />
+
+          <div className="relative p-6 flex flex-col sm:flex-row items-start sm:items-center gap-5">
+
+            {/* آواتار */}
+            <div
+              className="w-16 h-16 rounded-2xl flex items-center justify-center text-white text-2xl font-black flex-shrink-0 border-2 border-white/20"
+              style={{ background: 'rgba(255,255,255,0.15)' }}
+            >
+              {displayName ? displayName[0] : '؟'}
+            </div>
+
+            {/* اطلاعات */}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="text-xl font-black text-white">
+                  {displayName ?? 'کاربر مهمان'}
+                </h1>
+                <span
+                  className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold text-white"
+                  style={{ background: 'rgba(255,255,255,0.2)' }}
+                >
+                  {tier.emoji} {tier.label}
+                </span>
+              </div>
+              <p className="text-blue-200 font-mono text-sm mt-1" dir="ltr">{phone}</p>
+              {user?.createdAt && (
+                <p className="text-blue-300 text-xs mt-1">
+                  عضو از {formatJalaliDate(user.createdAt)}
+                </p>
+              )}
+            </div>
+
+            {/* آمار سریع */}
+            <div className="flex gap-5 sm:gap-6 flex-shrink-0">
+              <div className="text-center">
+                <p className="text-2xl font-black text-white">{userOrders.length}</p>
+                <p className="text-blue-300 text-xs mt-0.5">سفارش</p>
+              </div>
+              <div className="w-px bg-white/15 self-stretch hidden sm:block" />
+              <div className="text-center">
+                <p className="text-lg font-black text-white whitespace-nowrap">
+                  {formatPrice(totalSpent)}
+                </p>
+                <p className="text-blue-300 text-xs mt-0.5">خرید کل</p>
+              </div>
+            </div>
+
+          </div>
+
+          {/* نوار پیشرفت سطح */}
+          <div className="px-6 pb-5">
+            <div className="flex items-center justify-between text-xs text-blue-300 mb-1.5">
+              <span>سطح {tier.label}</span>
+              {totalSpent < 10_000_000 && (
+                <span>
+                  {totalSpent < 500_000
+                    ? `${formatPrice(500_000 - totalSpent)} تا نقره‌ای`
+                    : totalSpent < 2_000_000
+                    ? `${formatPrice(2_000_000 - totalSpent)} تا طلایی`
+                    : `${formatPrice(10_000_000 - totalSpent)} تا ویژه`}
+                </span>
+              )}
+            </div>
+            <div className="h-1.5 rounded-full bg-white/15 overflow-hidden">
+              <div
+                className="h-full rounded-full transition-all duration-700"
+                style={{
+                  background: '#F97316',
+                  width: `${Math.min(100, (totalSpent / 10_000_000) * 100)}%`,
+                }}
+              />
+            </div>
+          </div>
         </div>
 
-        {/* Orders Tab */}
+        {/* ─── تب‌ها ──────────────────────────────────────────────── */}
+        <div className="flex gap-0.5 bg-white border border-surface-200 rounded-2xl p-1">
+          {tabs.map((tab) => {
+            const Icon = tab.icon
+            return (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                  activeTab === tab.key
+                    ? 'text-white shadow-sm'
+                    : 'text-surface-500 hover:text-surface-700'
+                }`}
+                style={activeTab === tab.key ? { background: '#F97316' } : undefined}
+              >
+                <Icon size={15} />
+                <span className="hidden sm:inline">{tab.label}</span>
+              </button>
+            )
+          })}
+        </div>
+
+        {/* ─── تب سفارشات ─────────────────────────────────────────── */}
         {activeTab === 'orders' && (
-          <div className="bg-white rounded-2xl border border-surface-200 overflow-hidden overflow-x-auto">
+          <div className="bg-white rounded-2xl border border-surface-200 overflow-hidden">
             {userOrders.length === 0 ? (
-              <div className="text-center py-16">
-                <p className="text-surface-400 text-sm mb-4">هنوز سفارشی ثبت نکرده‌اید</p>
-                <Link href="/shop" className="btn btn-accent py-2.5 px-6 text-sm">رفتن به فروشگاه</Link>
+              <div className="text-center py-16 px-4">
+                <div className="w-16 h-16 rounded-2xl bg-surface-100 flex items-center justify-center mx-auto mb-4">
+                  <ShoppingCartIcon size={28} className="text-surface-300" />
+                </div>
+                <p className="text-surface-500 font-semibold mb-1">هنوز سفارشی ندارید</p>
+                <p className="text-surface-400 text-sm mb-6">اولین سفارش خود را ثبت کنید</p>
+                <Link href="/shop" className="btn btn-accent py-2.5 px-7 text-sm">
+                  رفتن به فروشگاه
+                </Link>
               </div>
             ) : (
-              <table className="w-full text-sm">
-                <thead className="bg-surface-50 text-surface-500 text-xs">
-                  <tr>
-                    {['شناسه سفارش', 'تاریخ', 'تعداد کالا', 'مبلغ کل', 'وضعیت'].map((h) => (
-                      <th key={h} className="text-start px-5 py-3 font-semibold whitespace-nowrap">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-surface-100">
-                  {userOrders.map((order) => {
-                    const sc = statusMap[order.status] ?? { label: order.status, cls: 'bg-surface-100 text-surface-600 border-surface-200' }
-                    return (
-                      <tr key={order.id} className="hover:bg-surface-50 transition-colors">
-                        <td className="px-5 py-4 font-mono text-xs font-bold text-surface-600">{order.id.slice(0, 8).toUpperCase()}</td>
-                        <td className="px-5 py-4 text-surface-500 text-xs">{formatJalaliDate(order.createdAt)}</td>
-                        <td className="px-5 py-4">
-                          <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-surface-100 text-surface-700 text-xs font-bold">
-                            {order.itemCount}
-                          </span>
-                        </td>
-                        <td className="px-5 py-4 font-bold text-surface-900 whitespace-nowrap">{formatPrice(order.totalAmount)}</td>
-                        <td className="px-5 py-4">
-                          <span className={`inline-flex px-2.5 py-1 rounded-lg text-xs font-semibold border ${sc.cls}`}>
-                            {sc.label}
-                          </span>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-surface-50 text-surface-500 text-xs border-b border-surface-100">
+                    <tr>
+                      {['شناسه سفارش', 'تاریخ', 'تعداد کالا', 'مبلغ کل', 'وضعیت'].map((h) => (
+                        <th key={h} className="text-start px-5 py-3 font-semibold whitespace-nowrap">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-surface-100">
+                    {userOrders.map((order) => {
+                      const sc = statusMap[order.status] ?? { label: order.status, cls: 'bg-surface-100 text-surface-600 border-surface-200' }
+                      return (
+                        <tr key={order.id} className="hover:bg-surface-50 transition-colors">
+                          <td className="px-5 py-4 font-mono text-xs font-bold text-surface-600">
+                            #{order.id.slice(0, 8).toUpperCase()}
+                          </td>
+                          <td className="px-5 py-4 text-surface-500 text-xs whitespace-nowrap">
+                            {formatJalaliDate(order.createdAt)}
+                          </td>
+                          <td className="px-5 py-4">
+                            <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-surface-100 text-surface-700 text-xs font-bold">
+                              {order.itemCount}
+                            </span>
+                          </td>
+                          <td className="px-5 py-4 font-bold text-surface-900 whitespace-nowrap">
+                            {formatPrice(order.totalAmount)}
+                          </td>
+                          <td className="px-5 py-4">
+                            <span className={`inline-flex px-2.5 py-1 rounded-lg text-xs font-semibold border ${sc.cls}`}>
+                              {sc.label}
+                            </span>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
             )}
           </div>
         )}
 
-        {/* Profile Tab */}
+        {/* ─── تب اطلاعات حساب ────────────────────────────────────── */}
         {activeTab === 'profile' && (
-          <div className="bg-white rounded-2xl border border-surface-200 p-7">
-            <h2 className="font-black text-surface-900 mb-6">اطلاعات حساب</h2>
-            <form onSubmit={onSave} className="space-y-5 max-w-md">
+          <div className="bg-white rounded-2xl border border-surface-200 p-6">
+            <h2 className="font-black text-surface-900 mb-6 text-base flex items-center gap-2">
+              <UserIcon size={18} className="text-surface-500" />
+              اطلاعات حساب کاربری
+            </h2>
+            <form onSubmit={onSave} className="space-y-5 max-w-lg">
+
               <div>
-                <label className="block text-sm font-semibold text-surface-700 mb-1.5">نام و نام‌خانوادگی</label>
-                <input
-                  type="text"
-                  value={form.fullName}
-                  onChange={(e) => setForm({ ...form, fullName: e.target.value })}
-                  className="input w-full"
-                />
+                <label className="block text-sm font-semibold text-surface-700 mb-1.5">
+                  نام و نام‌خانوادگی
+                </label>
+                <div className="relative">
+                  <UserIcon size={15} className="absolute top-1/2 -translate-y-1/2 end-3.5 text-surface-400" />
+                  <input
+                    type="text"
+                    value={form.fullName}
+                    onChange={(e) => setForm({ ...form, fullName: e.target.value })}
+                    className="input w-full pe-10"
+                    placeholder="نام و نام‌خانوادگی"
+                  />
+                </div>
               </div>
+
               <div>
-                <label className="block text-sm font-semibold text-surface-700 mb-1.5">شماره موبایل</label>
-                <input
-                  type="tel"
-                  value={phone}
-                  disabled
-                  className="input w-full bg-surface-50 text-surface-400 cursor-not-allowed"
-                  dir="ltr"
-                />
+                <label className="block text-sm font-semibold text-surface-700 mb-1.5">
+                  شماره موبایل
+                </label>
+                <div className="relative">
+                  <PhoneIcon size={15} className="absolute top-1/2 -translate-y-1/2 end-3.5 text-surface-300" />
+                  <input
+                    type="tel"
+                    value={phone}
+                    disabled
+                    className="input w-full pe-10 bg-surface-50 text-surface-400 cursor-not-allowed"
+                    dir="ltr"
+                  />
+                </div>
                 <p className="text-xs text-surface-400 mt-1">شماره موبایل قابل تغییر نیست</p>
               </div>
+
               <div>
-                <label className="block text-sm font-semibold text-surface-700 mb-1.5">ایمیل (اختیاری)</label>
-                <input
-                  type="email"
-                  value={form.email}
-                  onChange={(e) => setForm({ ...form, email: e.target.value })}
-                  className="input w-full"
-                  dir="ltr"
-                />
+                <label className="block text-sm font-semibold text-surface-700 mb-1.5">
+                  ایمیل
+                  <span className="text-xs text-surface-400 font-normal ms-2">(اختیاری)</span>
+                </label>
+                <div className="relative">
+                  <MailIcon size={15} className="absolute top-1/2 -translate-y-1/2 end-3.5 text-surface-400" />
+                  <input
+                    type="email"
+                    value={form.email}
+                    onChange={(e) => setForm({ ...form, email: e.target.value })}
+                    className="input w-full pe-10"
+                    dir="ltr"
+                    placeholder="email@example.com"
+                  />
+                </div>
               </div>
-              <div className="flex items-center gap-3 pt-2">
-                <button type="submit" disabled={saving} className="btn btn-accent py-2.5 px-6 text-sm">
+
+              <div className="flex items-center gap-3 pt-1">
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="btn btn-accent py-2.5 px-6 text-sm"
+                >
                   {saving ? 'در حال ذخیره...' : 'ذخیره تغییرات'}
                 </button>
                 {saved && (
                   <span className="text-green-600 text-sm font-semibold flex items-center gap-1">
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                    </svg>
+                    <CheckIcon size={16} />
                     ذخیره شد
                   </span>
                 )}
               </div>
             </form>
+
+            {/* خروج از حساب */}
+            <div className="mt-10 pt-6 border-t border-surface-100">
+              <button
+                onClick={() => signOut({ callbackUrl: '/' })}
+                className="text-sm text-red-500 hover:text-red-600 font-medium transition-colors"
+              >
+                خروج از حساب کاربری
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ─── تب آدرس‌ها ─────────────────────────────────────────── */}
+        {activeTab === 'address' && (
+          <div className="bg-white rounded-2xl border border-surface-200 p-8 text-center">
+            <div
+              className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
+              style={{ background: '#EFF4FF' }}
+            >
+              <MapPinIcon size={28} className="text-brand-600" />
+            </div>
+            <h3 className="font-black text-surface-900 mb-2">مدیریت آدرس</h3>
+            <p className="text-surface-500 text-sm mb-6 max-w-xs mx-auto">
+              قابلیت مدیریت آدرس‌های ارسال به‌زودی اضافه خواهد شد. در حال حاضر آدرس را هنگام تسویه حساب وارد کنید.
+            </p>
+            <Link href="/shop" className="btn btn-ghost py-2.5 px-6 text-sm">
+              ادامه خرید
+            </Link>
           </div>
         )}
 

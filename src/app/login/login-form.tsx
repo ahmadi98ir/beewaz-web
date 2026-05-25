@@ -93,15 +93,35 @@ export default function LoginForm() {
 
     try {
       const session = await fetch('/api/auth/session').then((r) => r.json())
+
+      // ادمین → پنل مدیریت
       if (session?.user?.role === 'admin') {
         router.push('/admin')
         router.refresh()
         return
       }
-    } catch { /* ignore */ }
 
-    router.push(callbackUrl)
-    router.refresh()
+      // اگر callbackUrl مشخص و معنادار است (مثلاً redirect از صفحه checkout)
+      if (callbackUrl && callbackUrl !== '/' && !callbackUrl.startsWith('/login')) {
+        router.push(callbackUrl)
+        router.refresh()
+        return
+      }
+
+      // پروفایل ناقص → صفحه تکمیل ثبت‌نام
+      if (!session?.user?.name) {
+        router.push('/profile/complete')
+        router.refresh()
+        return
+      }
+
+      // پروفایل کامل → صفحه پروفایل
+      router.push('/profile')
+      router.refresh()
+    } catch {
+      router.push('/profile')
+      router.refresh()
+    }
   }
 
   const handleSubmit = (e: React.FormEvent) => {

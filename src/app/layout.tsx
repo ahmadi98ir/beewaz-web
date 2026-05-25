@@ -6,6 +6,8 @@ import { ChatWidget } from '@/components/chat/chat-widget'
 import { ToastContainer } from '@/components/ui/toast'
 import { PageTransition } from '@/components/ui/page-transition'
 import { QuickViewModal } from '@/components/shop/quick-view-modal'
+import { FloatingCart } from '@/components/layout/floating-cart'
+import { AppSessionProvider } from '@/components/providers/session-provider'
 import { PageTracker } from '@/components/analytics/page-tracker'
 import './globals.css'
 
@@ -70,7 +72,7 @@ export default async function RootLayout({
           </>
         ) : (
           // public site
-          <>
+          <AppSessionProvider>
             <a
               href="#main-content"
               className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:start-4 focus:z-50 focus:px-4 focus:py-2 focus:rounded-lg focus:bg-brand-600 focus:text-white focus:font-semibold focus:shadow-lg"
@@ -84,9 +86,10 @@ export default async function RootLayout({
             <Footer />
             <ChatWidget />
             <QuickViewModal />
+            <FloatingCart />
             <ToastContainer />
             <PageTracker />
-          </>
+          </AppSessionProvider>
         )}
       </body>
     </html>
