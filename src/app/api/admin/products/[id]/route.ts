@@ -16,12 +16,12 @@ export async function GET(req: NextRequest, { params }: Params) {
       .where(and(eq(products.id, id), isNull(products.deletedAt))).limit(1)
     if (!product) return NextResponse.json({ error: 'محصول یافت نشد' }, { status: 404 })
 
-    const [images, variants] = await Promise.all([
-      db.select().from(productImages)
-        .where(eq(productImages.productId, id)).orderBy(productImages.sortOrder),
-      db.select().from(productVariants)
-        .where(eq(productVariants.productId, id)).orderBy(productVariants.createdAt),
-    ])
+    const images = await db.select().from(productImages)
+      .where(eq(productImages.productId, id)).orderBy(productImages.sortOrder)
+
+    const variants = await db.select().from(productVariants)
+      .where(eq(productVariants.productId, id)).orderBy(productVariants.createdAt)
+      .catch(() => [])
 
     return NextResponse.json({
       product: {
