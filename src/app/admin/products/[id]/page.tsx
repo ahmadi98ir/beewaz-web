@@ -23,6 +23,7 @@ export default function ProductDetailPage() {
   const [product, setProduct] = useState<Product | null>(null)
   const [images, setImages] = useState<ProductImage[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState('')
   const [tab, setTab] = useState<'basic'|'content'|'seo'|'images'>('basic')
@@ -30,10 +31,17 @@ export default function ProductDetailPage() {
 
   const fetchProduct = useCallback(async () => {
     setLoading(true)
+    setError('')
     try {
       const res = await fetch(`/api/admin/products/${id}`)
-      const j = await res.json() as { product: Product; images: ProductImage[] }
-      if (j.product) { setProduct(j.product); setImages(j.images ?? []); setForm(j.product) }
+      const j = await res.json() as { product: Product; images: ProductImage[]; error?: string }
+      if (!res.ok || !j.product) {
+        setError(j.error ?? `خطا ${res.status}`)
+      } else {
+        setProduct(j.product); setImages(j.images ?? []); setForm(j.product)
+      }
+    } catch (e) {
+      setError(String(e))
     } finally {
       setLoading(false)
     }
@@ -60,8 +68,15 @@ export default function ProductDetailPage() {
 
   const inputCls = "w-full px-3.5 py-2.5 text-sm border border-surface-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-300"
 
-  if (loading || !product) return (
+  if (loading) return (
     <div className="flex-1 flex items-center justify-center text-surface-300">بارگذاری...</div>
+  )
+  if (error || !product) return (
+    <div className="flex-1 flex flex-col items-center justify-center gap-3 text-red-500">
+      <p className="font-bold">خطا در بارگذاری محصول</p>
+      <p className="text-sm font-mono">{error || 'محصول یافت نشد'}</p>
+      <Link href="/admin/products" className="text-sm text-brand-600 underline">بازگشت به لیست</Link>
+    </div>
   )
 
   return (
