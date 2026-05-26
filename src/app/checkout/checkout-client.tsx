@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import Link from 'next/link'
 import { useCart } from '@/stores/cart'
-import { toEnDigits, toFaDigits } from '@/lib/utils'
+import { toEnDigits, toFaDigits, formatPrice } from '@/lib/utils'
 
 // لیست استان‌های ایران
 const PROVINCES = [
@@ -16,8 +16,9 @@ const PROVINCES = [
   'گلستان','گیلان','لرستان','مازندران','مرکزی','هرمزگان','همدان','یزد',
 ]
 
-function toPriceFA(n: number) {
-  return new Intl.NumberFormat('fa-IR').format(n)
+// قیمت را از ریال به تومان تبدیل و نمایش می‌دهد
+function toToman(rial: number) {
+  return formatPrice(rial)
 }
 
 export default function CheckoutClient() {
@@ -330,7 +331,7 @@ export default function CheckoutClient() {
                   در حال انتقال به درگاه...
                 </span>
               ) : (
-                `پرداخت ${toPriceFA(total)} ریال`
+                `پرداخت ${toToman(total)}`
               )}
             </button>
           </form>
@@ -348,7 +349,7 @@ export default function CheckoutClient() {
                       <span className="text-surface-400 ms-1">×{toFaDigits(item.quantity)}</span>
                     </span>
                     <span className="font-semibold text-surface-900 whitespace-nowrap flex-shrink-0">
-                      {toPriceFA(item.price * item.quantity)} ریال
+                      {toToman(item.price * item.quantity)}
                     </span>
                   </div>
                 ))}
@@ -357,24 +358,24 @@ export default function CheckoutClient() {
               <div className="border-t border-surface-100 pt-3 space-y-2 text-sm">
                 <div className="flex justify-between text-surface-500">
                   <span>جمع کالاها</span>
-                  <span>{toPriceFA(subtotal)} ریال</span>
+                  <span>{toToman(subtotal)}</span>
                 </div>
                 <div className="flex justify-between text-surface-500">
                   <span>هزینه ارسال</span>
                   {shipping === 0
                     ? <span className="text-green-600 font-semibold">رایگان</span>
-                    : <span>{toPriceFA(shipping)} ریال</span>
+                    : <span>{toToman(shipping)}</span>
                   }
                 </div>
                 <div className="flex justify-between font-bold text-surface-900 pt-2 border-t border-surface-100">
                   <span>قابل پرداخت</span>
-                  <span style={{ color: '#F97316' }}>{toPriceFA(total)} ریال</span>
+                  <span style={{ color: '#F97316' }}>{toToman(total)}</span>
                 </div>
               </div>
 
               {shipping > 0 && (
                 <p className="text-xs text-surface-400 mt-3 bg-surface-50 rounded-lg p-2 text-center">
-                  خرید بالای {toPriceFA(2_000_000)} ریال — ارسال رایگان
+                  خرید بالای {toToman(2_000_000)} — ارسال رایگان
                 </p>
               )}
             </div>

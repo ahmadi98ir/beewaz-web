@@ -85,7 +85,7 @@ export function FloatingCart() {
   const { items, isOpen, closeCart, subtotal } = useCart()
   const count = useCart((s) => s.count)
 
-  const shipping = subtotal >= 500_000 ? 0 : 80_000
+  const shipping = subtotal >= 2_000_000 ? 0 : 150_000
   const total = subtotal + shipping
 
   // بستن با کلید Escape
@@ -114,13 +114,13 @@ export function FloatingCart() {
         aria-hidden="true"
       />
 
-      {/* پنل سبد خرید — از سمت راست (start در RTL) می‌لغزد */}
+      {/* پنل سبد خرید — از سمت چپ می‌لغزد */}
       <div
-        className={`fixed inset-y-0 right-0 z-50 w-full max-w-[420px] bg-white flex flex-col
+        className={`fixed inset-y-0 left-0 z-50 w-full max-w-[420px] bg-white flex flex-col
           transition-transform duration-300 ease-out ${
-          isOpen ? 'translate-x-0' : 'translate-x-full'
+          isOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
-        style={{ boxShadow: '-4px 0 40px rgba(0,0,0,0.15)' }}
+        style={{ boxShadow: '4px 0 40px rgba(0,0,0,0.15)' }}
         role="dialog"
         aria-modal="true"
         aria-label="سبد خرید"
@@ -192,7 +192,7 @@ export function FloatingCart() {
               </div>
               {shipping > 0 && (
                 <p className="text-xs text-surface-400">
-                  برای ارسال رایگان {formatPrice(500_000 - subtotal)} دیگر خرید کنید
+                  برای ارسال رایگان {formatPrice(2_000_000 - subtotal)} دیگر خرید کنید
                 </p>
               )}
               <div className="flex justify-between items-center pt-2.5 border-t border-surface-200">

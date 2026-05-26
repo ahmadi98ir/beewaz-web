@@ -97,31 +97,26 @@ export default function LoginForm() {
 
       // ادمین → پنل مدیریت
       if (session?.user?.role === 'admin') {
-        router.push('/admin')
-        router.refresh()
+        window.location.href = '/admin'
         return
       }
 
       // اگر callbackUrl مشخص و معنادار است (مثلاً redirect از صفحه checkout)
       if (callbackUrl && callbackUrl !== '/' && !callbackUrl.startsWith('/login')) {
-        router.push(callbackUrl)
-        router.refresh()
+        window.location.href = callbackUrl
         return
       }
 
       // پروفایل ناقص → صفحه تکمیل ثبت‌نام
       if (!session?.user?.name) {
-        router.push('/profile/complete')
-        router.refresh()
+        window.location.href = '/profile/complete'
         return
       }
 
       // پروفایل کامل → صفحه پروفایل
-      router.push('/profile')
-      router.refresh()
+      window.location.href = '/profile'
     } catch {
-      router.push('/profile')
-      router.refresh()
+      window.location.href = '/profile'
     }
   }
 
