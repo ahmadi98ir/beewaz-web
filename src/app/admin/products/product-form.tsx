@@ -21,7 +21,7 @@ export interface ProductFormData {
   price: number
   comparePrice?: number | null
   stock: number
-  status: 'draft' | 'active' | 'archived'
+  status: 'draft' | 'active' | 'archived' | 'out_of_stock'
   isFeatured: boolean
   metaTitle?: string | null
   metaDesc?: string | null
@@ -244,6 +244,7 @@ export function ProductForm({ initial, mode }: Props) {
                 <option value="draft">پیش‌نویس</option>
                 <option value="active">فعال</option>
                 <option value="archived">آرشیو</option>
+                <option value="out_of_stock">ناموجود</option>
               </select>
             </Field>
           </div>
