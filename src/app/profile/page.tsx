@@ -265,7 +265,7 @@ export default function ProfilePage() {
                 <table className="w-full text-sm">
                   <thead className="bg-surface-50 text-surface-500 text-xs border-b border-surface-100">
                     <tr>
-                      {['شناسه سفارش', 'تاریخ', 'تعداد کالا', 'مبلغ کل', 'وضعیت'].map((h) => (
+                      {['شناسه سفارش', 'تاریخ', 'تعداد کالا', 'مبلغ کل', 'وضعیت', ''].map((h) => (
                         <th key={h} className="text-start px-5 py-3 font-semibold whitespace-nowrap">{h}</th>
                       ))}
                     </tr>
@@ -293,6 +293,11 @@ export default function ProfilePage() {
                             <span className={`inline-flex px-2.5 py-1 rounded-lg text-xs font-semibold border ${sc.cls}`}>
                               {sc.label}
                             </span>
+                          </td>
+                          <td className="px-5 py-4">
+                            <Link href={`/orders/${order.id}`} className="text-xs font-semibold text-brand-600 hover:text-brand-700 transition-colors">
+                              مشاهده
+                            </Link>
                           </td>
                         </tr>
                       )
