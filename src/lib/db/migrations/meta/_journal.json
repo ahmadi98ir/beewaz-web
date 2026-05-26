@@ -29,6 +29,13 @@
       "when": 1748650800000,
       "tag": "0003_crm_cms_expansion",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1748737200000,
+      "tag": "0004_fix_missing_columns",
+      "breakpoints": true
     }
   ]
 }

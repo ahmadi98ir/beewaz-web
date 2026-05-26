@@ -48,6 +48,31 @@ export async function register() {
         ALTER TYPE "public"."lead_status" ADD VALUE IF NOT EXISTS 'qualified';
         ALTER TYPE "public"."lead_status" ADD VALUE IF NOT EXISTS 'proposal_sent';
         ALTER TYPE "public"."lead_status" ADD VALUE IF NOT EXISTS 'won';
+        ALTER TYPE "public"."product_status" ADD VALUE IF NOT EXISTS 'out_of_stock';
+        ALTER TYPE "public"."payment_method" ADD VALUE IF NOT EXISTS 'online';
+        ALTER TYPE "public"."payment_method" ADD VALUE IF NOT EXISTS 'card_to_card';
+        ALTER TYPE "public"."payment_method" ADD VALUE IF NOT EXISTS 'cash_on_delivery';
+        ALTER TYPE "public"."payment_method" ADD VALUE IF NOT EXISTS 'installment';
+        ALTER TABLE "products" ADD COLUMN IF NOT EXISTS "deleted_at" timestamp with time zone;
+        ALTER TABLE "products" ADD COLUMN IF NOT EXISTS "rating_avg" numeric(3,2) DEFAULT '0';
+        ALTER TABLE "products" ADD COLUMN IF NOT EXISTS "rating_count" integer DEFAULT 0 NOT NULL;
+        ALTER TABLE "product_images" ADD COLUMN IF NOT EXISTS "is_primary" boolean DEFAULT false NOT NULL;
+        ALTER TABLE "orders" ADD COLUMN IF NOT EXISTS "shipping_amount" numeric(14,0) DEFAULT '0' NOT NULL;
+        ALTER TABLE "orders" ADD COLUMN IF NOT EXISTS "discount_amount" numeric(14,0) DEFAULT '0' NOT NULL;
+        ALTER TABLE "orders" ADD COLUMN IF NOT EXISTS "transaction_id" varchar(100);
+        ALTER TABLE "orders" ADD COLUMN IF NOT EXISTS "tracking_code" varchar(100);
+        ALTER TABLE "orders" ADD COLUMN IF NOT EXISTS "customer_note" text;
+        ALTER TABLE "orders" ADD COLUMN IF NOT EXISTS "admin_note" text;
+        ALTER TABLE "orders" ADD COLUMN IF NOT EXISTS "shipped_at" timestamp with time zone;
+        ALTER TABLE "orders" ADD COLUMN IF NOT EXISTS "delivered_at" timestamp with time zone;
+        ALTER TABLE "orders" ALTER COLUMN "user_id" DROP NOT NULL;
+        ALTER TABLE "order_items" ADD COLUMN IF NOT EXISTS "variant_id" uuid;
+        ALTER TABLE "order_items" ADD COLUMN IF NOT EXISTS "product_name" varchar(200) DEFAULT '' NOT NULL;
+        ALTER TABLE "order_items" ADD COLUMN IF NOT EXISTS "variant_name" varchar(128);
+        ALTER TABLE "order_items" ADD COLUMN IF NOT EXISTS "sku" varchar(64);
+        ALTER TABLE "order_items" ADD COLUMN IF NOT EXISTS "total_price" numeric(14,0);
+        ALTER TABLE "order_items" ADD COLUMN IF NOT EXISTS "meta" jsonb DEFAULT '{}'::jsonb;
+        ALTER TABLE "order_items" ADD COLUMN IF NOT EXISTS "created_at" timestamp with time zone DEFAULT now() NOT NULL;
         CREATE TABLE IF NOT EXISTS "lead_notes" (
           "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
           "lead_id" uuid NOT NULL REFERENCES "leads"("id") ON DELETE CASCADE,
