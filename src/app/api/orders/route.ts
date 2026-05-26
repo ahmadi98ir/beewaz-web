@@ -2,9 +2,8 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { orders, orderItems } from '@/lib/db/schema'
-import { products } from '@/lib/db/schema'
-import { eq, inArray } from 'drizzle-orm'
+import { orders, orderItems, products, coupons, couponUsages } from '@/lib/db/schema'
+import { eq, inArray, and, count, sql } from 'drizzle-orm'
 import { sendVerifySms, SMS_TEMPLATES } from '@/lib/sms'
 
 const addressSchema = z.object({
@@ -12,10 +11,10 @@ const addressSchema = z.object({
   phone: z.string().regex(/^09\d{9}$/, 'شماره موبایل معتبر نیست'),
   province: z.string().min(2),
   city: z.string().min(2),
-  street: z.string().min(2),                         // خیابان اصلی
-  alley: z.string().optional(),                       // خیابان فرعی / کوچه
-  plaque: z.string().min(1),                          // پلاک
-  unit: z.string().optional(),                        // واحد
+  street: z.string().min(2),
+  alley: z.string().optional(),
+  plaque: z.string().min(1),
+  unit: z.string().optional(),
   postalCode: z.string().regex(/^\d{10}$/, 'کد پستی ۱۰ رقمی باشد'),
 })
 
@@ -26,6 +25,9 @@ const schema = z.object({
     quantity: z.number().int().min(1),
   })).min(1),
   notes: z.string().max(500).optional(),
+  couponCode: z.string().optional(),
+  paymentMethod: z.enum(['online', 'card_to_card', 'cash_on_delivery', 'installment']).default('online'),
+  gateway: z.enum(['zarinpal', 'idpay']).default('zarinpal'),
 })
 
 export async function POST(req: Request) {
@@ -40,9 +42,10 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: parsed.error.errors[0]?.message ?? 'اطلاعات نامعتبر' }, { status: 400 })
   }
 
-  const { address, items, notes } = parsed.data
+  const { address, items, notes, couponCode, paymentMethod, gateway } = parsed.data
   const productIds = items.map((i) => i.id)
 
+  // بررسی محصولات
   const dbProducts = await db
     .select({ id: products.id, nameFa: products.nameFa, sku: products.sku, price: products.price, stock: products.stock })
     .from(products)
@@ -53,18 +56,18 @@ export async function POST(req: Request) {
   }
 
   const productMap = new Map(dbProducts.map((p) => [p.id, p]))
-  let totalAmount = 0
+  let subtotal = 0
   const orderItemsData: { productId: string; productName: string; sku: string | null; quantity: number; unitPrice: string; totalPrice: string }[] = []
 
   for (const item of items) {
     const p = productMap.get(item.id)!
     const price = typeof p.price === 'string' ? parseInt(p.price, 10) : (p.price ?? 0)
-    const stock = typeof p.stock === 'string' ? parseInt(p.stock, 10) : (p.stock ?? 0)
+    const stock = typeof p.stock === 'string' ? parseInt(p.stock as string, 10) : (p.stock ?? 0)
     if (stock < item.quantity) {
       return NextResponse.json({ error: `موجودی کافی برای "${p.nameFa}" وجود ندارد` }, { status: 400 })
     }
     const lineTotal = price * item.quantity
-    totalAmount += lineTotal
+    subtotal += lineTotal
     orderItemsData.push({
       productId: p.id,
       productName: p.nameFa ?? '',
@@ -75,28 +78,99 @@ export async function POST(req: Request) {
     })
   }
 
+  // هزینه ارسال
+  const FREE_SHIPPING_THRESHOLD = 2_000_000
+  const SHIPPING_COST = 150_000
+  const shippingAmount = subtotal >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_COST
+
+  // ── پردازش کوپن ───────────────────────────────────────────────────────────
+  let discountAmount = 0
+  let appliedCoupon: typeof coupons.$inferSelect | null = null
+
+  if (couponCode?.trim()) {
+    const code = couponCode.trim().toUpperCase()
+    const [coupon] = await db.select().from(coupons)
+      .where(and(eq(coupons.code, code), eq(coupons.active, true)))
+      .limit(1)
+
+    if (!coupon) {
+      return NextResponse.json({ error: 'کد تخفیف معتبر نیست' }, { status: 400 })
+    }
+    if (coupon.expiresAt && new Date(coupon.expiresAt) < new Date()) {
+      return NextResponse.json({ error: 'کد تخفیف منقضی شده است' }, { status: 400 })
+    }
+    if (coupon.usageLimit !== null && coupon.usageCount >= coupon.usageLimit) {
+      return NextResponse.json({ error: 'ظرفیت این کد تخفیف پر شده است' }, { status: 400 })
+    }
+    if (coupon.minOrderAmount && subtotal < Number(coupon.minOrderAmount)) {
+      return NextResponse.json({ error: `حداقل مبلغ سفارش برای این کوپن ${Number(coupon.minOrderAmount).toLocaleString('fa-IR')} ریال است` }, { status: 400 })
+    }
+    if (coupon.perUserLimit && coupon.perUserLimit > 0) {
+      const ucRows = await db.select({ count: count() }).from(couponUsages)
+        .where(and(eq(couponUsages.couponId, coupon.id), eq(couponUsages.userId, session.user.id)))
+      const uc = ucRows[0]?.count ?? 0
+      if (uc >= coupon.perUserLimit) {
+        return NextResponse.json({ error: 'قبلاً از این کد تخفیف استفاده کرده‌اید' }, { status: 400 })
+      }
+    }
+
+    if (coupon.type === 'percentage') {
+      discountAmount = Math.floor(subtotal * Number(coupon.value) / 100)
+      if (coupon.maxDiscountAmount) discountAmount = Math.min(discountAmount, Number(coupon.maxDiscountAmount))
+    } else {
+      discountAmount = Math.min(Number(coupon.value), subtotal)
+    }
+    appliedCoupon = coupon
+  }
+
+  const totalAmount = Math.max(0, subtotal + shippingAmount - discountAmount)
+
+  // ثبت سفارش
   const [order] = await db.insert(orders).values({
     userId: session.user.id,
     status: 'pending',
     totalAmount: String(totalAmount),
+    shippingAmount: String(shippingAmount),
+    discountAmount: String(discountAmount),
+    couponCode: appliedCoupon?.code ?? null,
     shippingAddress: address,
-    paymentMethod: 'online',
+    paymentMethod,
     customerNote: notes ?? null,
   }).returning({ id: orders.id })
 
-  if (!order) {
-    return NextResponse.json({ error: 'خطا در ثبت سفارش' }, { status: 500 })
-  }
+  if (!order) return NextResponse.json({ error: 'خطا در ثبت سفارش' }, { status: 500 })
 
   await db.insert(orderItems).values(
     orderItemsData.map((item) => ({ orderId: order.id, ...item }))
   )
 
-  // پیامک تایید سفارش (fire-and-forget)
+  // ثبت استفاده از کوپن
+  if (appliedCoupon && discountAmount > 0) {
+    await db.insert(couponUsages).values({
+      couponId: appliedCoupon.id,
+      userId: session.user.id,
+      orderId: order.id,
+      discountAmount: String(discountAmount),
+    })
+    await db.update(coupons)
+      .set({ usageCount: sql`${coupons.usageCount} + 1` })
+      .where(eq(coupons.id, appliedCoupon.id))
+  }
+
+  // کاهش موجودی فقط برای پرداخت در محل (چون پرداخت آنلاین بعد از تأیید کاهش می‌یابد)
+  if (paymentMethod === 'cash_on_delivery') {
+    for (const item of orderItemsData) {
+      await db.update(products)
+        .set({ stock: sql`GREATEST(${products.stock} - ${item.quantity}, 0)` })
+        .where(eq(products.id, item.productId))
+    }
+  }
+
+  // پیامک تایید (fire-and-forget)
   void sendVerifySms(address.phone, SMS_TEMPLATES.ORDER_CONFIRM, {
     ORDERID: order.id.slice(0, 8).toUpperCase(),
-    PRICE:   totalAmount.toLocaleString('fa-IR'),
+    PRICE: totalAmount.toLocaleString('fa-IR'),
   })
 
-  return NextResponse.json({ orderId: order.id, totalAmount })
+  return NextResponse.json({ orderId: order.id, totalAmount, gateway })
 }

@@ -57,6 +57,13 @@ export {
   type Block, type BlockType,
 } from './pages'
 
+// ─── Coupons ─────────────────────────────────────────────────────────────────
+export {
+  couponTypeEnum, coupons, couponUsages,
+  couponsRelations, couponUsagesRelations,
+  type Coupon, type NewCoupon, type CouponType, type CouponUsage,
+} from './coupons'
+
 // ─── CRM Extended ────────────────────────────────────────────────────────────
 export {
   leadNotes, leadActivities, followUps, customerNotes,

@@ -63,6 +63,9 @@ export const orders = pgTable('orders', {
   /** یادداشت داخلی ادمین */
   adminNote: text('admin_note'),
 
+  /** کد کوپن استفاده‌شده */
+  couponCode: varchar('coupon_code', { length: 50 }),
+
   paidAt: timestamp('paid_at', { withTimezone: true }),
   shippedAt: timestamp('shipped_at', { withTimezone: true }),
   deliveredAt: timestamp('delivered_at', { withTimezone: true }),

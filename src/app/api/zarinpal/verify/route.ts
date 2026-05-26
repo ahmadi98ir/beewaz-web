@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { orders } from '@/lib/db/schema'
-import { eq } from 'drizzle-orm'
+import { orders, products, orderItems } from '@/lib/db/schema'
+import { eq, sql } from 'drizzle-orm'
 
 const ZARINPAL_MERCHANT = process.env.ZARINPAL_MERCHANT_ID ?? ''
 const ZARINPAL_VERIFY_URL = 'https://api.zarinpal.com/pg/v4/payment/verify.json'
@@ -50,12 +50,24 @@ export async function GET(req: Request) {
     return NextResponse.redirect(new URL(`/checkout?error=payment_failed`, req.url))
   }
 
-  // Store ref_id in trackingCode after successful payment
+  // به‌روزرسانی وضعیت سفارش
   await db.update(orders).set({
     status: 'paid',
     trackingCode: String(zpData.data?.ref_id ?? ''),
     paidAt: new Date(),
   }).where(eq(orders.id, order.id))
+
+  // کاهش موجودی محصولات
+  const items = await db.select({ productId: orderItems.productId, quantity: orderItems.quantity })
+    .from(orderItems).where(eq(orderItems.orderId, order.id))
+
+  for (const item of items) {
+    if (item.productId) {
+      await db.update(products)
+        .set({ stock: sql`GREATEST(${products.stock} - ${item.quantity}, 0)` })
+        .where(eq(products.id, item.productId))
+    }
+  }
 
   return NextResponse.redirect(new URL(`/orders/${order.id}/confirmation`, req.url))
 }
