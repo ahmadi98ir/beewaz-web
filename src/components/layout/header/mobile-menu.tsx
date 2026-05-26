@@ -7,6 +7,7 @@ import { MenuIcon, XIcon, ChevronDownIcon, PhoneIcon, ShoppingCartIcon, UserIcon
 import { BeewazLogo } from '@/components/ui/logo'
 import { useCart } from '@/stores/cart'
 import { useSession } from 'next-auth/react'
+import { toFaDigits } from '@/lib/utils'
 import type { NavItem } from '@/config/navigation'
 
 type Props = { items: NavItem[] }
@@ -45,7 +46,7 @@ export function MobileMenu({ items }: Props) {
         <MenuIcon size={22} />
         {cartCount > 0 && (
           <span className="absolute -top-0.5 -start-0.5 min-w-[16px] h-4 px-0.5 rounded-full bg-brand-600 text-white text-[9px] font-bold flex items-center justify-center">
-            {cartCount}
+            {toFaDigits(cartCount)}
           </span>
         )}
       </button>
@@ -168,7 +169,7 @@ export function MobileMenu({ items }: Props) {
               className="btn btn-outline w-full justify-center gap-2 text-sm"
             >
               <ShoppingCartIcon size={16} />
-              سبد خرید ({cartCount} محصول)
+              سبد خرید ({toFaDigits(cartCount)} محصول)
             </button>
           )}
           {session?.user ? (

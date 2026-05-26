@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useCart } from '@/stores/cart'
-import { formatPrice } from '@/lib/utils'
+import { formatPrice, toFaDigits } from '@/lib/utils'
 import { ShoppingCartIcon, XIcon, ArrowLeftIcon } from '@/components/ui/icons'
 
 function CartItemRow({ item }: { item: import('@/stores/cart').CartItem }) {
@@ -46,7 +46,7 @@ function CartItemRow({ item }: { item: import('@/stores/cart').CartItem }) {
               aria-label="کاهش"
             >−</button>
             <span className="w-8 text-center text-sm font-bold text-surface-900 select-none">
-              {item.quantity}
+              {toFaDigits(item.quantity)}
             </span>
             <button
               onClick={() => updateQuantity(item.id, item.quantity + 1)}
@@ -110,7 +110,7 @@ export default function CartPage() {
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-black text-surface-900">
             سبد خرید
-            <span className="text-base font-semibold text-surface-400 ms-2">({items.length} محصول)</span>
+            <span className="text-base font-semibold text-surface-400 ms-2">({toFaDigits(items.length)} محصول)</span>
           </h1>
           <button
             onClick={clearCart}

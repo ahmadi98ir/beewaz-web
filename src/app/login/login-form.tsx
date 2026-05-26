@@ -5,6 +5,7 @@ import { signIn } from 'next-auth/react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { BeewazLogo } from '@/components/ui/logo'
 import { ShieldIcon } from '@/components/ui/icons'
+import { toFaDigits } from '@/lib/utils'
 
 type Step = 'phone' | 'otp'
 
@@ -133,7 +134,7 @@ export default function LoginForm() {
   const formatCountdown = (s: number) => {
     const m = Math.floor(s / 60)
     const sec = s % 60
-    return `${m}:${sec.toString().padStart(2, '0')}`
+    return toFaDigits(`${m}:${sec.toString().padStart(2, '0')}`)
   }
 
   return (

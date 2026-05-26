@@ -9,10 +9,13 @@ import { sendVerifySms, SMS_TEMPLATES } from '@/lib/sms'
 
 const addressSchema = z.object({
   fullName: z.string().min(2),
-  phone: z.string().regex(/^09\d{9}$/),
+  phone: z.string().regex(/^09\d{9}$/, 'شماره موبایل معتبر نیست'),
   province: z.string().min(2),
   city: z.string().min(2),
-  address: z.string().min(5),
+  street: z.string().min(2),                         // خیابان اصلی
+  alley: z.string().optional(),                       // خیابان فرعی / کوچه
+  plaque: z.string().min(1),                          // پلاک
+  unit: z.string().optional(),                        // واحد
   postalCode: z.string().regex(/^\d{10}$/, 'کد پستی ۱۰ رقمی باشد'),
 })
 

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useSession, signOut } from 'next-auth/react'
 import Link from 'next/link'
-import { formatPrice } from '@/lib/utils'
+import { formatPrice, toFaDigits } from '@/lib/utils'
 import { UserIcon, MailIcon, PhoneIcon, MapPinIcon, ShoppingCartIcon, CheckIcon } from '@/components/ui/icons'
 
 type ProfileData = {
@@ -173,7 +173,7 @@ export default function ProfilePage() {
                   {tier.emoji} {tier.label}
                 </span>
               </div>
-              <p className="text-blue-200 font-mono text-sm mt-1" dir="ltr">{phone}</p>
+              <p className="text-blue-200 font-mono text-sm mt-1">{toFaDigits(phone)}</p>
               {user?.createdAt && (
                 <p className="text-blue-300 text-xs mt-1">
                   عضو از {formatJalaliDate(user.createdAt)}
@@ -184,7 +184,7 @@ export default function ProfilePage() {
             {/* آمار سریع */}
             <div className="flex gap-5 sm:gap-6 flex-shrink-0">
               <div className="text-center">
-                <p className="text-2xl font-black text-white">{userOrders.length}</p>
+                <p className="text-2xl font-black text-white">{toFaDigits(userOrders.length)}</p>
                 <p className="text-blue-300 text-xs mt-0.5">سفارش</p>
               </div>
               <div className="w-px bg-white/15 self-stretch hidden sm:block" />
@@ -283,7 +283,7 @@ export default function ProfilePage() {
                           </td>
                           <td className="px-5 py-4">
                             <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-surface-100 text-surface-700 text-xs font-bold">
-                              {order.itemCount}
+                              {toFaDigits(order.itemCount)}
                             </span>
                           </td>
                           <td className="px-5 py-4 font-bold text-surface-900 whitespace-nowrap">
@@ -337,10 +337,9 @@ export default function ProfilePage() {
                   <PhoneIcon size={15} className="absolute top-1/2 -translate-y-1/2 end-3.5 text-surface-300" />
                   <input
                     type="tel"
-                    value={phone}
+                    value={toFaDigits(phone)}
                     disabled
                     className="input w-full pe-10 bg-surface-50 text-surface-400 cursor-not-allowed"
-                    dir="ltr"
                   />
                 </div>
                 <p className="text-xs text-surface-400 mt-1">شماره موبایل قابل تغییر نیست</p>

@@ -2,6 +2,7 @@
 
 import { useCart } from '@/stores/cart'
 import { ShoppingCartIcon } from '@/components/ui/icons'
+import { toFaDigits } from '@/lib/utils'
 
 export function CartButton() {
   const count = useCart((s) => s.count)
@@ -17,7 +18,7 @@ export function CartButton() {
       <ShoppingCartIcon size={20} />
       {count > 0 && (
         <span className="absolute -top-0.5 -start-0.5 flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-accent-500 text-white text-[10px] font-bold leading-none animate-slide-down">
-          {count > 99 ? '99+' : count}
+          {count > 99 ? '۹۹+' : toFaDigits(count)}
         </span>
       )}
     </button>

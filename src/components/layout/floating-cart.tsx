@@ -4,7 +4,7 @@ import { useEffect } from 'react'
 import Link from 'next/link'
 import { useCart } from '@/stores/cart'
 import type { CartItem } from '@/stores/cart'
-import { formatPrice } from '@/lib/utils'
+import { formatPrice, toFaDigits } from '@/lib/utils'
 import { XIcon, ShoppingCartIcon, ArrowLeftIcon } from '@/components/ui/icons'
 
 // ─── Single cart item row ─────────────────────────────────────────────────────
@@ -46,7 +46,7 @@ function CartItemRow({ item }: { item: CartItem }) {
               aria-label="کاهش تعداد"
             >−</button>
             <span className="w-7 text-center text-xs font-bold text-surface-900 select-none tabular-nums">
-              {item.quantity}
+              {toFaDigits(item.quantity)}
             </span>
             <button
               onClick={() => updateQuantity(item.id, item.quantity + 1)}
@@ -136,7 +136,7 @@ export function FloatingCart() {
                 className="inline-flex items-center justify-center min-w-[22px] h-[22px] px-1 rounded-full text-white text-xs font-bold"
                 style={{ background: '#F97316' }}
               >
-                {count > 99 ? '99+' : count}
+                {count > 99 ? '۹۹+' : toFaDigits(count)}
               </span>
             )}
           </div>
@@ -181,7 +181,7 @@ export function FloatingCart() {
             {/* خلاصه مبالغ */}
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
-                <span className="text-surface-500">جمع کالاها ({count} عدد)</span>
+                <span className="text-surface-500">جمع کالاها ({toFaDigits(count)} عدد)</span>
                 <span className="font-semibold text-surface-900">{formatPrice(subtotal)}</span>
               </div>
               <div className="flex justify-between text-sm">
