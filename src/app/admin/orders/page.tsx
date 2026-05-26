@@ -52,9 +52,10 @@ function OrderBadge({ status }: { status: string }) {
 
 function formatPrice(v: string | number) {
   const n = typeof v === 'string' ? parseInt(v) : v
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
-  if (n >= 1_000)     return `${(n / 1_000).toFixed(0)}K`
-  return n.toLocaleString('fa-IR')
+  const toman = Math.floor(n / 10)                                  // Rial → Toman
+  if (toman >= 1_000_000) return `${(toman / 1_000_000).toFixed(1)}M`
+  if (toman >= 1_000)     return `${(toman / 1_000).toFixed(0)}K`
+  return toman.toLocaleString('fa-IR')
 }
 
 export default function OrdersPage() {
@@ -63,12 +64,16 @@ export default function OrdersPage() {
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState('all')
   const [updatingId, setUpdatingId] = useState<string | null>(null)
+  const [searchInput, setSearchInput] = useState('')
+  const [search, setSearch] = useState('')
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const fetchOrders = useCallback(async (status: string) => {
+  const fetchOrders = useCallback(async (status: string, q?: string) => {
     setLoading(true)
     setError(null)
     try {
       const params = new URLSearchParams({ status, limit: '100' })
+      if (q) params.set('q', q)
       const res = await fetch(`/api/admin/orders?${params}`)
       if (!res.ok) { setError('خطا در دریافت سفارشات'); return }
       setData(await res.json() as ApiResponse)
@@ -76,7 +81,13 @@ export default function OrdersPage() {
     finally { setLoading(false) }
   }, [])
 
-  useEffect(() => { fetchOrders(activeTab) }, [fetchOrders, activeTab])
+  useEffect(() => { fetchOrders(activeTab, search) }, [fetchOrders, activeTab, search])
+
+  const handleSearch = (v: string) => {
+    setSearchInput(v)
+    if (searchTimer.current) clearTimeout(searchTimer.current)
+    searchTimer.current = setTimeout(() => setSearch(v), 400)
+  }
 
   const handleStatusChange = async (id: string, status: string) => {
     setUpdatingId(id)
@@ -85,7 +96,7 @@ export default function OrdersPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status }),
     })
-    await fetchOrders(activeTab)
+    await fetchOrders(activeTab, search)
     setUpdatingId(null)
   }
 
@@ -95,15 +106,28 @@ export default function OrdersPage() {
   return (
     <div className="flex-1 overflow-y-auto">
       <header className="bg-white border-b border-surface-200 px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div>
+        <div className="flex items-center gap-4">
+          <div className="flex-shrink-0">
             <h1 className="text-lg font-black text-surface-900">مدیریت سفارشات</h1>
             <p className="text-xs text-surface-400 mt-0.5">{(counts.all ?? 0).toLocaleString('fa-IR')} سفارش</p>
           </div>
+          {/* جستجو */}
+          <div className="flex-1 max-w-sm relative">
+            <svg viewBox="0 0 20 20" className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-surface-400 pointer-events-none" fill="currentColor">
+              <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
+            </svg>
+            <input
+              type="text"
+              value={searchInput}
+              onChange={(e) => handleSearch(e.target.value)}
+              placeholder="جستجو نام، موبایل یا شناسه..."
+              className="w-full pr-9 pl-3 py-2 text-sm border border-surface-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-300 bg-surface-50 focus:bg-white transition-colors"
+            />
+          </div>
           <button
-            onClick={() => fetchOrders(activeTab)}
+            onClick={() => fetchOrders(activeTab, search)}
             disabled={loading}
-            className="p-2 rounded-xl border border-surface-100 text-surface-400 hover:text-surface-700 hover:bg-surface-50 transition-all"
+            className="ms-auto p-2 rounded-xl border border-surface-100 text-surface-400 hover:text-surface-700 hover:bg-surface-50 transition-all flex-shrink-0"
           >
             <svg viewBox="0 0 20 20" className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} fill="currentColor">
               <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
@@ -131,7 +155,7 @@ export default function OrdersPage() {
           {error ? (
             <div className="py-20 text-center">
               <p className="font-semibold text-red-500">{error}</p>
-              <button onClick={() => fetchOrders(activeTab)} className="btn btn-outline mt-4 text-sm">تلاش مجدد</button>
+              <button onClick={() => fetchOrders(activeTab, search)} className="btn btn-outline mt-4 text-sm">تلاش مجدد</button>
             </div>
           ) : orders.length === 0 && !loading ? (
             <div className="py-20 text-center text-surface-300">
