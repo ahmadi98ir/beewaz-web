@@ -11,7 +11,7 @@ interface OrderItem {
 interface Order {
   id: string; status: string; totalAmount: string; shippingAmount: string
   discountAmount: string; paymentMethod: string | null; trackingCode: string | null
-  customerNote: string | null; adminNote: string | null
+  couponCode: string | null; customerNote: string | null; adminNote: string | null
   shippingAddress: {
     fullName?: string; phone?: string; province?: string; city?: string
     street?: string; alley?: string; plaque?: string; unit?: string; postalCode?: string
@@ -151,7 +151,11 @@ export default function OrderDetailPage() {
               </table>
             )}
             <div className="px-6 py-4 bg-surface-50 border-t border-surface-100 flex justify-end gap-8 text-sm">
-              {order.discountAmount !== '0' && <span className="text-red-600">تخفیف: -{fmt(order.discountAmount)}</span>}
+              {order.discountAmount !== '0' && (
+                <span className="text-red-600">
+                  تخفیف{order.couponCode ? ` (${order.couponCode})` : ''}: -{fmt(order.discountAmount)}
+                </span>
+              )}
               {order.shippingAmount !== '0' && <span className="text-surface-600">ارسال: {fmt(order.shippingAmount)}</span>}
               <span className="font-black text-surface-900">جمع کل: {fmt(order.totalAmount)}</span>
             </div>
