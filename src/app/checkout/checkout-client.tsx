@@ -1,11 +1,12 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import Link from 'next/link'
 import { useCart } from '@/stores/cart'
 import { toEnDigits, toFaDigits, formatPrice } from '@/lib/utils'
+import type { BankCardSettings } from './page'
 
 // لیست استان‌های ایران
 const PROVINCES = [
@@ -20,7 +21,7 @@ function toToman(rial: number) {
   return formatPrice(rial)
 }
 
-type GatewayKey = 'zarinpal' | 'idpay' | 'cash_on_delivery'
+type GatewayKey = 'zarinpal' | 'idpay' | 'cash_on_delivery' | 'card_to_card'
 
 interface AppliedCoupon {
   code: string
@@ -47,7 +48,7 @@ interface OrderResponse {
   error?: string
 }
 
-const GATEWAYS: { key: GatewayKey; label: string; desc: string; icon: React.ReactNode }[] = [
+const BASE_GATEWAYS: { key: GatewayKey; label: string; desc: string; icon: React.ReactNode }[] = [
   {
     key: 'zarinpal',
     label: 'زرین‌پال',
@@ -69,6 +70,16 @@ const GATEWAYS: { key: GatewayKey; label: string; desc: string; icon: React.Reac
     ),
   },
   {
+    key: 'card_to_card',
+    label: 'کارت به کارت',
+    desc: 'واریز به حساب و تأیید توسط ادمین',
+    icon: (
+      <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.75}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+      </svg>
+    ),
+  },
+  {
     key: 'cash_on_delivery',
     label: 'پرداخت در محل',
     desc: 'پرداخت هنگام تحویل کالا',
@@ -80,7 +91,7 @@ const GATEWAYS: { key: GatewayKey; label: string; desc: string; icon: React.Reac
   },
 ]
 
-export default function CheckoutClient() {
+export default function CheckoutClient({ bankCard }: { bankCard: BankCardSettings }) {
   const router = useRouter()
   const params = useSearchParams()
   const { data: session, status } = useSession()
@@ -108,6 +119,11 @@ export default function CheckoutClient() {
 
   // ── روش پرداخت ────────────────────────────────────────────────────────
   const [gateway, setGateway] = useState<GatewayKey>('zarinpal')
+
+  // فیلتر کردن گزینه‌های پرداخت بر اساس تنظیمات
+  const gateways = useMemo(() =>
+    BASE_GATEWAYS.filter(g => g.key !== 'card_to_card' || bankCard.enabled),
+  [bankCard.enabled])
 
   const [error, setError] = useState(
     params.get('error') === 'cancelled' ? 'پرداخت لغو شد' :
@@ -202,8 +218,15 @@ export default function CheckoutClient() {
 
     setLoading(true)
     try {
-      const paymentMethod = gateway === 'cash_on_delivery' ? 'cash_on_delivery' : 'online'
-      const gatewayParam = gateway === 'cash_on_delivery' ? 'zarinpal' : gateway
+      let paymentMethod: string
+      let gatewayParam: string
+      if (gateway === 'cash_on_delivery') {
+        paymentMethod = 'cash_on_delivery'; gatewayParam = 'zarinpal'
+      } else if (gateway === 'card_to_card') {
+        paymentMethod = 'card_to_card'; gatewayParam = 'card_to_card'
+      } else {
+        paymentMethod = 'online'; gatewayParam = gateway
+      }
 
       const res = await fetch('/api/orders', {
         method: 'POST',
@@ -237,7 +260,7 @@ export default function CheckoutClient() {
 
       clearCart()
 
-      if (gateway === 'cash_on_delivery') {
+      if (gateway === 'cash_on_delivery' || gateway === 'card_to_card') {
         router.push(`/orders/${data.orderId}/confirmation`)
       } else if (gateway === 'idpay') {
         window.location.href = `/api/idpay/request?orderId=${data.orderId}`
@@ -476,7 +499,7 @@ export default function CheckoutClient() {
             <div className="bg-white rounded-2xl border border-surface-200 p-6 shadow-sm">
               <h2 className="text-base font-bold text-surface-800 mb-4">روش پرداخت</h2>
               <div className="space-y-2.5">
-                {GATEWAYS.map((g) => (
+                {gateways.map((g) => (
                   <label
                     key={g.key}
                     className={[
@@ -536,10 +559,10 @@ export default function CheckoutClient() {
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                   </svg>
-                  {gateway === 'cash_on_delivery' ? 'در حال ثبت سفارش...' : 'در حال انتقال به درگاه...'}
+                  {(gateway === 'cash_on_delivery' || gateway === 'card_to_card') ? 'در حال ثبت سفارش...' : 'در حال انتقال به درگاه...'}
                 </span>
               ) : (
-                gateway === 'cash_on_delivery'
+                (gateway === 'cash_on_delivery' || gateway === 'card_to_card')
                   ? `ثبت سفارش — ${toToman(total)}`
                   : `پرداخت ${toToman(total)}`
               )}

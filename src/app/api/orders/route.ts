@@ -157,8 +157,8 @@ export async function POST(req: Request) {
       .where(eq(coupons.id, appliedCoupon.id))
   }
 
-  // کاهش موجودی فقط برای پرداخت در محل (چون پرداخت آنلاین بعد از تأیید کاهش می‌یابد)
-  if (paymentMethod === 'cash_on_delivery') {
+  // کاهش موجودی برای پرداخت غیرآنلاین (آنلاین بعد از تأیید پرداخت کاهش می‌یابد)
+  if (paymentMethod === 'cash_on_delivery' || paymentMethod === 'card_to_card') {
     for (const item of orderItemsData) {
       await db.update(products)
         .set({ stock: sql`GREATEST(${products.stock} - ${item.quantity}, 0)` })
