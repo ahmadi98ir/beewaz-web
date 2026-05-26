@@ -2,9 +2,9 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { orders, orderItems, products, coupons, couponUsages } from '@/lib/db/schema'
+import { orders, orderItems, products, coupons, couponUsages, siteSettings } from '@/lib/db/schema'
 import { eq, inArray, and, count, sql } from 'drizzle-orm'
-import { sendVerifySms, SMS_TEMPLATES } from '@/lib/sms'
+import { sendVerifySms, sendBulkSms, SMS_TEMPLATES } from '@/lib/sms'
 
 const addressSchema = z.object({
   fullName: z.string().min(2),
@@ -103,7 +103,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'ظرفیت این کد تخفیف پر شده است' }, { status: 400 })
     }
     if (coupon.minOrderAmount && subtotal < Number(coupon.minOrderAmount)) {
-      return NextResponse.json({ error: `حداقل مبلغ سفارش برای این کوپن ${Number(coupon.minOrderAmount).toLocaleString('fa-IR')} ریال است` }, { status: 400 })
+      return NextResponse.json({ error: `حداقل مبلغ سفارش برای این کوپن ${Math.floor(Number(coupon.minOrderAmount) / 10).toLocaleString('fa-IR')} تومان است` }, { status: 400 })
     }
     if (coupon.perUserLimit && coupon.perUserLimit > 0) {
       const ucRows = await db.select({ count: count() }).from(couponUsages)
@@ -166,11 +166,29 @@ export async function POST(req: Request) {
     }
   }
 
-  // پیامک تایید (fire-and-forget)
+  const shortId = order.id.slice(0, 8).toUpperCase()
+  const tomanStr = Math.floor(totalAmount / 10).toLocaleString('fa-IR')
+
+  // پیامک تایید به مشتری (fire-and-forget)
   void sendVerifySms(address.phone, SMS_TEMPLATES.ORDER_CONFIRM, {
-    ORDERID: order.id.slice(0, 8).toUpperCase(),
-    PRICE: totalAmount.toLocaleString('fa-IR'),
+    ORDERID: shortId,
+    PRICE: tomanStr,
   })
+
+  // پیامک اطلاع‌رسانی به ادمین (اگر شماره ثبت شده باشد)
+  void (async () => {
+    try {
+      const [setting] = await db.select({ value: siteSettings.value })
+        .from(siteSettings)
+        .where(eq(siteSettings.key, 'admin_order_notify_phone'))
+        .limit(1)
+      const adminPhone = setting?.value?.trim()
+      if (adminPhone && /^09\d{9}$/.test(adminPhone)) {
+        await sendBulkSms(adminPhone,
+          `بیواز: سفارش جدید #${shortId} — ${tomanStr} تومان — ${address.fullName}`)
+      }
+    } catch { /* نادیده گرفتن خطای اطلاع‌رسانی ادمین */ }
+  })()
 
   return NextResponse.json({ orderId: order.id, totalAmount, gateway })
 }

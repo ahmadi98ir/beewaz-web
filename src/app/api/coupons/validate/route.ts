@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
   // بررسی حداقل مبلغ سفارش
   if (coupon.minOrderAmount && orderAmount < Number(coupon.minOrderAmount)) {
     return NextResponse.json({
-      error: `حداقل مبلغ سفارش برای این کوپن ${Number(coupon.minOrderAmount).toLocaleString('fa-IR')} ریال است`,
+      error: `حداقل مبلغ سفارش برای این کوپن ${Math.floor(Number(coupon.minOrderAmount) / 10).toLocaleString('fa-IR')} تومان است`,
     }, { status: 400 })
   }
 
