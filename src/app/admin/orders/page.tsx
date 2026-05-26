@@ -60,18 +60,20 @@ function formatPrice(v: string | number) {
 export default function OrdersPage() {
   const [data, setData] = useState<ApiResponse | null>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState('all')
   const [updatingId, setUpdatingId] = useState<string | null>(null)
 
   const fetchOrders = useCallback(async (status: string) => {
     setLoading(true)
+    setError(null)
     try {
       const params = new URLSearchParams({ status, limit: '100' })
       const res = await fetch(`/api/admin/orders?${params}`)
+      if (!res.ok) { setError('خطا در دریافت سفارشات'); return }
       setData(await res.json() as ApiResponse)
-    } finally {
-      setLoading(false)
-    }
+    } catch { setError('خطا در ارتباط با سرور') }
+    finally { setLoading(false) }
   }, [])
 
   useEffect(() => { fetchOrders(activeTab) }, [fetchOrders, activeTab])
@@ -126,7 +128,12 @@ export default function OrdersPage() {
 
         {/* Table */}
         <div className="bg-white rounded-2xl border border-surface-200 overflow-hidden">
-          {orders.length === 0 && !loading ? (
+          {error ? (
+            <div className="py-20 text-center">
+              <p className="font-semibold text-red-500">{error}</p>
+              <button onClick={() => fetchOrders(activeTab)} className="btn btn-outline mt-4 text-sm">تلاش مجدد</button>
+            </div>
+          ) : orders.length === 0 && !loading ? (
             <div className="py-20 text-center text-surface-300">
               <p className="font-semibold text-surface-400">سفارشی یافت نشد</p>
             </div>
