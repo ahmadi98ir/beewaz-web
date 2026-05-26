@@ -77,7 +77,7 @@ export default async function ConfirmationPage({ params }: { params: Promise<{ i
               <h2 className="text-base font-bold text-surface-800 mb-2">آدرس ارسال</h2>
               <p className="text-sm text-surface-600 leading-relaxed">
                 {addr.fullName} — {addr.phone}<br />
-                {addr.province}، {addr.city}، {addr.address}<br />
+                {addr.province}، {addr.city}، {addr.street}{addr.alley ? `، ${addr.alley}` : ''}، پلاک {addr.plaque}{addr.unit ? `، واحد ${addr.unit}` : ''}<br />
                 کد پستی: {addr.postalCode}
               </p>
             </div>

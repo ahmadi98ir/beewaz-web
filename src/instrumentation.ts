@@ -118,6 +118,13 @@ export async function register() {
           "created_at" timestamp with time zone DEFAULT now() NOT NULL,
           "updated_at" timestamp with time zone DEFAULT now() NOT NULL
         );
+        CREATE TABLE IF NOT EXISTS "product_specs" (
+          "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+          "product_id" uuid NOT NULL REFERENCES "products"("id") ON DELETE CASCADE,
+          "key_fa" varchar(100) NOT NULL,
+          "value_fa" varchar(255) NOT NULL,
+          "sort_order" integer DEFAULT 0 NOT NULL
+        );
         CREATE TABLE IF NOT EXISTS "banners" (
           "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
           "name" varchar(100) NOT NULL,

@@ -37,9 +37,12 @@ export const orders = pgTable('orders', {
   shippingAddress: jsonb('shipping_address').$type<{
     fullName?: string
     phone?: string
-    city?: string
     province?: string
-    address?: string
+    city?: string
+    street?: string
+    alley?: string
+    plaque?: string
+    unit?: string
     postalCode?: string
   }>(),
 

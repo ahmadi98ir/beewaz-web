@@ -99,7 +99,9 @@ export function ProductForm({ initial, mode }: Props) {
         ...form,
         nameEn: form.nameEn || null,
         descriptionFa: form.descriptionFa || null,
-        comparePrice: form.comparePrice || null,
+        // Form shows/accepts Toman; DB stores Rial → multiply by 10
+        price: form.price * 10,
+        comparePrice: form.comparePrice ? form.comparePrice * 10 : null,
         categoryId: form.categoryId || null,
         metaTitle: form.metaTitle || null,
         metaDesc: form.metaDesc || null,

@@ -31,8 +31,9 @@ export default function ProductDetailPage() {
           slug:          p.slug,
           sku:           p.sku ?? '',
           descriptionFa: p.descriptionFa ?? '',
-          price:         Number(p.price ?? 0),
-          comparePrice:  p.comparePrice ? Number(p.comparePrice) : null,
+          // DB stores Rial; form displays/accepts Toman → divide by 10
+          price:         Math.round(Number(p.price ?? 0) / 10),
+          comparePrice:  p.comparePrice ? Math.round(Number(p.comparePrice) / 10) : null,
           stock:         p.stock ?? 0,
           status:        (p.status as ProductFormData['status']) ?? 'draft',
           isFeatured:    p.isFeatured ?? false,

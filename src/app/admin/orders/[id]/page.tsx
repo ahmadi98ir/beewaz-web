@@ -12,7 +12,10 @@ interface Order {
   id: string; status: string; totalAmount: string; shippingAmount: string
   discountAmount: string; paymentMethod: string | null; trackingCode: string | null
   customerNote: string | null; adminNote: string | null
-  shippingAddress: { fullName?: string; phone?: string; city?: string; province?: string; address?: string; postalCode?: string } | null
+  shippingAddress: {
+    fullName?: string; phone?: string; province?: string; city?: string
+    street?: string; alley?: string; plaque?: string; unit?: string; postalCode?: string
+  } | null
   createdAt: string; paidAt: string | null; shippedAt: string | null; deliveredAt: string | null
 }
 
@@ -187,7 +190,10 @@ export default function OrderDetailPage() {
                 ['تلفن', order.shippingAddress?.phone],
                 ['استان', order.shippingAddress?.province],
                 ['شهر', order.shippingAddress?.city],
-                ['آدرس', order.shippingAddress?.address],
+                ['خیابان', order.shippingAddress?.street],
+                ['کوچه', order.shippingAddress?.alley],
+                ['پلاک', order.shippingAddress?.plaque],
+                ['واحد', order.shippingAddress?.unit],
                 ['کد پستی', order.shippingAddress?.postalCode],
               ].map(([k,v]) => v ? (
                 <div key={k} className="flex justify-between gap-2">
