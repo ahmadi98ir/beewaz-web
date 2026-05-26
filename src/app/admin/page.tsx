@@ -2,8 +2,8 @@ import Link from 'next/link'
 import { StatsCard } from '@/components/admin/stats-card'
 import { formatPrice } from '@/lib/utils'
 import { db } from '@/lib/db'
-import { orders, leads, pageViews } from '@/lib/db/schema'
-import { eq, desc, gte, sql } from 'drizzle-orm'
+import { orders, leads, pageViews, products } from '@/lib/db/schema'
+import { eq, desc, gte, sql, lte, isNull } from 'drizzle-orm'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = { title: 'داشبورد' }
@@ -60,6 +60,11 @@ export default async function AdminDashboard() {
   let topPages: { path: string; views: number }[] = []
   let deviceBreakdown: { device: string | null; count: number }[] = []
 
+  // Products
+  let totalActiveProducts = 0
+  let lowStockProducts = 0
+  let recentProducts: { id: string; nameFa: string; stock: number; status: string; price: number }[] = []
+
   try {
     const [ordersResult, leadsResult, statsResult] = await Promise.all([
       db
@@ -95,6 +100,29 @@ export default async function AdminDashboard() {
         })
         .from(orders),
     ])
+
+    // Products
+    try {
+      const [productStats, recentProductsResult] = await Promise.all([
+        db
+          .select({
+            active:   sql<number>`count(case when ${products.status} = 'active' then 1 end)::int`,
+            lowStock: sql<number>`count(case when ${products.stock} <= 5 and ${products.status} = 'active' then 1 end)::int`,
+          })
+          .from(products)
+          .where(isNull(products.deletedAt)),
+
+        db
+          .select({ id: products.id, nameFa: products.nameFa, stock: products.stock, status: products.status, price: products.price })
+          .from(products)
+          .where(isNull(products.deletedAt))
+          .orderBy(desc(products.createdAt))
+          .limit(5),
+      ])
+      totalActiveProducts = productStats[0]?.active ?? 0
+      lowStockProducts    = productStats[0]?.lowStock ?? 0
+      recentProducts      = recentProductsResult
+    } catch { /* products table might not exist */ }
 
     // Analytics — ۷ روز گذشته (جداگانه تا خطا کل بلاک را خراب نکند)
     try {
@@ -340,19 +368,23 @@ export default async function AdminDashboard() {
                 <table className="w-full text-sm">
                   <thead className="bg-surface-50 text-surface-500 text-xs">
                     <tr>
-                      {['شناسه', 'مشتری', 'شهر', 'مبلغ', 'وضعیت', 'تاریخ'].map((h) => (
+                      {['شناسه', 'مشتری', 'شهر', 'مبلغ', 'وضعیت', 'تاریخ', ''].map((h) => (
                         <th key={h} className="text-start px-5 py-3 font-semibold">{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-surface-100">
                     {recentOrders.map((order) => (
-                      <tr key={order.id} className="hover:bg-surface-50 transition-colors">
-                        <td className="px-5 py-3.5 font-mono text-xs text-surface-500">
-                          {order.id.slice(0, 8).toUpperCase()}
+                      <tr key={order.id} className="hover:bg-brand-50/40 transition-colors cursor-pointer group">
+                        <td className="px-5 py-3.5">
+                          <Link href={`/admin/orders/${order.id}`} className="font-mono text-xs text-brand-600 hover:underline">
+                            {order.id.slice(0, 8).toUpperCase()}
+                          </Link>
                         </td>
                         <td className="px-5 py-3.5 font-semibold text-surface-900">
-                          {(order.shippingAddress as { fullName?: string } | null)?.fullName ?? '—'}
+                          <Link href={`/admin/orders/${order.id}`} className="hover:text-brand-600 transition-colors">
+                            {(order.shippingAddress as { fullName?: string } | null)?.fullName ?? '—'}
+                          </Link>
                         </td>
                         <td className="px-5 py-3.5 text-surface-500">
                           {(order.shippingAddress as { city?: string } | null)?.city ?? '—'}
@@ -362,6 +394,11 @@ export default async function AdminDashboard() {
                         <td className="px-5 py-3.5 text-surface-400 text-xs">
                           {new Intl.DateTimeFormat('fa-IR', { month: 'short', day: 'numeric' }).format(new Date(order.createdAt))}
                         </td>
+                        <td className="px-5 py-3.5">
+                          <Link href={`/admin/orders/${order.id}`} className="text-xs text-brand-600 opacity-0 group-hover:opacity-100 transition-opacity font-semibold hover:underline">
+                            بررسی ←
+                          </Link>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -370,6 +407,90 @@ export default async function AdminDashboard() {
             )}
           </div>
         </div>
+
+        {/* ── Products Section ──────────────────────────────────────── */}
+        <div className="bg-white rounded-2xl border border-surface-200 overflow-hidden">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-surface-100">
+            <div className="flex items-center gap-3">
+              <h3 className="font-bold text-surface-900">محصولات</h3>
+              {lowStockProducts > 0 && (
+                <span className="inline-flex items-center gap-1 text-xs font-semibold text-red-600 bg-red-50 border border-red-200 px-2 py-0.5 rounded-full">
+                  <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                  {lowStockProducts} کم‌موجود
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-surface-400">{totalActiveProducts} محصول فعال</span>
+              <Link href="/admin/products" className="text-xs font-semibold text-brand-600 hover:text-brand-700 transition-colors">
+                مشاهده همه
+              </Link>
+            </div>
+          </div>
+
+          {recentProducts.length === 0 ? (
+            <div className="py-10 text-center">
+              <p className="text-sm text-surface-400 mb-3">هنوز محصولی ثبت نشده</p>
+              <Link href="/admin/products/new" className="btn btn-accent text-sm px-5 py-2">
+                افزودن اولین محصول
+              </Link>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-surface-50 text-surface-500 text-xs">
+                  <tr>
+                    {['محصول', 'قیمت', 'موجودی', 'وضعیت', ''].map((h) => (
+                      <th key={h} className="text-start px-5 py-3 font-semibold">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-surface-100">
+                  {recentProducts.map((p) => {
+                    const stockCls = p.stock === 0
+                      ? 'text-red-600 font-bold'
+                      : p.stock <= 5
+                        ? 'text-amber-600 font-bold'
+                        : 'text-surface-700'
+                    const statusMap: Record<string, { label: string; cls: string }> = {
+                      active:       { label: 'فعال',       cls: 'bg-green-50 text-green-700 border-green-200' },
+                      draft:        { label: 'پیش‌نویس',  cls: 'bg-surface-100 text-surface-600 border-surface-200' },
+                      archived:     { label: 'آرشیو',     cls: 'bg-amber-50 text-amber-700 border-amber-200' },
+                      out_of_stock: { label: 'ناموجود',   cls: 'bg-red-50 text-red-600 border-red-200' },
+                    }
+                    const st = statusMap[p.status] ?? { label: p.status, cls: 'bg-surface-100 text-surface-600 border-surface-200' }
+                    return (
+                      <tr key={p.id} className="hover:bg-brand-50/40 transition-colors cursor-pointer group">
+                        <td className="px-5 py-3.5">
+                          <Link href={`/admin/products/${p.id}`} className="font-semibold text-surface-900 hover:text-brand-600 transition-colors line-clamp-1">
+                            {p.nameFa}
+                          </Link>
+                        </td>
+                        <td className="px-5 py-3.5 font-bold text-surface-900">
+                          {formatPrice(p.price)}
+                        </td>
+                        <td className="px-5 py-3.5">
+                          <span className={stockCls}>{p.stock.toLocaleString('fa-IR')}</span>
+                          {p.stock === 0 && <span className="mr-1 text-xs text-red-500">ناموجود</span>}
+                          {p.stock > 0 && p.stock <= 5 && <span className="mr-1 text-xs text-amber-500">کم</span>}
+                        </td>
+                        <td className="px-5 py-3.5">
+                          <span className={`inline-flex px-2.5 py-1 rounded-lg text-xs font-semibold border ${st.cls}`}>{st.label}</span>
+                        </td>
+                        <td className="px-5 py-3.5">
+                          <Link href={`/admin/products/${p.id}`} className="text-xs text-brand-600 opacity-0 group-hover:opacity-100 transition-opacity font-semibold hover:underline">
+                            ویرایش ←
+                          </Link>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
       </div>
     </div>
   )
