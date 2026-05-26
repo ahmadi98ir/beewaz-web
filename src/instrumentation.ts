@@ -165,6 +165,19 @@ export async function register() {
       `)
       console.log('[migration] ✅ all tables ensured')
 
+      // seed تنظیمات پرداخت کارت به کارت (اگر وجود نداشته باشند)
+      try {
+        await sql.unsafe(`
+          INSERT INTO "site_settings" ("key","value","type","label","group","hint","is_editable","is_required")
+          VALUES
+            ('bank_card_enabled','false','boolean','فعال‌سازی پرداخت کارت به کارت','commerce',NULL,true,false),
+            ('bank_card_number','','text','شماره کارت بانکی','commerce','16 رقم بدون فاصله',true,false),
+            ('bank_card_holder','','text','نام صاحب حساب','commerce',NULL,true,false),
+            ('bank_card_bank','','text','نام بانک','commerce','مثال: بانک ملت',true,false)
+          ON CONFLICT ("key") DO NOTHING;
+        `)
+      } catch { /* جدول site_settings هنوز ایجاد نشده */ }
+
       await sql.end()
     } catch (err) {
       console.error('[migration] ❌ Failed:', err)
