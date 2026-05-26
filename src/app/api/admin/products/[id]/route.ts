@@ -23,7 +23,28 @@ export async function GET(req: NextRequest, { params }: Params) {
         .where(eq(productVariants.productId, id)).orderBy(productVariants.createdAt),
     ])
 
-    return NextResponse.json({ product, images, variants })
+    return NextResponse.json({
+      product: {
+        id: product.id,
+        slug: product.slug,
+        name: product.nameFa,
+        modelCode: product.sku,
+        sku: product.sku,
+        shortDescription: product.descriptionFa,
+        description: product.descriptionFa,
+        status: product.status,
+        basePrice: String(product.price ?? 0),
+        compareAtPrice: product.comparePrice ? String(product.comparePrice) : null,
+        isFeatured: product.isFeatured,
+        warrantyMonths: 18,
+        metaTitle: product.metaTitle,
+        metaDescription: product.metaDesc,
+        highlights: [],
+        categoryId: product.categoryId,
+      },
+      images,
+      variants,
+    })
   } catch (err) {
     console.error('[product GET]', err)
     return NextResponse.json({ error: 'خطا' }, { status: 500 })
@@ -52,7 +73,14 @@ export async function PUT(req: NextRequest, { params }: Params) {
     if (typeof body.isFeatured === 'boolean')   update.isFeatured   = body.isFeatured as boolean
     if (typeof body.categoryId === 'string')    update.categoryId   = body.categoryId as string
     if (typeof body.metaTitle === 'string')     update.metaTitle    = body.metaTitle
-    if (typeof body.metaDesc === 'string')      update.metaDesc     = body.metaDesc
+    if (typeof body.metaDesc === 'string')         update.metaDesc     = body.metaDesc
+    if (typeof body.metaDescription === 'string') update.metaDesc     = body.metaDescription as string
+    if (typeof body.description === 'string')     update.descriptionFa = body.description as string
+    if (typeof body.shortDescription === 'string') update.descriptionFa = body.shortDescription as string
+    if (typeof body.name === 'string')            update.nameFa        = body.name as string
+    if (typeof body.modelCode === 'string')       update.sku           = body.modelCode as string
+    if (typeof body.basePrice === 'string')       update.price         = parseInt(body.basePrice as string)
+    if (typeof body.compareAtPrice === 'string')  update.comparePrice  = parseInt(body.compareAtPrice as string)
 
     const [updated] = await db.update(products).set(update).where(eq(products.id, id)).returning()
     return NextResponse.json({ product: updated })
