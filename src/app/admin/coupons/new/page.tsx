@@ -44,7 +44,8 @@ export default function NewCouponPage() {
       const body: Record<string, unknown> = {
         code: form.code.trim().toUpperCase(),
         type: form.type,
-        value: form.value,
+        // درصدی: مقدار بدون تبدیل | مقداری: تومان → ریال (×۱۰)
+        value: form.type === 'fixed' ? Number(form.value) * 10 : form.value,
         active: form.active,
         perUserLimit: form.perUserLimit ? Number(form.perUserLimit) : 1,
       }

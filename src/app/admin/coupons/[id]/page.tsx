@@ -64,7 +64,8 @@ export default function EditCouponPage({ params }: { params: Promise<{ id: strin
         setForm({
           code: c.code,
           type: c.type,
-          value: c.value,
+          // درصدی: بدون تبدیل | مقداری: DB به ریال → نمایش به تومان (÷۱۰)
+          value: c.type === 'fixed' ? String(Math.floor(Number(c.value) / 10)) : c.value,
           // DB stores rial, display toman
           minOrderAmount: c.minOrderAmount ? String(Math.floor(Number(c.minOrderAmount) / 10)) : '',
           maxDiscountAmount: c.maxDiscountAmount ? String(Math.floor(Number(c.maxDiscountAmount) / 10)) : '',
@@ -92,7 +93,8 @@ export default function EditCouponPage({ params }: { params: Promise<{ id: strin
       const body: Record<string, unknown> = {
         code: form.code.trim().toUpperCase(),
         type: form.type,
-        value: form.value,
+        // درصدی: بدون تبدیل | مقداری: تومان → ریال (×۱۰)
+        value: form.type === 'fixed' ? Number(form.value) * 10 : form.value,
         active: form.active,
         perUserLimit: form.perUserLimit ? Number(form.perUserLimit) : 1,
         minOrderAmount: form.minOrderAmount ? Number(form.minOrderAmount) * 10 : null,
