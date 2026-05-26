@@ -35,7 +35,7 @@ export async function POST(req: NextRequest, { params }: Params) {
 
   const [created] = await db
     .insert(leadNotes)
-    .values({ leadId: id, note: note.trim(), createdBy: auth.userId ?? undefined })
+    .values({ leadId: id, note: note.trim() })
     .returning()
 
   return NextResponse.json({ note: created }, { status: 201 })

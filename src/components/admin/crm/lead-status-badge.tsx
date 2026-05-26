@@ -6,10 +6,13 @@ interface LeadStatusBadgeProps {
 }
 
 const STATUS_CONFIG: Record<LeadStatus, { label: string; cls: string; dot: string }> = {
-  new:       { label: 'جدید',        cls: 'bg-blue-50 text-blue-700 border-blue-200',   dot: 'bg-blue-400' },
-  contacted: { label: 'تماس گرفته', cls: 'bg-amber-50 text-amber-700 border-amber-200', dot: 'bg-amber-400' },
-  converted: { label: 'تبدیل شده',  cls: 'bg-green-50 text-green-700 border-green-200', dot: 'bg-green-400' },
-  lost:      { label: 'از دست رفته', cls: 'bg-red-50 text-red-600 border-red-200',       dot: 'bg-red-400' },
+  new:           { label: 'جدید',           cls: 'bg-blue-50 text-blue-700 border-blue-200',       dot: 'bg-blue-400' },
+  contacted:     { label: 'تماس گرفته',    cls: 'bg-amber-50 text-amber-700 border-amber-200',     dot: 'bg-amber-400' },
+  qualified:     { label: 'واجد شرایط',    cls: 'bg-sky-50 text-sky-700 border-sky-200',           dot: 'bg-sky-400' },
+  proposal_sent: { label: 'پیشنهاد ارسال', cls: 'bg-violet-50 text-violet-700 border-violet-200',  dot: 'bg-violet-400' },
+  won:           { label: 'موفق',           cls: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-400' },
+  converted:     { label: 'تبدیل شده',     cls: 'bg-green-50 text-green-700 border-green-200',     dot: 'bg-green-400' },
+  lost:          { label: 'از دست رفته',   cls: 'bg-red-50 text-red-600 border-red-200',           dot: 'bg-red-400' },
 }
 
 export function LeadStatusBadge({ status, size = 'md' }: LeadStatusBadgeProps) {

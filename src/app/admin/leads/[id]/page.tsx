@@ -728,14 +728,14 @@ export default function LeadDetailPage() {
                         )
                       }
                       const act = item.data
-                      const ic = ACTIVITY_ICONS[act.type] ?? ACTIVITY_ICONS.default
+                      const ic = ACTIVITY_ICONS[act.type] ?? { icon: '🔹', cls: 'bg-surface-50 border-surface-200' }
                       const actLabels: Record<string, string> = {
                         call: 'تماس تلفنی', email: 'ایمیل', meeting: 'جلسه', sms: 'پیامک', note: 'سایر',
                       }
                       return (
                         <div key={`a-${act.id}`} className="flex gap-3">
                           <div className={`flex-shrink-0 w-8 h-8 rounded-xl border flex items-center justify-center text-sm ${ic.cls}`}>
-                            {ACTIVITY_ICONS[act.type]?.icon ?? '🔹'}
+                            {ic.icon}
                           </div>
                           <div className={`flex-1 border rounded-xl p-3 ${ic.cls}`}>
                             <div className="flex items-center gap-2 mb-1">

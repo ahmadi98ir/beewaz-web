@@ -188,7 +188,9 @@ export default function PageEditorPage() {
     setBlocks((prev) => {
       const next = [...prev]
       const swap = dir === 'up' ? idx - 1 : idx + 1
-      ;[next[idx], next[swap]] = [next[swap], next[idx]]
+      const tmp = next[idx] as Block
+      next[idx] = next[swap] as Block
+      next[swap] = tmp
       return next
     })
   }
