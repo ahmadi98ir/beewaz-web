@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { SearchIcon } from '@/components/ui/icons'
 
 type ArticleCategory = 'blog' | 'knowledge_base'
@@ -87,10 +88,10 @@ export default function AdminArticlesPage() {
           <h1 className="text-lg font-black text-surface-900">مدیریت مقالات</h1>
           <p className="text-xs text-surface-400 mt-0.5">{articles.length} مقاله ثبت شده</p>
         </div>
-        <button className="btn btn-primary py-2.5 px-4 text-sm gap-2" disabled>
+        <Link href="/admin/articles/new" className="btn btn-primary py-2.5 px-4 text-sm gap-2 flex items-center">
           <span className="text-lg leading-none">+</span>
           مقاله جدید
-        </button>
+        </Link>
       </header>
 
       <div className="p-6">
@@ -170,9 +171,12 @@ export default function AdminArticlesPage() {
                           </td>
                           <td className="px-5 py-4">
                             <div className="flex items-center gap-1">
-                              <button className="text-xs font-semibold text-brand-600 hover:text-brand-700 px-3 py-1.5 rounded-lg hover:bg-brand-50 transition-colors">
+                              <Link
+                                href={`/admin/articles/${article.id}`}
+                                className="text-xs font-semibold text-brand-600 hover:text-brand-700 px-3 py-1.5 rounded-lg hover:bg-brand-50 transition-colors"
+                              >
                                 ویرایش
-                              </button>
+                              </Link>
                               <button
                                 onClick={() => deleteArticle(article.id)}
                                 className="text-xs text-red-500 hover:text-red-700 px-3 py-1.5 rounded-lg hover:bg-red-50 transition-colors"

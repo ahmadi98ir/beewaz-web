@@ -35,7 +35,7 @@ export async function register() {
       await migrate(db, { migrationsFolder })
       console.log('[migration] ✅ DB migrations applied —', migrationsFolder)
 
-      // safety-net: اگر drizzle migration tracker اشتباه داشت، مستقیم جدول رو می‌سازیم
+      // safety-net: جداول ضروری را مستقیم می‌سازیم (در صورت خطای migration tracker)
       await sql.unsafe(`
         CREATE TABLE IF NOT EXISTS "phone_otps" (
           "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
@@ -44,9 +44,68 @@ export async function register() {
           "expires_at" timestamp with time zone NOT NULL,
           "used_at" timestamp with time zone,
           "created_at" timestamp with time zone DEFAULT now() NOT NULL
-        )
+        );
+        ALTER TYPE "public"."lead_status" ADD VALUE IF NOT EXISTS 'qualified';
+        ALTER TYPE "public"."lead_status" ADD VALUE IF NOT EXISTS 'proposal_sent';
+        ALTER TYPE "public"."lead_status" ADD VALUE IF NOT EXISTS 'won';
+        CREATE TABLE IF NOT EXISTS "lead_notes" (
+          "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+          "lead_id" uuid NOT NULL REFERENCES "leads"("id") ON DELETE CASCADE,
+          "note" text NOT NULL,
+          "created_by" uuid REFERENCES "users"("id") ON DELETE SET NULL,
+          "created_at" timestamp with time zone DEFAULT now() NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS "lead_activities" (
+          "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+          "lead_id" uuid NOT NULL REFERENCES "leads"("id") ON DELETE CASCADE,
+          "type" varchar(32) NOT NULL,
+          "description" text NOT NULL,
+          "metadata" jsonb DEFAULT '{}'::jsonb,
+          "created_by" uuid REFERENCES "users"("id") ON DELETE SET NULL,
+          "created_at" timestamp with time zone DEFAULT now() NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS "follow_ups" (
+          "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+          "lead_id" uuid REFERENCES "leads"("id") ON DELETE CASCADE,
+          "user_id" uuid REFERENCES "users"("id") ON DELETE CASCADE,
+          "scheduled_at" timestamp with time zone NOT NULL,
+          "note" text,
+          "done_at" timestamp with time zone,
+          "created_at" timestamp with time zone DEFAULT now() NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS "customer_notes" (
+          "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+          "user_id" uuid NOT NULL REFERENCES "users"("id") ON DELETE CASCADE,
+          "note" text NOT NULL,
+          "created_by" uuid REFERENCES "users"("id") ON DELETE SET NULL,
+          "created_at" timestamp with time zone DEFAULT now() NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS "pages" (
+          "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+          "slug" varchar(200) UNIQUE NOT NULL,
+          "title_fa" varchar(300) NOT NULL,
+          "status" varchar(16) DEFAULT 'draft' NOT NULL,
+          "blocks" jsonb DEFAULT '[]'::jsonb NOT NULL,
+          "meta_title" text,
+          "meta_desc" text,
+          "og_image" text,
+          "published_at" timestamp with time zone,
+          "created_at" timestamp with time zone DEFAULT now() NOT NULL,
+          "updated_at" timestamp with time zone DEFAULT now() NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS "banners" (
+          "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+          "name" varchar(100) NOT NULL,
+          "image" text NOT NULL,
+          "link" text,
+          "target" varchar(10) DEFAULT '_self' NOT NULL,
+          "position" varchar(64) DEFAULT 'home_hero' NOT NULL,
+          "order_idx" integer DEFAULT 0 NOT NULL,
+          "active" boolean DEFAULT true NOT NULL,
+          "created_at" timestamp with time zone DEFAULT now() NOT NULL
+        );
       `)
-      console.log('[migration] ✅ phone_otps table ensured')
+      console.log('[migration] ✅ all tables ensured')
 
       await sql.end()
     } catch (err) {

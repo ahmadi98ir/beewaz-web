@@ -48,3 +48,21 @@ export {
   type PageContent, type NewPageContent,
   type PageView, type NewPageView,
 } from './cms'
+
+// ─── CMS Pages + Banners ─────────────────────────────────────────────────────
+export {
+  pages, banners,
+  type Page, type NewPage,
+  type Banner, type NewBanner,
+  type Block, type BlockType,
+} from './pages'
+
+// ─── CRM Extended ────────────────────────────────────────────────────────────
+export {
+  leadNotes, leadActivities, followUps, customerNotes,
+  leadNotesRelations, leadActivitiesRelations, followUpsRelations, customerNotesRelations,
+  type LeadNote, type NewLeadNote,
+  type LeadActivity, type NewLeadActivity,
+  type FollowUp, type NewFollowUp,
+  type CustomerNote, type NewCustomerNote,
+} from './crm'
