@@ -43,8 +43,6 @@ jobs:
             ${{ env.IMAGE }}:${{ github.sha }}
           build-args: |
             NEXT_PUBLIC_APP_URL=https://bz360.ir
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
 
       # build-push-action فقط push می‌کند؛ برای docker save باید pull کنیم
       - name: Pull image to local daemon
