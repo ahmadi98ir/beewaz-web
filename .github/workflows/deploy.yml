@@ -49,9 +49,17 @@ jobs:
           sudo apt-get update && sudo apt-get install -y openvpn
           echo "${{ secrets.OPENVPN_CONFIG }}" > /tmp/vpn.conf
           sudo openvpn --config /tmp/vpn.conf --daemon --log /tmp/vpn.log
-          sleep 15
-          ip addr show tun0 || echo "tun0 not up"
-          sudo ip route add 78.157.51.14/32 dev tun0 || true
+          sleep 30
+          echo "=== VPN Log ==="
+          cat /tmp/vpn.log
+          echo "=== tun0 status ==="
+          ip addr show tun0 || true
+          if ip link show tun0 > /dev/null 2>&1; then
+            echo "VPN connected!"
+            sudo ip route add 78.157.51.14/32 dev tun0 || true
+          else
+            echo "WARNING: VPN not connected, trying without VPN"
+          fi
 
       - name: Stream image to server in chunks
         env:
