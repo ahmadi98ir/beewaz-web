@@ -49,16 +49,15 @@ jobs:
           sudo apt-get update && sudo apt-get install -y openvpn
           echo "${{ secrets.OPENVPN_CONFIG }}" > /tmp/vpn.conf
           sudo openvpn --config /tmp/vpn.conf --daemon --log /tmp/vpn.log
-          sleep 30
-          echo "=== VPN Log ==="
+          sleep 60
           sudo cat /tmp/vpn.log || true
-          echo "=== tun0 status ==="
-          ip addr show tun0 || true
           if ip link show tun0 > /dev/null 2>&1; then
             echo "VPN connected!"
             sudo ip route add 78.157.51.14/32 dev tun0 || true
+            echo "VPN_OK=1" >> $GITHUB_ENV
           else
-            echo "WARNING: VPN not connected, trying without VPN"
+            echo "VPN not connected, will use small chunks"
+            echo "VPN_OK=0" >> $GITHUB_ENV
           fi
 
       - name: Stream image to server in chunks
@@ -70,12 +69,21 @@ jobs:
           TOTAL_SIZE=$(stat -c%s /tmp/beewaz.tar.gz)
           echo "Image size: $(du -sh /tmp/beewaz.tar.gz | cut -f1)"
 
-          CHUNK_SIZE=$((8 * 1024 * 1024))
+          if [ "$VPN_OK" = "1" ]; then
+            CHUNK_SIZE=$((8 * 1024 * 1024))
+            TIMEOUT=120
+            echo "VPN mode: 8MB chunks"
+          else
+            CHUNK_SIZE=$((64 * 1024))
+            TIMEOUT=60
+            echo "Direct mode: 64KB chunks"
+          fi
+
           TOTAL_CHUNKS=$(( (TOTAL_SIZE + CHUNK_SIZE - 1) / CHUNK_SIZE ))
           echo "Sending $TOTAL_CHUNKS chunks..."
 
           for i in $(seq 0 $((TOTAL_CHUNKS - 1))); do
-            echo "  Chunk $((i+1))/$TOTAL_CHUNKS..."
+            [ $((i % 50)) -eq 0 ] && echo "  Chunk $((i+1))/$TOTAL_CHUNKS..."
             HTTP_CODE=$(dd if=/tmp/beewaz.tar.gz bs=$CHUNK_SIZE skip=$i count=1 2>/dev/null | \
               curl -s -o /tmp/chunk-resp.txt -w '%{http_code}' \
                 -X POST \
@@ -84,10 +92,9 @@ jobs:
                 -H "X-Chunk-Index: $i" \
                 -H "X-Total-Chunks: $TOTAL_CHUNKS" \
                 --data-binary @- \
-                --max-time 120 \
+                --max-time $TIMEOUT \
                 https://bz360.ir/x-deploy-9001)
-            echo "    HTTP $HTTP_CODE $(cat /tmp/chunk-resp.txt)"
-            [ "$HTTP_CODE" = "200" ] || { echo "Chunk $i failed!"; exit 1; }
+            [ "$HTTP_CODE" = "200" ] || { echo "Chunk $i failed: HTTP $HTTP_CODE $(cat /tmp/chunk-resp.txt)"; exit 1; }
           done
           echo "=== Deploy complete! ==="
 
