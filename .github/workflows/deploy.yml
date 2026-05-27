@@ -1,4 +1,4 @@
-name: Build & Deploy to Coolify
+name: Build & Deploy
 
 on:
   push:
@@ -6,15 +6,13 @@ on:
   workflow_dispatch:
 
 env:
-  IMAGE: ghcr.io/${{ github.repository }}
-  APP_UUID: jw4kpfn8utdybrmwkr80fm8f
-  SERVER_IP: 78.157.51.14
+  IMAGE: ghcr.io/ahmadi98ir/beewaz-web
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     permissions:
-      contents: write   # برای ساخت GitHub Release
+      contents: read
       packages: write
 
     steps:
@@ -31,7 +29,6 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # ── Build روی GitHub و push به GHCR ──
       - name: Build and push to GHCR
         uses: docker/build-push-action@v5
         with:
@@ -44,35 +41,51 @@ jobs:
           build-args: |
             NEXT_PUBLIC_APP_URL=https://bz360.ir
 
-      # build-push-action فقط push می‌کند؛ برای docker save باید pull کنیم
-      - name: Pull image to local daemon
+      - name: Pull image locally
         run: docker pull ${{ env.IMAGE }}:latest
 
-      # ── Upload to GitHub Release — سرور هر ۲ دقیقه poll می‌کند و خودش deploy می‌کند ──
-      # هیچ تماسی با سرور ایران از GHA نیست (DPI inbound block می‌کند)
-      - name: Upload image to GitHub Release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Connect to VPN
         run: |
-          echo "::add-mask::$GH_TOKEN"
-          IMAGE="${{ env.IMAGE }}:latest"
-          echo "=== Saving image to tar.gz ==="
-          docker save "$IMAGE" | gzip > /tmp/beewaz-image.tar.gz
-          echo "Compressed size: $(($(stat -c%s /tmp/beewaz-image.tar.gz) / 1024 / 1024)) MB"
+          sudo apt-get update && sudo apt-get install -y openvpn
+          echo "${{ secrets.OPENVPN_CONFIG }}" > /tmp/vpn.conf
+          sudo openvpn --config /tmp/vpn.conf --daemon --log /tmp/vpn.log
+          sleep 15
+          ip addr show tun0 || echo "tun0 not up"
+          sudo ip route add 78.157.51.14/32 dev tun0 || true
 
-          echo "=== Uploading to GitHub Release ==="
-          gh release create deploy-cache --title "Deploy Cache" --prerelease \
-            --notes "sha=${{ github.sha }}" 2>/dev/null || true
-          gh release upload deploy-cache /tmp/beewaz-image.tar.gz --clobber
-          echo "✓ Release uploaded — server polls every 2min and will deploy automatically"
+      - name: Stream image to server in chunks
+        env:
+          DEPLOY_WEBHOOK_SECRET: ${{ secrets.DEPLOY_WEBHOOK_SECRET }}
+        run: |
+          echo "=== Saving image ==="
+          docker save ${{ env.IMAGE }}:latest | gzip > /tmp/beewaz.tar.gz
+          TOTAL_SIZE=$(stat -c%s /tmp/beewaz.tar.gz)
+          echo "Image size: $(du -sh /tmp/beewaz.tar.gz | cut -f1)"
+
+          CHUNK_SIZE=$((8 * 1024 * 1024))
+          TOTAL_CHUNKS=$(( (TOTAL_SIZE + CHUNK_SIZE - 1) / CHUNK_SIZE ))
+          echo "Sending $TOTAL_CHUNKS chunks..."
+
+          for i in $(seq 0 $((TOTAL_CHUNKS - 1))); do
+            echo "  Chunk $((i+1))/$TOTAL_CHUNKS..."
+            HTTP_CODE=$(dd if=/tmp/beewaz.tar.gz bs=$CHUNK_SIZE skip=$i count=1 2>/dev/null | \
+              curl -s -o /tmp/chunk-resp.txt -w '%{http_code}' \
+                -X POST \
+                -H "X-Deploy-Token: $DEPLOY_WEBHOOK_SECRET" \
+                -H "Content-Type: application/octet-stream" \
+                -H "X-Chunk-Index: $i" \
+                -H "X-Total-Chunks: $TOTAL_CHUNKS" \
+                --data-binary @- \
+                --max-time 120 \
+                https://bz360.ir/x-deploy-9001)
+            echo "    HTTP $HTTP_CODE $(cat /tmp/chunk-resp.txt)"
+            [ "$HTTP_CODE" = "200" ] || { echo "Chunk $i failed!"; exit 1; }
+          done
+          echo "=== Deploy complete! ==="
 
       - name: Summary
         if: always()
         run: |
-          echo "## Deploy Summary" >> $GITHUB_STEP_SUMMARY
-          echo "| | |" >> $GITHUB_STEP_SUMMARY
-          echo "|---|---|" >> $GITHUB_STEP_SUMMARY
+          echo "## Deploy" >> $GITHUB_STEP_SUMMARY
           echo "| Commit | \`${GITHUB_SHA:0:8}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| Image | \`ghcr.io/${{ github.repository }}:latest\` |" >> $GITHUB_STEP_SUMMARY
           echo "| Site | https://bz360.ir |" >> $GITHUB_STEP_SUMMARY
-          echo "| Deploy | Server polls GitHub every 2min |" >> $GITHUB_STEP_SUMMARY
