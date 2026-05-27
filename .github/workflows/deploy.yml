@@ -51,7 +51,7 @@ jobs:
           sudo openvpn --config /tmp/vpn.conf --daemon --log /tmp/vpn.log
           sleep 30
           echo "=== VPN Log ==="
-          cat /tmp/vpn.log
+          sudo cat /tmp/vpn.log || true
           echo "=== tun0 status ==="
           ip addr show tun0 || true
           if ip link show tun0 > /dev/null 2>&1; then
