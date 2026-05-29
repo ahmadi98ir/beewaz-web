@@ -30,11 +30,12 @@ jobs:
 
       - name: Package build
         run: |
-          tar -czf /tmp/beewaz-build.tar.gz \
-            -C .next/standalone . \
-            --exclude='.next/static'
-          cp -r .next/static /tmp/next-static
-          tar -czf /tmp/beewaz-static.tar.gz -C /tmp/next-static .
+          ls -la .next/
+          ls -la .next/standalone/ || echo "standalone dir missing!"
+          # Package standalone (excludes static which is served separately)
+          tar -czf /tmp/beewaz-build.tar.gz --exclude='./.next/static' -C .next/standalone .
+          # Package static assets
+          tar -czf /tmp/beewaz-static.tar.gz -C .next/static .
           echo "Build size: $(du -sh /tmp/beewaz-build.tar.gz | cut -f1)"
           echo "Static size: $(du -sh /tmp/beewaz-static.tar.gz | cut -f1)"
 
