@@ -42,6 +42,7 @@ jobs:
           TOTAL_SIZE=$(stat -c%s $FILE)
           TOTAL_CHUNKS=$(( (TOTAL_SIZE + CHUNK_SIZE - 1) / CHUNK_SIZE ))
           echo "Sending $TOTAL_CHUNKS chunks of 1MB to webhook..."
+          echo "Secret length: ${#DEPLOY_SECRET}"
 
           for i in $(seq 0 $((TOTAL_CHUNKS - 1))); do
             HTTP_CODE=$(dd if=$FILE bs=$CHUNK_SIZE skip=$i count=1 2>/dev/null | \
@@ -55,10 +56,14 @@ jobs:
                 --data-binary @- \
                 --max-time 60 \
                 https://bz360.ir/x-deploy-9001)
-            echo "Chunk $((i+1))/$TOTAL_CHUNKS → HTTP $HTTP_CODE"
-            [ "$HTTP_CODE" = "200" ] || { echo "FAILED: $(cat /tmp/resp.txt)"; exit 1; }
+            echo "Chunk $((i+1))/$TOTAL_CHUNKS → HTTP $HTTP_CODE $(cat /tmp/resp.txt)"
+            if [ "$HTTP_CODE" != "200" ]; then
+              echo "FAILED at chunk $i: HTTP $HTTP_CODE" >> $GITHUB_STEP_SUMMARY
+              echo "Response: $(cat /tmp/resp.txt)" >> $GITHUB_STEP_SUMMARY
+              exit 1
+            fi
           done
-          echo "Deploy complete!"
+          echo "Deploy complete!" >> $GITHUB_STEP_SUMMARY
 
       - name: Summary
         if: always()
