@@ -97,7 +97,7 @@ export default function ProductDetailPage() {
           <h1 className="text-lg font-black text-surface-900">{product.name}</h1>
           <p className="text-xs text-surface-400 font-mono mt-0.5">{product.slug}</p>
         </div>
-        <a href={`/shop/${product.slug}`} target="_blank" className="btn btn-outline text-sm py-2 px-4 flex items-center gap-1.5">
+        <a href={`/shop/products/${product.slug}`} target="_blank" className="btn btn-outline text-sm py-2 px-4 flex items-center gap-1.5">
           <svg viewBox="0 0 20 20" className="w-3.5 h-3.5" fill="currentColor">
             <path d="M11 3a1 1 0 100 2h2.586l-6.293 6.293a1 1 0 101.414 1.414L15 6.414V9a1 1 0 102 0V4a1 1 0 00-1-1h-5z"/><path d="M5 5a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2v-3a1 1 0 10-2 0v3H5V7h3a1 1 0 000-2H5z"/>
           </svg>
@@ -206,7 +206,7 @@ export default function ProductDetailPage() {
             <div className="border border-surface-200 rounded-xl p-4 bg-surface-50">
               <p className="text-xs font-semibold text-surface-400 mb-2">پیش‌نمایش گوگل</p>
               <p className="text-blue-600 text-sm font-medium truncate">{form.metaTitle || product.name}</p>
-              <p className="text-green-700 text-xs">bz360.ir/shop/{product.slug}</p>
+              <p className="text-green-700 text-xs">bz360.ir/shop/products/{product.slug}</p>
               <p className="text-surface-600 text-xs mt-1 line-clamp-2">{form.metaDescription || product.shortDescription || 'بدون توضیح'}</p>
             </div>
           </div>
