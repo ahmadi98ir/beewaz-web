@@ -33,29 +33,29 @@ jobs:
           tar -czf /tmp/beewaz-build.tar.gz -C .next/standalone .
           echo "Build size: $(du -sh /tmp/beewaz-build.tar.gz | cut -f1)"
 
-      - name: Deploy via HTTP webhook
+      - name: Deploy via JSON/base64 webhook
         env:
           DEPLOY_SECRET: ${{ secrets.DEPLOY_WEBHOOK_SECRET }}
         run: |
-          CHUNK_SIZE=$((1024 * 1024))  # 1MB chunks
+          # Encode in 512KB base64 chunks wrapped in JSON to bypass DPI binary filters
+          CHUNK_SIZE=$((512 * 1024))
           FILE=/tmp/beewaz-build.tar.gz
-          TOTAL_SIZE=$(stat -c%s $FILE)
+          TOTAL_SIZE=$(stat -c%s "$FILE")
           TOTAL_CHUNKS=$(( (TOTAL_SIZE + CHUNK_SIZE - 1) / CHUNK_SIZE ))
-          echo "Sending $TOTAL_CHUNKS chunks of 1MB to webhook..."
-          echo "Secret length: ${#DEPLOY_SECRET}"
+          echo "Sending $TOTAL_CHUNKS base64-JSON chunks to webhook..."
 
           for i in $(seq 0 $((TOTAL_CHUNKS - 1))); do
-            HTTP_CODE=$(dd if=$FILE bs=$CHUNK_SIZE skip=$i count=1 2>/dev/null | \
-              curl -s -o /tmp/resp.txt -w '%{http_code}' \
-                -X POST \
-                -H "X-Deploy-Token: $DEPLOY_SECRET" \
-                -H "X-Deploy-Mode: build" \
-                -H "Content-Type: application/octet-stream" \
-                -H "X-Chunk-Index: $i" \
-                -H "X-Total-Chunks: $TOTAL_CHUNKS" \
-                --data-binary @- \
-                --max-time 60 \
-                https://bz360.ir/x-deploy-9001)
+            B64=$(dd if="$FILE" bs=$CHUNK_SIZE skip=$i count=1 2>/dev/null | base64 -w 0)
+            PAYLOAD=$(printf '{"token":"%s","chunk":%d,"total":%d,"data":"%s"}' \
+              "$DEPLOY_SECRET" "$i" "$TOTAL_CHUNKS" "$B64")
+
+            HTTP_CODE=$(echo "$PAYLOAD" | curl -s -o /tmp/resp.txt -w '%{http_code}' \
+              -X POST \
+              -H "Content-Type: application/json" \
+              --data-binary @- \
+              --max-time 90 \
+              https://bz360.ir/x-deploy-9001)
+
             echo "Chunk $((i+1))/$TOTAL_CHUNKS → HTTP $HTTP_CODE $(cat /tmp/resp.txt)"
             if [ "$HTTP_CODE" != "200" ]; then
               echo "FAILED at chunk $i: HTTP $HTTP_CODE" >> $GITHUB_STEP_SUMMARY
