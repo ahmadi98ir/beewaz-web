@@ -44,19 +44,19 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan -H 78.157.51.14 >> ~/.ssh/known_hosts 2>/dev/null || true
-          echo "SSH key size: $(wc -c < ~/.ssh/id_ed25519) bytes"
-          head -1 ~/.ssh/id_ed25519
+          ssh-keyscan -p 8443 -H 78.157.51.14 >> ~/.ssh/known_hosts 2>/dev/null || true
+          echo "StrictHostKeyChecking no" >> ~/.ssh/config
+          echo "SSH key ready"
 
       - name: Deploy to server
         run: |
           # Copy build artifacts to server
-          scp -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no \
+          scp -i ~/.ssh/id_ed25519 -P 8443 -o StrictHostKeyChecking=no \
             /tmp/beewaz-build.tar.gz /tmp/beewaz-static.tar.gz \
             root@78.157.51.14:/tmp/
 
           # Apply update inside running container
-          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no root@78.157.51.14 '
+          ssh -i ~/.ssh/id_ed25519 -p 8443 -o StrictHostKeyChecking=no root@78.157.51.14 '
             set -e
             CONTAINER=$(docker ps --format "{{.Names}}\t{{.Image}}" | grep beewaz | cut -f1 | head -1)
             if [ -z "$CONTAINER" ]; then echo "No beewaz container found!"; exit 1; fi
