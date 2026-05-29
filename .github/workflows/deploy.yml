@@ -30,53 +30,35 @@ jobs:
 
       - name: Package build
         run: |
-          ls -la .next/
-          ls -la .next/standalone/ || echo "standalone dir missing!"
-          # Package standalone (excludes static which is served separately)
-          tar -czf /tmp/beewaz-build.tar.gz --exclude='./.next/static' -C .next/standalone .
-          # Package static assets
-          tar -czf /tmp/beewaz-static.tar.gz -C .next/static .
+          tar -czf /tmp/beewaz-build.tar.gz -C .next/standalone .
           echo "Build size: $(du -sh /tmp/beewaz-build.tar.gz | cut -f1)"
-          echo "Static size: $(du -sh /tmp/beewaz-static.tar.gz | cut -f1)"
 
-      - name: Setup SSH
+      - name: Deploy via HTTP webhook
+        env:
+          DEPLOY_SECRET: ${{ secrets.DEPLOY_WEBHOOK_SECRET }}
         run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/id_ed25519
-          chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan -p 8443 -H 78.157.51.14 >> ~/.ssh/known_hosts 2>/dev/null || true
-          echo "StrictHostKeyChecking no" >> ~/.ssh/config
-          echo "SSH key ready"
+          CHUNK_SIZE=$((1024 * 1024))  # 1MB chunks
+          FILE=/tmp/beewaz-build.tar.gz
+          TOTAL_SIZE=$(stat -c%s $FILE)
+          TOTAL_CHUNKS=$(( (TOTAL_SIZE + CHUNK_SIZE - 1) / CHUNK_SIZE ))
+          echo "Sending $TOTAL_CHUNKS chunks of 1MB to webhook..."
 
-      - name: Deploy to server
-        run: |
-          SSH="ssh -i ~/.ssh/id_ed25519 -p 8443 -o StrictHostKeyChecking=no -o ConnectTimeout=30 -v"
-          SCP="scp -i ~/.ssh/id_ed25519 -P 8443 -o StrictHostKeyChecking=no -o ConnectTimeout=30"
-
-          echo "=== Testing SSH connection ==="
-          $SSH root@78.157.51.14 'echo "SSH OK: $(hostname)"' 2>&1 | tee /tmp/ssh-test.log || true
-          cat /tmp/ssh-test.log >> $GITHUB_STEP_SUMMARY
-
-          echo "=== Copying build files ==="
-          $SCP /tmp/beewaz-build.tar.gz root@78.157.51.14:/tmp/beewaz-build.tar.gz
-          $SCP /tmp/beewaz-static.tar.gz root@78.157.51.14:/tmp/beewaz-static.tar.gz
-
-          echo "=== Deploying ==="
-          $SSH root@78.157.51.14 '
-            set -e
-            CONTAINER=$(docker ps --format "{{.Names}}\t{{.Image}}" | grep beewaz | cut -f1 | head -1)
-            echo "Container: $CONTAINER"
-
-            docker cp /tmp/beewaz-build.tar.gz $CONTAINER:/tmp/
-            docker exec $CONTAINER sh -c "cd /app && tar -xzf /tmp/beewaz-build.tar.gz && rm /tmp/beewaz-build.tar.gz"
-
-            docker cp /tmp/beewaz-static.tar.gz $CONTAINER:/tmp/
-            docker exec $CONTAINER sh -c "mkdir -p /app/.next/static && tar -xzf /tmp/beewaz-static.tar.gz -C /app/.next/static && rm /tmp/beewaz-static.tar.gz"
-
-            docker restart $CONTAINER
-            rm -f /tmp/beewaz-build.tar.gz /tmp/beewaz-static.tar.gz
-            echo "Deploy done!"
-          '
+          for i in $(seq 0 $((TOTAL_CHUNKS - 1))); do
+            HTTP_CODE=$(dd if=$FILE bs=$CHUNK_SIZE skip=$i count=1 2>/dev/null | \
+              curl -s -o /tmp/resp.txt -w '%{http_code}' \
+                -X POST \
+                -H "X-Deploy-Token: $DEPLOY_SECRET" \
+                -H "X-Deploy-Mode: build" \
+                -H "Content-Type: application/octet-stream" \
+                -H "X-Chunk-Index: $i" \
+                -H "X-Total-Chunks: $TOTAL_CHUNKS" \
+                --data-binary @- \
+                --max-time 60 \
+                https://bz360.ir/x-deploy-9001)
+            echo "Chunk $((i+1))/$TOTAL_CHUNKS → HTTP $HTTP_CODE"
+            [ "$HTTP_CODE" = "200" ] || { echo "FAILED: $(cat /tmp/resp.txt)"; exit 1; }
+          done
+          echo "Deploy complete!"
 
       - name: Summary
         if: always()
