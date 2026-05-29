@@ -50,27 +50,28 @@ jobs:
 
       - name: Deploy to server
         run: |
-          # Copy build artifacts to server
-          scp -i ~/.ssh/id_ed25519 -P 8443 -o StrictHostKeyChecking=no \
-            /tmp/beewaz-build.tar.gz /tmp/beewaz-static.tar.gz \
-            root@78.157.51.14:/tmp/
+          SSH="ssh -i ~/.ssh/id_ed25519 -p 8443 -o StrictHostKeyChecking=no -o ConnectTimeout=30"
+          SCP="scp -i ~/.ssh/id_ed25519 -P 8443 -o StrictHostKeyChecking=no -o ConnectTimeout=30"
 
-          # Apply update inside running container
-          ssh -i ~/.ssh/id_ed25519 -p 8443 -o StrictHostKeyChecking=no root@78.157.51.14 '
+          echo "=== Testing SSH connection ==="
+          $SSH root@78.157.51.14 'echo "SSH OK: $(hostname)"'
+
+          echo "=== Copying build files ==="
+          $SCP /tmp/beewaz-build.tar.gz root@78.157.51.14:/tmp/beewaz-build.tar.gz
+          $SCP /tmp/beewaz-static.tar.gz root@78.157.51.14:/tmp/beewaz-static.tar.gz
+
+          echo "=== Deploying ==="
+          $SSH root@78.157.51.14 '
             set -e
             CONTAINER=$(docker ps --format "{{.Names}}\t{{.Image}}" | grep beewaz | cut -f1 | head -1)
-            if [ -z "$CONTAINER" ]; then echo "No beewaz container found!"; exit 1; fi
-            echo "Updating container: $CONTAINER"
+            echo "Container: $CONTAINER"
 
-            # Extract build into container
             docker cp /tmp/beewaz-build.tar.gz $CONTAINER:/tmp/
             docker exec $CONTAINER sh -c "cd /app && tar -xzf /tmp/beewaz-build.tar.gz && rm /tmp/beewaz-build.tar.gz"
 
-            # Update static files
             docker cp /tmp/beewaz-static.tar.gz $CONTAINER:/tmp/
             docker exec $CONTAINER sh -c "mkdir -p /app/.next/static && tar -xzf /tmp/beewaz-static.tar.gz -C /app/.next/static && rm /tmp/beewaz-static.tar.gz"
 
-            # Restart container
             docker restart $CONTAINER
             rm -f /tmp/beewaz-build.tar.gz /tmp/beewaz-static.tar.gz
             echo "Deploy done!"
