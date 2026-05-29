@@ -6,8 +6,10 @@ on:
   workflow_dispatch:
 
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout
@@ -32,42 +34,20 @@ jobs:
         run: |
           tar -czf /tmp/beewaz-build.tar.gz -C .next/standalone .
           echo "Build size: $(du -sh /tmp/beewaz-build.tar.gz | cut -f1)"
+          echo "SHA: $GITHUB_SHA" > /tmp/build-version.txt
 
-      - name: Deploy via JSON/base64 webhook
+      - name: Upload to GitHub Release
         env:
-          DEPLOY_SECRET: ${{ secrets.DEPLOY_WEBHOOK_SECRET }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Encode in 512KB base64 chunks wrapped in JSON to bypass DPI binary filters
-          CHUNK_SIZE=$((512 * 1024))
-          FILE=/tmp/beewaz-build.tar.gz
-          TOTAL_SIZE=$(stat -c%s "$FILE")
-          TOTAL_CHUNKS=$(( (TOTAL_SIZE + CHUNK_SIZE - 1) / CHUNK_SIZE ))
-          echo "Sending $TOTAL_CHUNKS base64-JSON chunks to webhook..."
-
-          for i in $(seq 0 $((TOTAL_CHUNKS - 1))); do
-            B64=$(dd if="$FILE" bs=$CHUNK_SIZE skip=$i count=1 2>/dev/null | base64 -w 0)
-            PAYLOAD=$(printf '{"token":"%s","chunk":%d,"total":%d,"data":"%s"}' \
-              "$DEPLOY_SECRET" "$i" "$TOTAL_CHUNKS" "$B64")
-
-            HTTP_CODE=$(echo "$PAYLOAD" | curl -s -o /tmp/resp.txt -w '%{http_code}' \
-              -X POST \
-              -H "Content-Type: application/json" \
-              --data-binary @- \
-              --max-time 90 \
-              https://bz360.ir/x-deploy-9001)
-
-            echo "Chunk $((i+1))/$TOTAL_CHUNKS → HTTP $HTTP_CODE $(cat /tmp/resp.txt)"
-            if [ "$HTTP_CODE" != "200" ]; then
-              echo "FAILED at chunk $i: HTTP $HTTP_CODE" >> $GITHUB_STEP_SUMMARY
-              echo "Response: $(cat /tmp/resp.txt)" >> $GITHUB_STEP_SUMMARY
-              exit 1
-            fi
-          done
-          echo "Deploy complete!" >> $GITHUB_STEP_SUMMARY
-
-      - name: Summary
-        if: always()
-        run: |
-          echo "## Deploy" >> $GITHUB_STEP_SUMMARY
+          gh release delete deploy-cache --yes 2>/dev/null || true
+          gh release create deploy-cache \
+            /tmp/beewaz-build.tar.gz \
+            /tmp/build-version.txt \
+            --title "Deploy Cache (${{ github.sha }})" \
+            --notes "Built from commit ${{ github.sha }} at $(date -u)" \
+            --target main
+          echo "Release created successfully" >> $GITHUB_STEP_SUMMARY
           echo "| Commit | \`${GITHUB_SHA:0:8}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| Site | https://bz360.ir |" >> $GITHUB_STEP_SUMMARY
+          echo "Server will auto-deploy within 2 minutes." >> $GITHUB_STEP_SUMMARY
