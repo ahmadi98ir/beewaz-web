@@ -50,11 +50,12 @@ jobs:
 
       - name: Deploy to server
         run: |
-          SSH="ssh -i ~/.ssh/id_ed25519 -p 8443 -o StrictHostKeyChecking=no -o ConnectTimeout=30"
+          SSH="ssh -i ~/.ssh/id_ed25519 -p 8443 -o StrictHostKeyChecking=no -o ConnectTimeout=30 -v"
           SCP="scp -i ~/.ssh/id_ed25519 -P 8443 -o StrictHostKeyChecking=no -o ConnectTimeout=30"
 
           echo "=== Testing SSH connection ==="
-          $SSH root@78.157.51.14 'echo "SSH OK: $(hostname)"'
+          $SSH root@78.157.51.14 'echo "SSH OK: $(hostname)"' 2>&1 | tee /tmp/ssh-test.log || true
+          cat /tmp/ssh-test.log >> $GITHUB_STEP_SUMMARY
 
           echo "=== Copying build files ==="
           $SCP /tmp/beewaz-build.tar.gz root@78.157.51.14:/tmp/beewaz-build.tar.gz
