@@ -5,98 +5,73 @@ on:
     branches: [main]
   workflow_dispatch:
 
-env:
-  IMAGE: ghcr.io/ahmadi98ir/beewaz-web
-
 jobs:
-  build-and-deploy:
+  deploy:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Login to GHCR
-        uses: docker/login-action@v3
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          node-version: '22'
+          cache: 'npm'
 
-      - name: Build and push to GHCR
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: ./Dockerfile.ci
-          push: true
-          tags: |
-            ${{ env.IMAGE }}:latest
-            ${{ env.IMAGE }}:${{ github.sha }}
-          build-args: |
-            NEXT_PUBLIC_APP_URL=https://bz360.ir
+      - name: Install dependencies
+        run: npm ci --include=dev
 
-      - name: Pull image locally
-        run: docker pull ${{ env.IMAGE }}:latest
-
-      - name: Connect to VPN
-        run: |
-          sudo apt-get update && sudo apt-get install -y openvpn
-          echo "${{ secrets.OPENVPN_CONFIG }}" > /tmp/vpn.conf
-          sudo openvpn --config /tmp/vpn.conf --daemon --log /tmp/vpn.log
-          sleep 60
-          sudo cat /tmp/vpn.log || true
-          if ip link show tun0 > /dev/null 2>&1; then
-            echo "VPN connected!"
-            sudo ip route add 78.157.51.14/32 dev tun0 || true
-            echo "VPN_OK=1" >> $GITHUB_ENV
-          else
-            echo "VPN not connected, will use small chunks"
-            echo "VPN_OK=0" >> $GITHUB_ENV
-          fi
-
-      - name: Stream image to server in chunks
+      - name: Build
         env:
-          DEPLOY_WEBHOOK_SECRET: ${{ secrets.DEPLOY_WEBHOOK_SECRET }}
+          NEXT_PUBLIC_APP_URL: https://bz360.ir
+          NEXT_TELEMETRY_DISABLED: 1
+        run: npm run build
+
+      - name: Package build
         run: |
-          echo "=== Saving image ==="
-          docker save ${{ env.IMAGE }}:latest | gzip > /tmp/beewaz.tar.gz
-          TOTAL_SIZE=$(stat -c%s /tmp/beewaz.tar.gz)
-          echo "Image size: $(du -sh /tmp/beewaz.tar.gz | cut -f1)"
+          tar -czf /tmp/beewaz-build.tar.gz \
+            -C .next/standalone . \
+            --exclude='.next/static'
+          cp -r .next/static /tmp/next-static
+          tar -czf /tmp/beewaz-static.tar.gz -C /tmp/next-static .
+          echo "Build size: $(du -sh /tmp/beewaz-build.tar.gz | cut -f1)"
+          echo "Static size: $(du -sh /tmp/beewaz-static.tar.gz | cut -f1)"
 
-          if [ "$VPN_OK" = "1" ]; then
-            CHUNK_SIZE=$((8 * 1024 * 1024))
-            TIMEOUT=120
-            echo "VPN mode: 8MB chunks"
-          else
-            CHUNK_SIZE=$((64 * 1024))
-            TIMEOUT=60
-            echo "Direct mode: 64KB chunks"
-          fi
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H 78.157.51.14 >> ~/.ssh/known_hosts 2>/dev/null
 
-          TOTAL_CHUNKS=$(( (TOTAL_SIZE + CHUNK_SIZE - 1) / CHUNK_SIZE ))
-          echo "Sending $TOTAL_CHUNKS chunks..."
+      - name: Deploy to server
+        run: |
+          # Copy build artifacts to server
+          scp -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no \
+            /tmp/beewaz-build.tar.gz /tmp/beewaz-static.tar.gz \
+            root@78.157.51.14:/tmp/
 
-          for i in $(seq 0 $((TOTAL_CHUNKS - 1))); do
-            [ $((i % 50)) -eq 0 ] && echo "  Chunk $((i+1))/$TOTAL_CHUNKS..."
-            HTTP_CODE=$(dd if=/tmp/beewaz.tar.gz bs=$CHUNK_SIZE skip=$i count=1 2>/dev/null | \
-              curl -s -o /tmp/chunk-resp.txt -w '%{http_code}' \
-                -X POST \
-                -H "X-Deploy-Token: $DEPLOY_WEBHOOK_SECRET" \
-                -H "Content-Type: application/octet-stream" \
-                -H "X-Chunk-Index: $i" \
-                -H "X-Total-Chunks: $TOTAL_CHUNKS" \
-                --data-binary @- \
-                --max-time $TIMEOUT \
-                https://bz360.ir/x-deploy-9001)
-            [ "$HTTP_CODE" = "200" ] || { echo "Chunk $i failed: HTTP $HTTP_CODE $(cat /tmp/chunk-resp.txt)"; exit 1; }
-          done
-          echo "=== Deploy complete! ==="
+          # Apply update inside running container
+          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no root@78.157.51.14 '
+            set -e
+            CONTAINER=$(docker ps --format "{{.Names}}\t{{.Image}}" | grep beewaz | cut -f1 | head -1)
+            if [ -z "$CONTAINER" ]; then echo "No beewaz container found!"; exit 1; fi
+            echo "Updating container: $CONTAINER"
+
+            # Extract build into container
+            docker cp /tmp/beewaz-build.tar.gz $CONTAINER:/tmp/
+            docker exec $CONTAINER sh -c "cd /app && tar -xzf /tmp/beewaz-build.tar.gz && rm /tmp/beewaz-build.tar.gz"
+
+            # Update static files
+            docker cp /tmp/beewaz-static.tar.gz $CONTAINER:/tmp/
+            docker exec $CONTAINER sh -c "mkdir -p /app/.next/static && tar -xzf /tmp/beewaz-static.tar.gz -C /app/.next/static && rm /tmp/beewaz-static.tar.gz"
+
+            # Restart container
+            docker restart $CONTAINER
+            rm -f /tmp/beewaz-build.tar.gz /tmp/beewaz-static.tar.gz
+            echo "Deploy done!"
+          '
 
       - name: Summary
         if: always()
