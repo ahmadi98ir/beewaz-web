@@ -10,28 +10,51 @@ $LOCAL_FILE  = "$env:TEMP\beewaz-build.tar.gz"
 
 # Check sshpass equivalent (plink) or use built-in SSH with key
 # Use sshpass if available, otherwise fall back to SSH_ASKPASS trick
+# پیدا کردن WinSCP.com
+$winscpPaths = @(
+    "C:\Program Files (x86)\WinSCP\WinSCP.com",
+    "C:\Program Files\WinSCP\WinSCP.com",
+    "$env:LOCALAPPDATA\Programs\WinSCP\WinSCP.com"
+)
+$WINSCP = $winscpPaths | Where-Object { Test-Path $_ } | Select-Object -First 1
+
+# پیدا کردن plink (PuTTY)
+$plinkPaths = @(
+    "C:\Program Files\PuTTY\plink.exe",
+    "C:\Program Files (x86)\PuTTY\plink.exe",
+    "$env:LOCALAPPDATA\Programs\PuTTY\plink.exe"
+)
+$PLINK = $plinkPaths | Where-Object { Test-Path $_ } | Select-Object -First 1
+if (-not $PLINK) { $PLINK = (Get-Command "plink" -ErrorAction SilentlyContinue)?.Source }
+
 function Invoke-SSH {
     param([string]$Command)
-    $env:SSHPASS = $SSH_PASS
-    if (Get-Command "sshpass" -ErrorAction SilentlyContinue) {
-        sshpass -e ssh -o StrictHostKeyChecking=no -p $SSH_PORT "${SSH_USER}@${SERVER}" $Command
+    if ($PLINK) {
+        & $PLINK -ssh -P $SSH_PORT -l $SSH_USER -pw $SSH_PASS -batch $SERVER $Command
     } else {
-        # Use plink (PuTTY) if available
-        if (Get-Command "plink" -ErrorAction SilentlyContinue) {
-            plink -ssh -P $SSH_PORT -l $SSH_USER -pw $SSH_PASS -batch "${SERVER}" $Command
-        } else {
-            ssh -o StrictHostKeyChecking=no -p $SSH_PORT "${SSH_USER}@${SERVER}" $Command
-        }
+        # fallback: ssh بدون پسورد خودکار — ممکنه پسورد بخواد
+        ssh -o StrictHostKeyChecking=no -p $SSH_PORT "${SSH_USER}@${SERVER}" $Command
     }
 }
 
 function Invoke-SCP {
     param([string]$LocalPath, [string]$RemotePath)
-    if (Get-Command "sshpass" -ErrorAction SilentlyContinue) {
-        $env:SSHPASS = $SSH_PASS
-        sshpass -e scp -o StrictHostKeyChecking=no -P $SSH_PORT $LocalPath "${SSH_USER}@${SERVER}:${RemotePath}"
-    } elseif (Get-Command "pscp" -ErrorAction SilentlyContinue) {
-        pscp -P $SSH_PORT -pw $SSH_PASS $LocalPath "${SSH_USER}@${SERVER}:${RemotePath}"
+    if ($WINSCP) {
+        # استفاده از WinSCP command-line
+        $script = @"
+open scp://${SSH_USER}:${SSH_PASS}@${SERVER}:${SSH_PORT}/ -hostkey=*
+put "$LocalPath" "$RemotePath"
+exit
+"@
+        $script | & $WINSCP /ini=nul /script=-
+    } elseif ($PLINK) {
+        # pscp کنار plink معمولاً هست
+        $pscp = $PLINK -replace "plink\.exe$","pscp.exe"
+        if (Test-Path $pscp) {
+            & $pscp -P $SSH_PORT -pw $SSH_PASS $LocalPath "${SSH_USER}@${SERVER}:${RemotePath}"
+        } else {
+            scp -o StrictHostKeyChecking=no -P $SSH_PORT $LocalPath "${SSH_USER}@${SERVER}:${RemotePath}"
+        }
     } else {
         scp -o StrictHostKeyChecking=no -P $SSH_PORT $LocalPath "${SSH_USER}@${SERVER}:${RemotePath}"
     }
