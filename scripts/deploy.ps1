@@ -58,12 +58,13 @@ Write-Host "      Upload complete" -ForegroundColor Green
 # Step 3: Deploy on server
 Write-Host "`n[3/3] Deploying on server..." -ForegroundColor Yellow
 
-Invoke-SSH 'docker ps --filter "ancestor=ghcr.io/ahmadi98ir/beewaz-web:latest" --format "{{.Names}}" | head -1 > /tmp/cname.txt'
+# Find container: try by image name first, then fall back to any beewaz/nextjs container
+Invoke-SSH '(docker ps --filter "ancestor=ghcr.io/ahmadi98ir/beewaz-web:latest" --format "{{.Names}}" | head -1; docker ps --format "{{.Names}}\t{{.Image}}" | grep -i "beewaz\|nextjs\|next" | awk "{print \$1}" | head -1) | head -1 > /tmp/cname.txt; echo "Container: $(cat /tmp/cname.txt)"'
 Invoke-SSH "mkdir -p /tmp/beewaz-extract"
 Invoke-SSH "tar -xzf /tmp/beewaz-build.tar.gz -C /tmp/beewaz-extract"
-Invoke-SSH 'CONTAINER=$(cat /tmp/cname.txt); docker cp /tmp/beewaz-extract/. $CONTAINER:/app/'
+Invoke-SSH 'CONTAINER=$(cat /tmp/cname.txt | tr -d "[:space:]"); if [ -z "$CONTAINER" ]; then echo "ERROR: No container found!"; docker ps; exit 1; fi; echo "Deploying to: $CONTAINER"; docker cp /tmp/beewaz-extract/. $CONTAINER:/app/'
 Invoke-SSH "rm -rf /tmp/beewaz-extract /tmp/beewaz-build.tar.gz"
-Invoke-SSH 'CONTAINER=$(cat /tmp/cname.txt); docker restart $CONTAINER'
+Invoke-SSH 'CONTAINER=$(cat /tmp/cname.txt | tr -d "[:space:]"); docker restart $CONTAINER && echo "Restarted: $CONTAINER"'
 Invoke-SSH "rm -f /tmp/cname.txt"
 
 Start-Sleep -Seconds 25
