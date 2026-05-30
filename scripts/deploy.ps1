@@ -8,56 +8,62 @@ $SSH_USER    = "root"
 $SSH_PASS    = "1"
 $LOCAL_FILE  = "$env:TEMP\beewaz-build.tar.gz"
 
-# Check sshpass equivalent (plink) or use built-in SSH with key
-# Use sshpass if available, otherwise fall back to SSH_ASKPASS trick
-# پیدا کردن WinSCP.com
+# Find WinSCP.com
 $winscpPaths = @(
     "C:\Program Files (x86)\WinSCP\WinSCP.com",
     "C:\Program Files\WinSCP\WinSCP.com",
     "$env:LOCALAPPDATA\Programs\WinSCP\WinSCP.com"
 )
 $WINSCP = $winscpPaths | Where-Object { Test-Path $_ } | Select-Object -First 1
-if (-not $WINSCP) { throw "WinSCP.com پیدا نشد! لطفاً WinSCP را نصب کنید." }
+if (-not $WINSCP) {
+    throw "WinSCP.com not found! Please install WinSCP."
+}
 
 $WS_OPEN = "open scp://${SSH_USER}:${SSH_PASS}@${SERVER}:${SSH_PORT}/ -hostkey=*"
 
 function Invoke-SSH {
     param([string]$Command)
     "$WS_OPEN`ncall $Command`nexit" | & $WINSCP /ini=nul /script=-
+    if ($LASTEXITCODE -ne 0) { throw "SSH command failed: $Command" }
 }
 
 function Invoke-SCP {
     param([string]$LocalPath, [string]$RemotePath)
     "$WS_OPEN`nput `"$LocalPath`" `"$RemotePath`"`nexit" | & $WINSCP /ini=nul /script=-
+    if ($LASTEXITCODE -ne 0) { throw "SCP upload failed" }
 }
 
 Write-Host "=== Beewaz Deploy ===" -ForegroundColor Cyan
 
-# Download build from GitHub Release
+# Step 1: Download build
 Write-Host "`n[1/3] Downloading build from GitHub..." -ForegroundColor Yellow
 curl.exe -L -o $LOCAL_FILE $RELEASE_URL
 if ($LASTEXITCODE -ne 0) { throw "Download failed" }
 $size = [math]::Round((Get-Item $LOCAL_FILE).Length / 1MB, 1)
 Write-Host "      Downloaded: ${size} MB" -ForegroundColor Green
 
-# Upload to server
+# Step 2: Upload to server
 Write-Host "`n[2/3] Uploading to server..." -ForegroundColor Yellow
 Invoke-SCP $LOCAL_FILE "/tmp/beewaz-build.tar.gz"
 Write-Host "      Upload complete" -ForegroundColor Green
 
-# Deploy on server
+# Step 3: Deploy on server
 Write-Host "`n[3/3] Deploying on server..." -ForegroundColor Yellow
 
-Invoke-SSH 'docker ps --filter "ancestor=ghcr.io/ahmadi98ir/beewaz-web:latest" --format "{{.Names}}" | head -1 > /tmp/cname.txt; echo "Container: $(cat /tmp/cname.txt)"'
-Invoke-SSH "mkdir -p /tmp/beewaz-extract && tar -xzf /tmp/beewaz-build.tar.gz -C /tmp/beewaz-extract"
-Invoke-SSH 'CONTAINER=$(cat /tmp/cname.txt); echo "Copying to $CONTAINER"; docker cp /tmp/beewaz-extract/. $CONTAINER:/app/'
+Invoke-SSH 'docker ps --filter "ancestor=ghcr.io/ahmadi98ir/beewaz-web:latest" --format "{{.Names}}" | head -1 > /tmp/cname.txt'
+Invoke-SSH "mkdir -p /tmp/beewaz-extract"
+Invoke-SSH "tar -xzf /tmp/beewaz-build.tar.gz -C /tmp/beewaz-extract"
+Invoke-SSH 'CONTAINER=$(cat /tmp/cname.txt); docker cp /tmp/beewaz-extract/. $CONTAINER:/app/'
 Invoke-SSH "rm -rf /tmp/beewaz-extract /tmp/beewaz-build.tar.gz"
-Invoke-SSH 'CONTAINER=$(cat /tmp/cname.txt); docker restart $CONTAINER && echo "Restarted $CONTAINER"'
+Invoke-SSH 'CONTAINER=$(cat /tmp/cname.txt); docker restart $CONTAINER'
 Invoke-SSH "rm -f /tmp/cname.txt"
+
 Start-Sleep -Seconds 8
-Invoke-SSH "curl -sf --max-time 10 -o /dev/null -w 'HTTP: %{http_code}' http://localhost:3000/ || echo 'HTTP: 000'"
+
+Write-Host "`n[OK] Checking site..." -ForegroundColor Yellow
+Invoke-SSH "curl -sf --max-time 10 -o /dev/null -w 'HTTP %{http_code}' http://localhost:3000/"
 
 # Cleanup
 Remove-Item $LOCAL_FILE -ErrorAction SilentlyContinue
 
-Write-Host "`n✅ Deploy done! https://bz360.ir" -ForegroundColor Green
+Write-Host "`nDeploy done! https://bz360.ir" -ForegroundColor Green
