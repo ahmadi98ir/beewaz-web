@@ -20,11 +20,15 @@ export interface ProductFormData {
   descriptionFa?: string | null
   price: number
   comparePrice?: number | null
+  salePrice?: number | null
+  salePriceFrom?: string | null
+  salePriceTo?: string | null
   stock: number
   status: 'draft' | 'active' | 'archived' | 'out_of_stock'
   isFeatured: boolean
   metaTitle?: string | null
   metaDesc?: string | null
+  relatedProductIds?: string[]
 }
 
 interface Props {
@@ -65,7 +69,11 @@ export function ProductForm({ initial, mode }: Props) {
     descriptionFa: '',
     price: 0,
     comparePrice: null,
+    salePrice: null,
+    salePriceFrom: null,
+    salePriceTo: null,
     stock: 0,
+    relatedProductIds: [],
     status: 'draft',
     isFeatured: false,
     categoryId: null,
@@ -102,6 +110,10 @@ export function ProductForm({ initial, mode }: Props) {
         // Form shows/accepts Toman; DB stores Rial → multiply by 10
         price: form.price * 10,
         comparePrice: form.comparePrice ? form.comparePrice * 10 : null,
+        salePrice: form.salePrice ? form.salePrice * 10 : null,
+        salePriceFrom: form.salePriceFrom || null,
+        salePriceTo: form.salePriceTo || null,
+        relatedProductIds: form.relatedProductIds ?? [],
         categoryId: form.categoryId || null,
         metaTitle: form.metaTitle || null,
         metaDesc: form.metaDesc || null,
@@ -283,6 +295,34 @@ export function ProductForm({ initial, mode }: Props) {
                 min={0}
                 value={form.comparePrice || ''}
                 onChange={(e) => update('comparePrice', e.target.value ? Number(e.target.value) : null)}
+                className="input w-full"
+              />
+            </Field>
+
+            <Field label="قیمت حراج (تومان)">
+              <input
+                type="number"
+                min={0}
+                value={form.salePrice || ''}
+                onChange={(e) => update('salePrice', e.target.value ? Number(e.target.value) : null)}
+                className="input w-full"
+              />
+            </Field>
+
+            <Field label="شروع حراج">
+              <input
+                type="date"
+                value={form.salePriceFrom ? form.salePriceFrom.slice(0, 10) : ''}
+                onChange={(e) => update('salePriceFrom', e.target.value || null)}
+                className="input w-full"
+              />
+            </Field>
+
+            <Field label="پایان حراج">
+              <input
+                type="date"
+                value={form.salePriceTo ? form.salePriceTo.slice(0, 10) : ''}
+                onChange={(e) => update('salePriceTo', e.target.value || null)}
                 className="input w-full"
               />
             </Field>

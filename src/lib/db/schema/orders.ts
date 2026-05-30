@@ -103,17 +103,35 @@ export const orderItems = pgTable('order_items', {
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 })
 
+// ─── Order Notes ─────────────────────────────────────────────────────────────
+
+export const orderNoteTypeEnum = pgEnum('order_note_type', ['internal', 'refund', 'customer'])
+
+export const orderNotes = pgTable('order_notes', {
+  id:        uuid('id').primaryKey().defaultRandom(),
+  orderId:   uuid('order_id').notNull().references(() => orders.id, { onDelete: 'cascade' }),
+  note:      text('note').notNull(),
+  type:      orderNoteTypeEnum('type').notNull().default('internal'),
+  createdBy: varchar('created_by', { length: 100 }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+})
+
 // ─── Relations ────────────────────────────────────────────────────────────────
 
 export const ordersRelations = relations(orders, ({ one, many }) => ({
   user: one(users, { fields: [orders.userId], references: [users.id] }),
   items: many(orderItems),
+  notes: many(orderNotes),
 }))
 
 export const orderItemsRelations = relations(orderItems, ({ one }) => ({
   order: one(orders, { fields: [orderItems.orderId], references: [orders.id] }),
   product: one(products, { fields: [orderItems.productId], references: [products.id] }),
   variant: one(productVariants, { fields: [orderItems.variantId], references: [productVariants.id] }),
+}))
+
+export const orderNotesRelations = relations(orderNotes, ({ one }) => ({
+  order: one(orders, { fields: [orderNotes.orderId], references: [orders.id] }),
 }))
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -123,3 +141,6 @@ export type NewOrder = typeof orders.$inferInsert
 export type OrderStatus = (typeof orderStatusEnum.enumValues)[number]
 export type OrderItem = typeof orderItems.$inferSelect
 export type NewOrderItem = typeof orderItems.$inferInsert
+export type OrderNote = typeof orderNotes.$inferSelect
+export type NewOrderNote = typeof orderNotes.$inferInsert
+export type OrderNoteType = (typeof orderNoteTypeEnum.enumValues)[number]

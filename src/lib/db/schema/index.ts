@@ -18,9 +18,10 @@ export {
 
 // ─── Orders ──────────────────────────────────────────────────────────────────
 export {
-  orderStatusEnum, paymentMethodEnum, orders, orderItems,
-  ordersRelations, orderItemsRelations,
+  orderStatusEnum, paymentMethodEnum, orderNoteTypeEnum, orders, orderItems, orderNotes,
+  ordersRelations, orderItemsRelations, orderNotesRelations,
   type Order, type NewOrder, type OrderStatus, type OrderItem, type NewOrderItem,
+  type OrderNote, type NewOrderNote, type OrderNoteType,
 } from './orders'
 
 // ─── Articles ────────────────────────────────────────────────────────────────

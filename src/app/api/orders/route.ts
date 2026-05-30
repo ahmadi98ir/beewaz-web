@@ -78,9 +78,10 @@ export async function POST(req: Request) {
     })
   }
 
-  // هزینه ارسال
+  // هزینه ارسال (تهران ارزان‌تر، شهرستان گران‌تر)
   const FREE_SHIPPING_THRESHOLD = 2_000_000
-  const SHIPPING_COST = 150_000
+  const isTehran = address.province?.includes('تهران') || address.city?.includes('تهران')
+  const SHIPPING_COST = isTehran ? 100_000 : 200_000
   const shippingAmount = subtotal >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_COST
 
   // ── پردازش کوپن ───────────────────────────────────────────────────────────

@@ -83,6 +83,12 @@ export default function ProductsPage() {
             <h1 className="text-lg font-black text-surface-900">مدیریت محصولات</h1>
             <p className="text-xs text-surface-400 mt-0.5">{(counts.all ?? 0).toLocaleString('fa-IR')} محصول</p>
           </div>
+          <a href="/api/admin/products/export" download className="btn btn-outline flex items-center gap-2 text-sm py-2.5 px-4">
+            <svg viewBox="0 0 20 20" className="w-4 h-4" fill="currentColor">
+              <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
+            </svg>
+            خروجی CSV
+          </a>
           <button onClick={() => setAddOpen(true)} className="btn btn-primary flex items-center gap-2 text-sm py-2.5 px-4">
             <svg viewBox="0 0 20 20" className="w-4 h-4" fill="currentColor">
               <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
