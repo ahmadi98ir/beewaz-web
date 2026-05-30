@@ -52,6 +52,7 @@ export default async function AdminDashboard() {
   let totalOrdersThisMonth = 0
   let totalRevenueThisMonth = 0
   let newLeadsCount = 0
+  let convertedLeadsCount = 0
   let totalLeads = 0
 
   // Analytics
@@ -97,6 +98,7 @@ export default async function AdminDashboard() {
           revenue: sql<number>`coalesce(sum(case when ${orders.status} in ('paid','delivered') and ${orders.createdAt} >= ${monthStart.toISOString()} then ${orders.totalAmount} else 0 end), 0)::bigint`,
           newLeads: sql<number>`(select count(*)::int from leads where status = 'new')`,
           totalLeads: sql<number>`(select count(*)::int from leads)`,
+          convertedLeads: sql<number>`(select count(*)::int from leads where status = 'converted')`,
         })
         .from(orders),
     ])
@@ -176,13 +178,14 @@ export default async function AdminDashboard() {
       totalRevenueThisMonth = Number(s.revenue ?? 0)
       newLeadsCount = s.newLeads ?? 0
       totalLeads = s.totalLeads ?? 0
+      convertedLeadsCount = s.convertedLeads ?? 0
     }
   } catch {
     // DB might not be available during SSR — show zeros gracefully
   }
 
   const conversionRate = totalLeads > 0
-    ? Math.round(((totalLeads - newLeadsCount) / totalLeads) * 100)
+    ? Math.round((convertedLeadsCount / totalLeads) * 100)
     : 0
 
   return (
