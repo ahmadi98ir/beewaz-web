@@ -25,7 +25,16 @@ export async function GET(req: NextRequest) {
       ? eq(orders.status, status as OrderStatus)
       : undefined
 
-    const where = statusFilter
+    // جستجو در نام، تلفن و شناسه سفارش
+    const searchFilter = search ? or(
+      sql`(${orders.shippingAddress}->>'fullName') ilike ${`%${search}%`}`,
+      sql`(${orders.shippingAddress}->>'phone') ilike ${`%${search}%`}`,
+      sql`${orders.id}::text ilike ${`%${search}%`}`,
+    ) : undefined
+
+    const where = statusFilter && searchFilter
+      ? and(statusFilter, searchFilter)
+      : (statusFilter ?? searchFilter)
 
     const [rows, countResult, statusCounts] = await Promise.all([
       db.select({

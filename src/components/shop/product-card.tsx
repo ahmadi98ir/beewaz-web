@@ -63,9 +63,7 @@ export function ProductCard({ product, view = 'grid' }: Props) {
     showQuickView(product)
   }
 
-  const href = product.categorySlug
-    ? `/shop/${product.categorySlug}/${product.slug}`
-    : `/shop/${product.slug}`
+  const href = `/shop/${product.categorySlug || 'products'}/${product.slug}`
 
   if (view === 'list') {
     return (

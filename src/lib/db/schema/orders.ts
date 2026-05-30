@@ -37,9 +37,12 @@ export const orders = pgTable('orders', {
   shippingAddress: jsonb('shipping_address').$type<{
     fullName?: string
     phone?: string
-    city?: string
     province?: string
-    address?: string
+    city?: string
+    street?: string
+    alley?: string
+    plaque?: string
+    unit?: string
     postalCode?: string
   }>(),
 
@@ -62,6 +65,9 @@ export const orders = pgTable('orders', {
   customerNote: text('customer_note'),
   /** یادداشت داخلی ادمین */
   adminNote: text('admin_note'),
+
+  /** کد کوپن استفاده‌شده */
+  couponCode: varchar('coupon_code', { length: 50 }),
 
   paidAt: timestamp('paid_at', { withTimezone: true }),
   shippedAt: timestamp('shipped_at', { withTimezone: true }),

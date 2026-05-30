@@ -79,17 +79,20 @@ export async function GET(req: NextRequest) {
       .from(leads)
       .groupBy(leads.status)
 
-    const counts = {
-      all:       countResult[0]?.total ?? 0,
-      new:       0,
-      contacted: 0,
-      converted: 0,
-      lost:      0,
+    const counts: Record<string, number> = {
+      all:           0,
+      new:           0,
+      contacted:     0,
+      qualified:     0,
+      proposal_sent: 0,
+      won:           0,
+      converted:     0,
+      lost:          0,
     }
     for (const row of statusCounts) {
       counts[row.status] = row.count
     }
-    counts.all = statusCounts.reduce((s, r) => s + r.count, 0)
+    counts['all'] = statusCounts.reduce((s, r) => s + r.count, 0)
 
     return NextResponse.json({
       leads: rows,

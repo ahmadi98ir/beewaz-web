@@ -8,6 +8,7 @@ import { orders, orderItems } from '@/lib/db/schema'
 import { requireAdmin } from '@/lib/admin-auth'
 import { eq } from 'drizzle-orm'
 import type { OrderStatus } from '@/lib/db/schema'
+import { sendBulkSms } from '@/lib/sms'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -59,6 +60,26 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 
     const [updated] = await db.update(orders).set(update).where(eq(orders.id, id)).returning()
     if (!updated) return NextResponse.json({ error: 'سفارش یافت نشد' }, { status: 404 })
+
+    // پیامک اطلاع‌رسانی وضعیت سفارش
+    const addr = updated.shippingAddress as { phone?: string; fullName?: string } | null
+    const customerPhone = addr?.phone
+    if (customerPhone && body.status) {
+      const shortId = id.slice(0, 8).toUpperCase()
+      if (body.status === 'shipped') {
+        const trackMsg = update.trackingCode
+          ? `کد پیگیری: ${update.trackingCode}`
+          : 'برای پیگیری با پشتیبانی تماس بگیرید'
+        void sendBulkSms(customerPhone,
+          `بیواز: سفارش #${shortId} ارسال شد. ${trackMsg}`)
+      } else if (body.status === 'delivered') {
+        void sendBulkSms(customerPhone,
+          `بیواز: سفارش #${shortId} تحویل داده شد. ممنون از خرید شما 🙏`)
+      } else if (body.status === 'cancelled') {
+        void sendBulkSms(customerPhone,
+          `بیواز: سفارش #${shortId} لغو شد. برای پیگیری با پشتیبانی تماس بگیرید.`)
+      }
+    }
 
     return NextResponse.json({ order: updated })
   } catch (err) {

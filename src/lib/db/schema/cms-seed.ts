@@ -37,6 +37,10 @@ export const DEFAULT_SITE_SETTINGS: NewSiteSetting[] = [
   { key: 'default_warranty_months', value: '18',                 type: 'number',  label: 'ماه‌های گارانتی پیش‌فرض', group: 'commerce' },
   { key: 'shop_enabled',     value: 'true',                      type: 'boolean', label: 'فروشگاه فعال است',     group: 'commerce' },
   { key: 'checkout_notes',   value: '',                          type: 'text',    label: 'توضیح صفحه پرداخت',   group: 'commerce' },
+  { key: 'bank_card_enabled', value: 'false',                    type: 'boolean', label: 'فعال‌سازی پرداخت کارت به کارت', group: 'commerce' },
+  { key: 'bank_card_number', value: '',                          type: 'text',    label: 'شماره کارت بانکی',     group: 'commerce', hint: '16 رقم بدون فاصله' },
+  { key: 'bank_card_holder', value: '',                          type: 'text',    label: 'نام صاحب حساب',        group: 'commerce' },
+  { key: 'bank_card_bank',   value: '',                          type: 'text',    label: 'نام بانک',             group: 'commerce', hint: 'مثال: بانک ملت' },
 
   // ── Notification ──
   { key: 'admin_order_notify_phone', value: '', type: 'text', label: 'شماره اطلاع‌رسانی سفارش جدید', group: 'notification', hint: 'SMS هنگام ثبت سفارش' },

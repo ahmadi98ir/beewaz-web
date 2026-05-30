@@ -23,6 +23,7 @@ export default function ProductDetailPage() {
   const [product, setProduct] = useState<Product | null>(null)
   const [images, setImages] = useState<ProductImage[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState('')
   const [tab, setTab] = useState<'basic'|'content'|'seo'|'images'>('basic')
@@ -30,26 +31,46 @@ export default function ProductDetailPage() {
 
   const fetchProduct = useCallback(async () => {
     setLoading(true)
-    const res = await fetch(`/api/admin/products/${id}`)
-    const j = await res.json() as { product: Product; images: ProductImage[] }
-    setProduct(j.product); setImages(j.images); setForm(j.product)
-    setLoading(false)
+    setError('')
+    try {
+      const res = await fetch(`/api/admin/products/${id}`)
+      const j = await res.json() as { product: Product; images: ProductImage[]; error?: string }
+      if (!res.ok || !j.product) {
+        setError(j.error ?? `خطا ${res.status}`)
+      } else {
+        setProduct(j.product); setImages(j.images ?? []); setForm(j.product)
+      }
+    } catch (e) {
+      setError(String(e))
+    } finally {
+      setLoading(false)
+    }
   }, [id])
 
   useEffect(() => { fetchProduct() }, [fetchProduct])
 
   const save = async () => {
     setSaving(true)
-    const payload = { ...form }
-    if (payload.basePrice) payload.basePrice = String(parseInt(String(payload.basePrice)) * 10)
-    if (payload.compareAtPrice) payload.compareAtPrice = String(parseInt(String(payload.compareAtPrice)) * 10)
-    const res = await fetch(`/api/admin/products/${id}`, {
-      method: 'PUT', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    })
-    const j = await res.json() as { product: Product }
-    setProduct(j.product); setForm(j.product)
-    setSaving(false); setToast('ذخیره شد'); setTimeout(() => setToast(''), 2500)
+    try {
+      const payload = { ...form }
+      // basePrice و compareAtPrice در form همیشه به ریال هستند — بدون تبدیل
+      const res = await fetch(`/api/admin/products/${id}`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      const j = await res.json() as { product: Product; error?: string }
+      if (!res.ok || !j.product) {
+        setToast('خطا در ذخیره: ' + (j.error ?? res.status))
+        setTimeout(() => setToast(''), 3000)
+        return
+      }
+      setProduct(j.product); setForm(j.product)
+      setToast('ذخیره شد'); setTimeout(() => setToast(''), 2500)
+    } catch (e) {
+      setToast('خطا: ' + String(e)); setTimeout(() => setToast(''), 3000)
+    } finally {
+      setSaving(false)
+    }
   }
 
   const f = (k: keyof Product) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
@@ -57,8 +78,15 @@ export default function ProductDetailPage() {
 
   const inputCls = "w-full px-3.5 py-2.5 text-sm border border-surface-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-300"
 
-  if (loading || !product) return (
+  if (loading) return (
     <div className="flex-1 flex items-center justify-center text-surface-300">بارگذاری...</div>
+  )
+  if (error || !product) return (
+    <div className="flex-1 flex flex-col items-center justify-center gap-3 text-red-500">
+      <p className="font-bold">خطا در بارگذاری محصول</p>
+      <p className="text-sm font-mono">{error || 'محصول یافت نشد'}</p>
+      <Link href="/admin/products" className="text-sm text-brand-600 underline">بازگشت به لیست</Link>
+    </div>
   )
 
   return (
@@ -79,7 +107,7 @@ export default function ProductDetailPage() {
           <h1 className="text-lg font-black text-surface-900">{product.name}</h1>
           <p className="text-xs text-surface-400 font-mono mt-0.5">{product.slug}</p>
         </div>
-        <a href={`/shop/${product.slug}`} target="_blank" className="btn btn-outline text-sm py-2 px-4 flex items-center gap-1.5">
+        <a href={`/shop/products/${product.slug}`} target="_blank" className="btn btn-outline text-sm py-2 px-4 flex items-center gap-1.5">
           <svg viewBox="0 0 20 20" className="w-3.5 h-3.5" fill="currentColor">
             <path d="M11 3a1 1 0 100 2h2.586l-6.293 6.293a1 1 0 101.414 1.414L15 6.414V9a1 1 0 102 0V4a1 1 0 00-1-1h-5z"/><path d="M5 5a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2v-3a1 1 0 10-2 0v3H5V7h3a1 1 0 000-2H5z"/>
           </svg>
@@ -122,11 +150,17 @@ export default function ProductDetailPage() {
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-surface-600 mb-1.5">قیمت پایه (تومان)</label>
-                  <input type="number" value={form.basePrice ? Math.round(parseInt(String(form.basePrice))/10) : ''} onChange={f('basePrice')} className={inputCls} dir="ltr" />
+                  <input type="number"
+                    value={form.basePrice ? Math.round(parseInt(String(form.basePrice))/10) : ''}
+                    onChange={e => setForm(p => ({ ...p, basePrice: e.target.value ? String(Math.round(parseFloat(e.target.value) * 10)) : '0' }))}
+                    className={inputCls} dir="ltr" />
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-surface-600 mb-1.5">قیمت قبل از تخفیف (تومان)</label>
-                  <input type="number" value={form.compareAtPrice ? Math.round(parseInt(String(form.compareAtPrice))/10) : ''} onChange={f('compareAtPrice')} className={inputCls} dir="ltr" />
+                  <input type="number"
+                    value={form.compareAtPrice ? Math.round(parseInt(String(form.compareAtPrice))/10) : ''}
+                    onChange={e => setForm(p => ({ ...p, compareAtPrice: e.target.value ? String(Math.round(parseFloat(e.target.value) * 10)) : '' }))}
+                    className={inputCls} dir="ltr" />
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-surface-600 mb-1.5">وضعیت</label>
@@ -188,7 +222,7 @@ export default function ProductDetailPage() {
             <div className="border border-surface-200 rounded-xl p-4 bg-surface-50">
               <p className="text-xs font-semibold text-surface-400 mb-2">پیش‌نمایش گوگل</p>
               <p className="text-blue-600 text-sm font-medium truncate">{form.metaTitle || product.name}</p>
-              <p className="text-green-700 text-xs">bz360.ir/shop/{product.slug}</p>
+              <p className="text-green-700 text-xs">bz360.ir/shop/products/{product.slug}</p>
               <p className="text-surface-600 text-xs mt-1 line-clamp-2">{form.metaDescription || product.shortDescription || 'بدون توضیح'}</p>
             </div>
           </div>

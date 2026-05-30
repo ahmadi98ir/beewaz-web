@@ -7,7 +7,8 @@ import { eq, and } from 'drizzle-orm'
 const ZARINPAL_MERCHANT = process.env.ZARINPAL_MERCHANT_ID ?? ''
 const ZARINPAL_REQUEST_URL = 'https://api.zarinpal.com/pg/v4/payment/request.json'
 const ZARINPAL_STARTPAY_URL = 'https://www.zarinpal.com/pg/StartPay/'
-const CALLBACK_URL = `${process.env.NEXTAUTH_URL}/api/zarinpal/verify`
+const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://bz360.ir'
+const CALLBACK_URL = `${BASE_URL}/api/zarinpal/verify`
 
 export async function GET(req: Request) {
   const session = await auth()

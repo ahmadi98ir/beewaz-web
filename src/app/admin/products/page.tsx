@@ -30,6 +30,7 @@ function fmt(v: string | null) {
 export default function ProductsPage() {
   const [data, setData] = useState<ApiResponse | null>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState('all')
   const [search, setSearch] = useState('')
   const [searchInput, setSearchInput] = useState('')
@@ -38,12 +39,15 @@ export default function ProductsPage() {
 
   const fetchProducts = useCallback(async (status: string, q: string) => {
     setLoading(true)
+    setError(null)
     try {
       const params = new URLSearchParams({ status, limit: '100' })
       if (q) params.set('q', q)
       const res = await fetch(`/api/admin/products?${params}`)
+      if (!res.ok) { setError('خطا در دریافت محصولات'); return }
       setData(await res.json() as ApiResponse)
-    } finally { setLoading(false) }
+    } catch { setError('خطا در ارتباط با سرور') }
+    finally { setLoading(false) }
   }, [])
 
   useEffect(() => { fetchProducts(activeTab, search) }, [fetchProducts, activeTab, search])
@@ -111,7 +115,12 @@ export default function ProductsPage() {
 
         {/* Table */}
         <div className="bg-white rounded-2xl border border-surface-200 overflow-hidden">
-          {prods.length === 0 && !loading ? (
+          {error ? (
+            <div className="py-16 text-center">
+              <p className="text-red-500 font-semibold">{error}</p>
+              <button onClick={() => fetchProducts(activeTab, search)} className="btn btn-outline mt-4 text-sm">تلاش مجدد</button>
+            </div>
+          ) : prods.length === 0 && !loading ? (
             <div className="py-16 text-center">
               <p className="text-surface-400 font-semibold">محصولی یافت نشد</p>
               <button onClick={() => setAddOpen(true)} className="btn btn-outline mt-4 text-sm">افزودن محصول</button>
@@ -166,7 +175,7 @@ export default function ProductsPage() {
                               <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
                             </svg>
                           </Link>
-                          <a href={`/shop/${p.slug}`} target="_blank"
+                          <a href={`/shop/products/${p.slug}`} target="_blank"
                             className="p-1.5 rounded-lg hover:bg-surface-100 text-surface-400 hover:text-surface-600 transition-colors">
                             <svg viewBox="0 0 20 20" className="w-4 h-4" fill="currentColor">
                               <path d="M11 3a1 1 0 100 2h2.586l-6.293 6.293a1 1 0 101.414 1.414L15 6.414V9a1 1 0 102 0V4a1 1 0 00-1-1h-5z" />

@@ -16,14 +16,35 @@ export async function GET(req: NextRequest, { params }: Params) {
       .where(and(eq(products.id, id), isNull(products.deletedAt))).limit(1)
     if (!product) return NextResponse.json({ error: 'محصول یافت نشد' }, { status: 404 })
 
-    const [images, variants] = await Promise.all([
-      db.select().from(productImages)
-        .where(eq(productImages.productId, id)).orderBy(productImages.sortOrder),
-      db.select().from(productVariants)
-        .where(eq(productVariants.productId, id)).orderBy(productVariants.createdAt),
-    ])
+    const images = await db.select().from(productImages)
+      .where(eq(productImages.productId, id)).orderBy(productImages.sortOrder)
 
-    return NextResponse.json({ product, images, variants })
+    const variants = await db.select().from(productVariants)
+      .where(eq(productVariants.productId, id)).orderBy(productVariants.createdAt)
+      .catch(() => [])
+
+    return NextResponse.json({
+      product: {
+        id: product.id,
+        slug: product.slug,
+        name: product.nameFa,
+        modelCode: product.sku,
+        sku: product.sku,
+        shortDescription: product.descriptionFa,
+        description: product.descriptionFa,
+        status: product.status,
+        basePrice: String(product.price ?? 0),
+        compareAtPrice: product.comparePrice ? String(product.comparePrice) : null,
+        isFeatured: product.isFeatured,
+        warrantyMonths: 18,
+        metaTitle: product.metaTitle,
+        metaDescription: product.metaDesc,
+        highlights: [],
+        categoryId: product.categoryId,
+      },
+      images,
+      variants,
+    })
   } catch (err) {
     console.error('[product GET]', err)
     return NextResponse.json({ error: 'خطا' }, { status: 500 })
@@ -52,10 +73,44 @@ export async function PUT(req: NextRequest, { params }: Params) {
     if (typeof body.isFeatured === 'boolean')   update.isFeatured   = body.isFeatured as boolean
     if (typeof body.categoryId === 'string')    update.categoryId   = body.categoryId as string
     if (typeof body.metaTitle === 'string')     update.metaTitle    = body.metaTitle
-    if (typeof body.metaDesc === 'string')      update.metaDesc     = body.metaDesc
+    if (typeof body.metaDesc === 'string')         update.metaDesc     = body.metaDesc
+    if (typeof body.metaDescription === 'string') update.metaDesc     = body.metaDescription as string
+    if (typeof body.description === 'string')     update.descriptionFa = body.description as string
+    if (typeof body.shortDescription === 'string') update.descriptionFa = body.shortDescription as string
+    if (typeof body.name === 'string')            update.nameFa        = body.name as string
+    if (typeof body.modelCode === 'string')       update.sku           = body.modelCode as string
+    if (typeof body.basePrice === 'string' && body.basePrice !== '') {
+      const p = parseInt(body.basePrice as string)
+      if (!isNaN(p)) update.price = p
+    }
+    if (typeof body.compareAtPrice === 'string') {
+      const cp = parseInt(body.compareAtPrice as string)
+      update.comparePrice = isNaN(cp) ? null : cp
+    }
 
-    const [updated] = await db.update(products).set(update).where(eq(products.id, id)).returning()
-    return NextResponse.json({ product: updated })
+    const rows = await db.update(products).set(update).where(eq(products.id, id)).returning()
+    const updated = rows[0]
+    if (!updated) return NextResponse.json({ error: 'محصول یافت نشد' }, { status: 404 })
+    return NextResponse.json({
+      product: {
+        id: updated.id,
+        slug: updated.slug,
+        name: updated.nameFa,
+        modelCode: updated.sku,
+        sku: updated.sku,
+        shortDescription: updated.descriptionFa,
+        description: updated.descriptionFa,
+        status: updated.status,
+        basePrice: String(updated.price ?? 0),
+        compareAtPrice: updated.comparePrice ? String(updated.comparePrice) : null,
+        isFeatured: updated.isFeatured,
+        warrantyMonths: 18,
+        metaTitle: updated.metaTitle,
+        metaDescription: updated.metaDesc,
+        highlights: [],
+        categoryId: updated.categoryId,
+      }
+    })
   } catch (err) {
     console.error('[product PUT]', err)
     return NextResponse.json({ error: 'خطا در ویرایش' }, { status: 500 })

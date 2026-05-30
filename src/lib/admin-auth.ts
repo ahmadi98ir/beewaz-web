@@ -11,8 +11,14 @@ import { NextRequest } from 'next/server'
 export async function requireAdmin(req?: NextRequest): Promise<{ ok: boolean; error?: string }> {
   const token = process.env.ADMIN_TOKEN
 
-  // اگر ADMIN_TOKEN تنظیم نشده، همه دسترسی دارند (محیط dev)
-  if (!token) return { ok: true }
+  if (!token) {
+    // در production بدون ADMIN_TOKEN دسترسی مسدود است
+    if (process.env.NODE_ENV === 'production') {
+      return { ok: false, error: 'ADMIN_TOKEN not configured' }
+    }
+    // فقط در development بدون توکن اجازه داده می‌شود
+    return { ok: true }
+  }
 
   // بررسی کوکی ادمین
   try {

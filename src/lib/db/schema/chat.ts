@@ -6,6 +6,7 @@ import {
   text,
   timestamp,
   jsonb,
+  integer,
 } from 'drizzle-orm/pg-core'
 import { relations } from 'drizzle-orm'
 import { users } from './users'
@@ -28,6 +29,9 @@ export const messageRoleEnum = pgEnum('message_role', [
 export const leadStatusEnum = pgEnum('lead_status', [
   'new',
   'contacted',
+  'qualified',
+  'proposal_sent',
+  'won',
   'converted',
   'lost',
 ])

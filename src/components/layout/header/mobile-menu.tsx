@@ -3,9 +3,11 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { MenuIcon, XIcon, ChevronDownIcon, PhoneIcon, ShoppingCartIcon } from '@/components/ui/icons'
+import { MenuIcon, XIcon, ChevronDownIcon, PhoneIcon, ShoppingCartIcon, UserIcon } from '@/components/ui/icons'
 import { BeewazLogo } from '@/components/ui/logo'
 import { useCart } from '@/stores/cart'
+import { useSession } from 'next-auth/react'
+import { toFaDigits } from '@/lib/utils'
 import type { NavItem } from '@/config/navigation'
 
 type Props = { items: NavItem[] }
@@ -15,6 +17,8 @@ export function MobileMenu({ items }: Props) {
   const [expanded, setExpanded] = useState<string | null>(null)
   const pathname = usePathname()
   const cartCount = useCart((s) => s.count)
+  const openCart = useCart((s) => s.openCart)
+  const { data: session } = useSession()
 
   // بستن منو هنگام تغییر مسیر
   useEffect(() => { setOpen(false) }, [pathname])
@@ -42,7 +46,7 @@ export function MobileMenu({ items }: Props) {
         <MenuIcon size={22} />
         {cartCount > 0 && (
           <span className="absolute -top-0.5 -start-0.5 min-w-[16px] h-4 px-0.5 rounded-full bg-brand-600 text-white text-[9px] font-bold flex items-center justify-center">
-            {cartCount}
+            {toFaDigits(cartCount)}
           </span>
         )}
       </button>
@@ -159,12 +163,30 @@ export function MobileMenu({ items }: Props) {
         {/* فوتر drawer */}
         <div className="border-t border-surface-100 p-4 space-y-3">
           {cartCount > 0 && (
-            <Link
-              href="/cart"
+            <button
+              type="button"
+              onClick={() => { setOpen(false); openCart() }}
               className="btn btn-outline w-full justify-center gap-2 text-sm"
             >
               <ShoppingCartIcon size={16} />
-              سبد خرید ({cartCount} محصول)
+              سبد خرید ({toFaDigits(cartCount)} محصول)
+            </button>
+          )}
+          {session?.user ? (
+            <Link
+              href="/profile"
+              className="btn btn-ghost w-full justify-center gap-2 text-sm border border-surface-200"
+            >
+              <UserIcon size={16} />
+              پروفایل کاربری
+            </Link>
+          ) : (
+            <Link
+              href="/login"
+              className="btn btn-ghost w-full justify-center gap-2 text-sm border border-surface-200"
+            >
+              <UserIcon size={16} />
+              ورود به حساب کاربری
             </Link>
           )}
           <Link

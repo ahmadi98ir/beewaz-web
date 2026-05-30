@@ -1,22 +1,30 @@
 import Link from 'next/link'
 import { BeewazLogo } from '@/components/ui/logo'
-import { UserIcon } from '@/components/ui/icons'
 import { navigation } from '@/config/navigation'
 import { DesktopNav } from './desktop-nav'
 import { MobileMenu } from './mobile-menu'
 import { SearchBar } from './search-bar'
 import { CartButton } from './cart-button'
 import { AnnouncementBar } from './announcement-bar'
-import { getSiteSettings } from '@/lib/cms'
+import { UserButton } from './user-button'
+import { getSiteSettings, getCmsContent } from '@/lib/cms'
+import { auth } from '@/lib/auth'
 
 // Server Component — بدون 'use client'
 
 export async function Header() {
-  const settings = await getSiteSettings()
+  const [settings, globalContent, session] = await Promise.all([
+    getSiteSettings(),
+    getCmsContent('global'),
+    auth(),
+  ])
+
+  // Merge pageContent 'global' (announcement settings) into siteSettings
+  const mergedSettings = { ...settings, ...globalContent }
 
   return (
     <header className="sticky top-0 z-50">
-      <AnnouncementBar settings={settings} />
+      <AnnouncementBar settings={mergedSettings} />
 
       <div
         className="bg-white/95 backdrop-blur-md border-b border-surface-200"
@@ -37,19 +45,13 @@ export async function Header() {
             <div className="flex items-center gap-1">
               <SearchBar />
               <CartButton />
+              {/* دکمه ورود یا پروفایل — بسته به وضعیت auth */}
+              <UserButton session={session} />
               <Link
-                href="/login"
-                className="hidden sm:inline-flex btn btn-ghost gap-2 py-2 px-3 text-sm"
-                aria-label="ورود به حساب کاربری"
-              >
-                <UserIcon size={18} />
-                <span className="hidden md:inline">ورود</span>
-              </Link>
-              <Link
-                href={settings.contact_cta_url ?? '/contact'}
+                href={mergedSettings.contact_cta_url ?? '/contact'}
                 className="hidden lg:inline-flex btn btn-primary py-2 px-4 text-sm"
               >
-                {settings.contact_cta_text ?? 'مشاوره رایگان'}
+                {mergedSettings.contact_cta_text ?? 'مشاوره رایگان'}
               </Link>
               <MobileMenu items={navigation} />
             </div>

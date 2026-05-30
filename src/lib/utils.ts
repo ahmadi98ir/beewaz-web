@@ -42,9 +42,7 @@ export function formatPrice(amount: string | number | null | undefined): string 
   const num = typeof amount === 'string' ? Number.parseFloat(amount) : amount
   if (Number.isNaN(num) || num === 0) return '—'
   const toman = Math.floor(num / 10)
-  if (toman >= 1_000_000) return `${(toman / 1_000_000).toFixed(1)}M ت`
-  if (toman >= 1_000) return `${(toman / 1_000).toFixed(0)}K ت`
-  return `${toman.toLocaleString('fa-IR')} ت`
+  return `${toman.toLocaleString('fa-IR')} تومان`
 }
 
 /**

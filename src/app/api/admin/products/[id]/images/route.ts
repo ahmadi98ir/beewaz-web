@@ -13,7 +13,15 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   return NextResponse.json({ images })
 }
 
-const addSchema = z.object({ url: z.string().url().or(z.string().startsWith('/')), alt: z.string().max(200).optional() })
+const ALLOWED_IMAGE_EXTS = /\.(jpe?g|png|webp|gif|avif|svg)(\?.*)?$/i
+const addSchema = z.object({
+  url: z.string()
+    .refine(
+      (v) => (v.startsWith('/') || v.startsWith('https://')) && ALLOWED_IMAGE_EXTS.test(v),
+      'آدرس تصویر باید با / یا https:// شروع شده و پسوند معتبر داشته باشد'
+    ),
+  alt: z.string().max(200).optional(),
+})
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const _auth = await requireAdmin()
