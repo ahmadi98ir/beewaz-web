@@ -124,13 +124,14 @@ export async function POST(req: Request) {
   }
 
   const totalAmount = Math.max(0, subtotal + shippingAmount - discountAmount)
+  const userId = session.user!.id
 
   // ثبت سفارش در یک transaction برای جلوگیری از ناسازگاری داده
   let order: { id: string }
   try {
     const result = await db.transaction(async (tx) => {
       const [newOrder] = await tx.insert(orders).values({
-        userId: session.user.id,
+        userId,
         status: 'pending',
         totalAmount: String(totalAmount),
         shippingAmount: String(shippingAmount),
@@ -162,7 +163,7 @@ export async function POST(req: Request) {
 
         await tx.insert(couponUsages).values({
           couponId: appliedCoupon.id,
-          userId: session.user.id,
+          userId,
           orderId: newOrder.id,
           discountAmount: String(discountAmount),
         })
