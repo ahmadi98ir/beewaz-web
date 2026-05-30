@@ -25,11 +25,11 @@ Write-Host "`n[3/3] Deploying on server..." -ForegroundColor Yellow
 $target = "${SSH_USER}@${SERVER}"
 $sshOpts = "-p", $SSH_PORT
 
-ssh @sshOpts $target "docker ps --format '{{.Names}}' | grep -i beewaz | head -1 > /tmp/cname.txt && cat /tmp/cname.txt"
+ssh @sshOpts $target 'docker ps --format "{{.Names}}" | grep -i beewaz | head -1 > /tmp/cname.txt && cat /tmp/cname.txt'
 ssh @sshOpts $target "mkdir -p /tmp/beewaz-extract && tar -xzf /tmp/beewaz-build.tar.gz -C /tmp/beewaz-extract"
-ssh @sshOpts $target "CONTAINER=\$(cat /tmp/cname.txt); docker cp /tmp/beewaz-extract/. \$CONTAINER:/app/ && echo Copied to \$CONTAINER"
+ssh @sshOpts $target 'CONTAINER=$(cat /tmp/cname.txt); docker cp /tmp/beewaz-extract/. $CONTAINER:/app/ && echo Copied to $CONTAINER'
 ssh @sshOpts $target "rm -rf /tmp/beewaz-extract /tmp/beewaz-build.tar.gz /tmp/cname.txt"
-ssh @sshOpts $target "CONTAINER=\$(docker ps --format '{{.Names}}' | grep -i beewaz | head -1); docker restart \$CONTAINER && echo Restarted \$CONTAINER"
+ssh @sshOpts $target 'CONTAINER=$(docker ps --format "{{.Names}}" | grep -i beewaz | head -1); docker restart $CONTAINER && echo Restarted $CONTAINER'
 Start-Sleep -Seconds 6
 ssh @sshOpts $target "curl -sf --max-time 10 -o /dev/null -w 'HTTP: %{http_code}' http://localhost:3000/ || echo 'HTTP: 000'"
 
