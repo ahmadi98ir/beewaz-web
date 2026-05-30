@@ -58,6 +58,12 @@ export {
   type Block, type BlockType,
 } from './pages'
 
+// ─── RBAC ────────────────────────────────────────────────────────────────────
+export {
+  permissions, rolePermissions,
+  type Permission, type RolePermission,
+} from './rbac'
+
 // ─── Coupons ─────────────────────────────────────────────────────────────────
 export {
   couponTypeEnum, coupons, couponUsages,
