@@ -19,18 +19,26 @@ if (-not $WINSCP) {
     throw "WinSCP.com not found! Please install WinSCP."
 }
 
-$WS_OPEN = "open scp://${SSH_USER}:${SSH_PASS}@${SERVER}:${SSH_PORT}/ -hostkey=*"
+$WS_OPEN  = "open scp://${SSH_USER}:${SSH_PASS}@${SERVER}:${SSH_PORT}/ -hostkey=*"
+$WS_SCRIPT = "$env:TEMP\bz-winscp.txt"
+
+function Invoke-WinSCP {
+    param([string]$ScriptBody)
+    $ScriptBody | Out-File -FilePath $WS_SCRIPT -Encoding ascii -Force
+    & $WINSCP /ini=nul /script=$WS_SCRIPT
+    $code = $LASTEXITCODE
+    Remove-Item $WS_SCRIPT -ErrorAction SilentlyContinue
+    if ($code -ne 0) { throw "WinSCP failed (exit $code)" }
+}
 
 function Invoke-SSH {
     param([string]$Command)
-    "$WS_OPEN`ncall $Command`nexit" | & $WINSCP /ini=nul /script=-
-    if ($LASTEXITCODE -ne 0) { throw "SSH command failed: $Command" }
+    Invoke-WinSCP "$WS_OPEN`ncall $Command`nexit"
 }
 
 function Invoke-SCP {
     param([string]$LocalPath, [string]$RemotePath)
-    "$WS_OPEN`nput `"$LocalPath`" `"$RemotePath`"`nexit" | & $WINSCP /ini=nul /script=-
-    if ($LASTEXITCODE -ne 0) { throw "SCP upload failed" }
+    Invoke-WinSCP "$WS_OPEN`nput `"$LocalPath`" `"$RemotePath`"`nexit"
 }
 
 Write-Host "=== Beewaz Deploy ===" -ForegroundColor Cyan
