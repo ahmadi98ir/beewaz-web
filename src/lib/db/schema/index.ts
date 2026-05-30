@@ -9,11 +9,11 @@ export {
 
 // ─── Products ────────────────────────────────────────────────────────────────
 export {
-  productStatusEnum, products, productVariants, productImages, productSpecs,
+  productStatusEnum, products, productVariants, productImages, productSpecs, productReviews,
   productsRelations, productVariantsRelations, productImagesRelations, productSpecsRelations,
   type Product, type NewProduct, type ProductVariant, type NewProductVariant,
   type ProductImage, type NewProductImage, type ProductSpec, type NewProductSpec,
-  type ProductStatus,
+  type ProductStatus, type ProductReview, type NewProductReview,
 } from './products'
 
 // ─── Orders ──────────────────────────────────────────────────────────────────
@@ -57,6 +57,12 @@ export {
   type Banner, type NewBanner,
   type Block, type BlockType,
 } from './pages'
+
+// ─── RBAC ────────────────────────────────────────────────────────────────────
+export {
+  permissions, rolePermissions,
+  type Permission, type RolePermission,
+} from './rbac'
 
 // ─── Coupons ─────────────────────────────────────────────────────────────────
 export {

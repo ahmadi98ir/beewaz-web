@@ -1,8 +1,9 @@
 import {
-  pgTable, pgEnum, uuid, varchar, text, numeric, bigint, integer, boolean, timestamp, jsonb
+  pgTable, pgEnum, uuid, varchar, text, numeric, bigint, integer, smallint, boolean, timestamp, jsonb
 } from 'drizzle-orm/pg-core'
 import { relations } from 'drizzle-orm'
 import { categories } from './categories'
+import { users } from './users'
 
 export const productStatusEnum = pgEnum('product_status', [
   'draft', 'active', 'archived', 'out_of_stock',
@@ -60,11 +61,23 @@ export const productSpecs = pgTable('product_specs', {
   sortOrder: integer('sort_order').default(0).notNull(),
 })
 
+export const productReviews = pgTable('product_reviews', {
+  id:         uuid('id').primaryKey().defaultRandom(),
+  productId:  uuid('product_id').notNull().references(() => products.id, { onDelete: 'cascade' }),
+  userId:     uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
+  authorName: varchar('author_name', { length: 100 }).notNull(),
+  rating:     smallint('rating').notNull(),
+  body:       text('body'),
+  approved:   boolean('approved').notNull().default(false),
+  createdAt:  timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+})
+
 export const productsRelations = relations(products, ({ one, many }) => ({
   category: one(categories, { fields: [products.categoryId], references: [categories.id] }),
   images:   many(productImages),
   variants: many(productVariants),
   specs:    many(productSpecs),
+  reviews:  many(productReviews),
 }))
 
 export const productVariantsRelations = relations(productVariants, ({ one }) => ({
@@ -88,3 +101,5 @@ export type NewProductImage = typeof productImages.$inferInsert
 export type ProductSpec     = typeof productSpecs.$inferSelect
 export type NewProductSpec  = typeof productSpecs.$inferInsert
 export type ProductStatus   = (typeof productStatusEnum.enumValues)[number]
+export type ProductReview    = typeof productReviews.$inferSelect
+export type NewProductReview = typeof productReviews.$inferInsert

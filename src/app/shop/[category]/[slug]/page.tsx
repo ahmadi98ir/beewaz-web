@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import { db } from '@/lib/db'
-import { products, categories, productSpecs, productImages } from '@/lib/db/schema'
+import { products, categories, productSpecs, productImages, productReviews } from '@/lib/db/schema'
 import { eq, and, ne } from 'drizzle-orm'
 import { dbProductToShop } from '@/lib/shop-product'
 import { ProductDetailClient } from './product-detail-client'
@@ -13,16 +13,51 @@ type Props = {
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { slug } = await params
+  const { slug, category: categorySlug } = await params
   try {
     const [product] = await db
-      .select({ nameFa: products.nameFa, descriptionFa: products.descriptionFa })
+      .select({
+        nameFa: products.nameFa,
+        descriptionFa: products.descriptionFa,
+        metaTitle: products.metaTitle,
+        metaDesc: products.metaDesc,
+      })
       .from(products)
       .where(and(eq(products.slug, slug), eq(products.status, 'active')))
       .limit(1)
 
+    const [img] = await db
+      .select({ url: productImages.url })
+      .from(productImages)
+      .where(eq(productImages.productId,
+        (await db.select({ id: products.id }).from(products).where(eq(products.slug, slug)).limit(1))[0]?.id ?? ''
+      ))
+      .limit(1)
+
     if (!product) return { title: 'محصول یافت نشد' }
-    return { title: product.nameFa, description: product.descriptionFa ?? undefined }
+
+    const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://bz360.ir'
+    const title = product.metaTitle ?? product.nameFa
+    const description = product.metaDesc ?? product.descriptionFa ?? undefined
+    const imageUrl = img?.url?.startsWith('http') ? img.url : img?.url ? `${BASE_URL}${img.url}` : undefined
+
+    return {
+      title,
+      description,
+      openGraph: {
+        title,
+        description,
+        url: `${BASE_URL}/shop/${categorySlug}/${slug}`,
+        type: 'website',
+        ...(imageUrl ? { images: [{ url: imageUrl }] } : {}),
+      },
+      twitter: {
+        card: 'summary_large_image',
+        title,
+        description,
+        ...(imageUrl ? { images: [imageUrl] } : {}),
+      },
+    }
   } catch {
     return { title: 'بیواز' }
   }
@@ -44,6 +79,8 @@ export default async function ProductPage({ params }: Props) {
         comparePrice: products.comparePrice,
         stock: products.stock,
         isFeatured: products.isFeatured,
+        ratingAvg: products.ratingAvg,
+        ratingCount: products.ratingCount,
         createdAt: products.createdAt,
         categoryId: products.categoryId,
         categorySlug: categories.slug,
@@ -72,6 +109,8 @@ export default async function ProductPage({ params }: Props) {
 
     const product = dbProductToShop({
       ...productRow,
+      ratingAvg: productRow.ratingAvg,
+      ratingCount: productRow.ratingCount,
       category: productRow.categorySlug
         ? { slug: productRow.categorySlug, nameFa: productRow.categoryName ?? '' }
         : null,

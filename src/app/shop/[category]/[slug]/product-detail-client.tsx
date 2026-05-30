@@ -8,6 +8,7 @@ import { AnimateIn } from '@/components/ui/animate-in'
 import { ShoppingCartIcon, HeartIcon, ShieldIcon, CheckIcon, PhoneIcon } from '@/components/ui/icons'
 import { formatPrice, discountPercent } from '@/lib/utils'
 import type { ShopProduct } from '@/lib/shop-product'
+import { ProductReviews } from '@/components/shop/product-reviews'
 
 type Props = {
   product: ShopProduct
@@ -150,7 +151,7 @@ function ProductTabs({ product }: { product: ShopProduct }) {
       )}
 
       {active === 'reviews' && (
-        <p className="text-surface-400 italic text-sm">امکان ثبت نظر به زودی فعال می‌شود.</p>
+        <ProductReviews slug={product.slug} ratingAvg={product.ratingAvg} ratingCount={product.reviewCount} />
       )}
     </div>
   )

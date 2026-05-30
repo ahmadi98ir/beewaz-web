@@ -32,7 +32,8 @@ export const authConfig = {
       if (pathname.startsWith('/admin')) {
         if (!auth) return false
         // @ts-expect-error — custom role
-        return auth.user?.role === 'admin'
+        const role = auth.user?.role as string | undefined
+        return role === 'admin' || role === 'sales_agent'
       }
       if (pathname.startsWith('/profile')) {
         return !!auth
