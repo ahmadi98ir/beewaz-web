@@ -82,7 +82,9 @@ export async function PUT(req: NextRequest, { params }: Params) {
     if (typeof body.basePrice === 'string')       update.price         = parseInt(body.basePrice as string)
     if (typeof body.compareAtPrice === 'string')  update.comparePrice  = parseInt(body.compareAtPrice as string)
 
-    const [updated] = await db.update(products).set(update).where(eq(products.id, id)).returning()
+    const rows = await db.update(products).set(update).where(eq(products.id, id)).returning()
+    const updated = rows[0]
+    if (!updated) return NextResponse.json({ error: 'محصول یافت نشد' }, { status: 404 })
     return NextResponse.json({
       product: {
         id: updated.id,
