@@ -10,6 +10,8 @@ import { UserButton } from './user-button'
 import { getSiteSettings, getCmsContent } from '@/lib/cms'
 import { auth } from '@/lib/auth'
 
+// Server Component — بدون 'use client'
+
 export async function Header() {
   const [settings, globalContent, session] = await Promise.all([
     getSiteSettings(),
@@ -17,6 +19,7 @@ export async function Header() {
     auth(),
   ])
 
+  // Merge pageContent 'global' (announcement settings) into siteSettings
   const mergedSettings = { ...settings, ...globalContent }
 
   return (
@@ -29,12 +32,20 @@ export async function Header() {
       >
         <div className="container-main">
           <div className="flex items-center h-18 gap-4 lg:gap-6">
+
+            {/* ── لوگو ──────────────────────────────────────────── */}
             <BeewazLogo size="md" />
+
+            {/* ── ناوبری دسکتاپ ────────────────────────────────── */}
             <DesktopNav items={navigation} />
+
             <div className="flex-1" />
+
+            {/* ── اکشن‌ها ───────────────────────────────────────── */}
             <div className="flex items-center gap-1">
               <SearchBar />
               <CartButton />
+              {/* دکمه ورود یا پروفایل — بسته به وضعیت auth */}
               <UserButton session={session} />
               <Link
                 href={mergedSettings.contact_cta_url ?? '/contact'}
@@ -44,6 +55,7 @@ export async function Header() {
               </Link>
               <MobileMenu items={navigation} />
             </div>
+
           </div>
         </div>
       </div>
