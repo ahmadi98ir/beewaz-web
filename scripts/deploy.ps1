@@ -1,7 +1,4 @@
 # deploy.ps1 - Deploy latest build to bz360.ir
-# Usage: .\deploy.ps1
-# Run from your Windows machine after GitHub Actions build completes
-
 $ErrorActionPreference = "Stop"
 
 $RELEASE_URL = "https://github.com/ahmadi98ir/beewaz-web/releases/download/deploy-cache/beewaz-build.tar.gz"
@@ -23,24 +20,18 @@ Write-Host "`n[2/3] Uploading to server..." -ForegroundColor Yellow
 scp -P $SSH_PORT "$LOCAL_FILE" "${SSH_USER}@${SERVER}:/tmp/beewaz-build.tar.gz"
 Write-Host "      Upload complete" -ForegroundColor Green
 
-# Deploy on server
+# Deploy on server - pass each command separately to avoid line ending issues
 Write-Host "`n[3/3] Deploying on server..." -ForegroundColor Yellow
-$deployScript = @'
-set -e
-CONTAINER=$(docker ps --format '{{.Names}}' | grep -i beewaz | head -1)
-echo "Container: $CONTAINER"
-mkdir -p /tmp/beewaz-extract
-tar -xzf /tmp/beewaz-build.tar.gz -C /tmp/beewaz-extract
-docker cp /tmp/beewaz-extract/. "$CONTAINER:/app/"
-rm -rf /tmp/beewaz-extract /tmp/beewaz-build.tar.gz
-docker restart "$CONTAINER"
-sleep 5
-HTTP=$(curl -sf --max-time 10 -o /dev/null -w '%{http_code}' http://localhost:3000/ || echo "000")
-echo "Site HTTP: $HTTP"
-echo "Deploy complete!"
-'@
+$target = "${SSH_USER}@${SERVER}"
+$sshOpts = "-p", $SSH_PORT
 
-ssh -p $SSH_PORT "${SSH_USER}@${SERVER}" $deployScript
+ssh @sshOpts $target "docker ps --format '{{.Names}}' | grep -i beewaz | head -1 > /tmp/cname.txt && cat /tmp/cname.txt"
+ssh @sshOpts $target "mkdir -p /tmp/beewaz-extract && tar -xzf /tmp/beewaz-build.tar.gz -C /tmp/beewaz-extract"
+ssh @sshOpts $target "CONTAINER=\$(cat /tmp/cname.txt); docker cp /tmp/beewaz-extract/. \$CONTAINER:/app/ && echo Copied to \$CONTAINER"
+ssh @sshOpts $target "rm -rf /tmp/beewaz-extract /tmp/beewaz-build.tar.gz /tmp/cname.txt"
+ssh @sshOpts $target "CONTAINER=\$(docker ps --format '{{.Names}}' | grep -i beewaz | head -1); docker restart \$CONTAINER && echo Restarted \$CONTAINER"
+Start-Sleep -Seconds 6
+ssh @sshOpts $target "curl -sf --max-time 10 -o /dev/null -w 'HTTP: %{http_code}' http://localhost:3000/ || echo 'HTTP: 000'"
 
 # Cleanup
 Remove-Item $LOCAL_FILE -ErrorAction SilentlyContinue
