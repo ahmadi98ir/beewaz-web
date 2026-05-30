@@ -37,6 +37,20 @@ export async function POST(req: Request) {
       )
     }
 
+    // نرخ‌محدودی روزانه: حداکثر ۱۰ OTP در ۲۴ ساعت
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000)
+    const dailyCount = await db
+      .select({ id: phoneOtps.id })
+      .from(phoneOtps)
+      .where(and(eq(phoneOtps.phone, phone), gte(phoneOtps.createdAt, oneDayAgo)))
+
+    if (dailyCount.length >= 10) {
+      return NextResponse.json(
+        { error: 'تعداد درخواست‌های شما برای امروز به حد مجاز رسیده است' },
+        { status: 429 },
+      )
+    }
+
     const code = String(Math.floor(100000 + Math.random() * 900000))
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000)
 

@@ -125,45 +125,66 @@ export async function POST(req: Request) {
 
   const totalAmount = Math.max(0, subtotal + shippingAmount - discountAmount)
 
-  // ثبت سفارش
-  const [order] = await db.insert(orders).values({
-    userId: session.user.id,
-    status: 'pending',
-    totalAmount: String(totalAmount),
-    shippingAmount: String(shippingAmount),
-    discountAmount: String(discountAmount),
-    couponCode: appliedCoupon?.code ?? null,
-    shippingAddress: address,
-    paymentMethod,
-    customerNote: notes ?? null,
-  }).returning({ id: orders.id })
+  // ثبت سفارش در یک transaction برای جلوگیری از ناسازگاری داده
+  let order: { id: string }
+  try {
+    const result = await db.transaction(async (tx) => {
+      const [newOrder] = await tx.insert(orders).values({
+        userId: session.user.id,
+        status: 'pending',
+        totalAmount: String(totalAmount),
+        shippingAmount: String(shippingAmount),
+        discountAmount: String(discountAmount),
+        couponCode: appliedCoupon?.code ?? null,
+        shippingAddress: address,
+        paymentMethod,
+        customerNote: notes ?? null,
+      }).returning({ id: orders.id })
 
-  if (!order) return NextResponse.json({ error: 'خطا در ثبت سفارش' }, { status: 500 })
+      if (!newOrder) throw new Error('order_insert_failed')
 
-  await db.insert(orderItems).values(
-    orderItemsData.map((item) => ({ orderId: order.id, ...item }))
-  )
+      await tx.insert(orderItems).values(
+        orderItemsData.map((item) => ({ orderId: newOrder.id, ...item }))
+      )
 
-  // ثبت استفاده از کوپن
-  if (appliedCoupon && discountAmount > 0) {
-    await db.insert(couponUsages).values({
-      couponId: appliedCoupon.id,
-      userId: session.user.id,
-      orderId: order.id,
-      discountAmount: String(discountAmount),
+      // ثبت کوپن با بررسی اتمیک (جلوگیری از race condition)
+      if (appliedCoupon && discountAmount > 0) {
+        const couponWhere = appliedCoupon.usageLimit !== null
+          ? and(eq(coupons.id, appliedCoupon.id), sql`${coupons.usageCount} < ${appliedCoupon.usageLimit}`)
+          : eq(coupons.id, appliedCoupon.id)
+
+        const updated = await tx.update(coupons)
+          .set({ usageCount: sql`${coupons.usageCount} + 1` })
+          .where(couponWhere)
+          .returning({ id: coupons.id })
+
+        if (updated.length === 0) throw new Error('coupon_exhausted')
+
+        await tx.insert(couponUsages).values({
+          couponId: appliedCoupon.id,
+          userId: session.user.id,
+          orderId: newOrder.id,
+          discountAmount: String(discountAmount),
+        })
+      }
+
+      // کاهش موجودی برای پرداخت غیرآنلاین
+      if (paymentMethod === 'cash_on_delivery' || paymentMethod === 'card_to_card') {
+        for (const item of orderItemsData) {
+          await tx.update(products)
+            .set({ stock: sql`GREATEST(${products.stock} - ${item.quantity}, 0)` })
+            .where(eq(products.id, item.productId))
+        }
+      }
+
+      return newOrder
     })
-    await db.update(coupons)
-      .set({ usageCount: sql`${coupons.usageCount} + 1` })
-      .where(eq(coupons.id, appliedCoupon.id))
-  }
-
-  // کاهش موجودی برای پرداخت غیرآنلاین (آنلاین بعد از تأیید پرداخت کاهش می‌یابد)
-  if (paymentMethod === 'cash_on_delivery' || paymentMethod === 'card_to_card') {
-    for (const item of orderItemsData) {
-      await db.update(products)
-        .set({ stock: sql`GREATEST(${products.stock} - ${item.quantity}, 0)` })
-        .where(eq(products.id, item.productId))
-    }
+    order = result
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : ''
+    if (msg === 'coupon_exhausted') return NextResponse.json({ error: 'ظرفیت این کد تخفیف پر شده است' }, { status: 400 })
+    console.error('[orders POST] transaction failed', err)
+    return NextResponse.json({ error: 'خطا در ثبت سفارش' }, { status: 500 })
   }
 
   const shortId = order.id.slice(0, 8).toUpperCase()
