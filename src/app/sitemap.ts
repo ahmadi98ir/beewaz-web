@@ -28,9 +28,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       .where(eq(products.status, 'active'))
 
     productPages = rows.map((p) => ({
-      url: p.categorySlug
-        ? `${BASE}/shop/${p.categorySlug}/${p.slug}`
-        : `${BASE}/shop/${p.slug}`,
+      url: `${BASE}/shop/${p.categorySlug || 'products'}/${p.slug}`,
       lastModified: p.updatedAt,
       changeFrequency: 'weekly' as const,
       priority: 0.85,
