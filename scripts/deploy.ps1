@@ -66,10 +66,16 @@ Invoke-SSH "rm -rf /tmp/beewaz-extract /tmp/beewaz-build.tar.gz"
 Invoke-SSH 'CONTAINER=$(cat /tmp/cname.txt); docker restart $CONTAINER'
 Invoke-SSH "rm -f /tmp/cname.txt"
 
-Start-Sleep -Seconds 8
+Start-Sleep -Seconds 12
 
 Write-Host "`n[OK] Checking site..." -ForegroundColor Yellow
-Invoke-SSH "curl -sf --max-time 10 -o /dev/null -w 'HTTP %{http_code}' http://localhost:3000/"
+try {
+    "$WS_OPEN`ncall curl -sf --max-time 15 -o /dev/null -w 'HTTP %{http_code}' http://localhost:3000/`nexit" | Out-File -FilePath $WS_SCRIPT -Encoding ascii -Force
+    & $WINSCP /ini=nul /script=$WS_SCRIPT
+    Remove-Item $WS_SCRIPT -ErrorAction SilentlyContinue
+} catch {
+    Write-Host "      (site still starting up, check https://bz360.ir in a moment)" -ForegroundColor DarkYellow
+}
 
 # Cleanup
 Remove-Item $LOCAL_FILE -ErrorAction SilentlyContinue
