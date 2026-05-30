@@ -79,8 +79,14 @@ export async function PUT(req: NextRequest, { params }: Params) {
     if (typeof body.shortDescription === 'string') update.descriptionFa = body.shortDescription as string
     if (typeof body.name === 'string')            update.nameFa        = body.name as string
     if (typeof body.modelCode === 'string')       update.sku           = body.modelCode as string
-    if (typeof body.basePrice === 'string')       update.price         = parseInt(body.basePrice as string)
-    if (typeof body.compareAtPrice === 'string')  update.comparePrice  = parseInt(body.compareAtPrice as string)
+    if (typeof body.basePrice === 'string' && body.basePrice !== '') {
+      const p = parseInt(body.basePrice as string)
+      if (!isNaN(p)) update.price = p
+    }
+    if (typeof body.compareAtPrice === 'string') {
+      const cp = parseInt(body.compareAtPrice as string)
+      update.comparePrice = isNaN(cp) ? null : cp
+    }
 
     const rows = await db.update(products).set(update).where(eq(products.id, id)).returning()
     const updated = rows[0]
