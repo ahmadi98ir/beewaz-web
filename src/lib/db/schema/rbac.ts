@@ -1,4 +1,4 @@
-import { pgTable, varchar, integer, primaryKey } from 'drizzle-orm/pg-core'
+import { pgTable, varchar, integer, uniqueIndex } from 'drizzle-orm/pg-core'
 
 export const permissions = pgTable('permissions', {
   key:       varchar('key', { length: 80 }).primaryKey(),
@@ -9,8 +9,8 @@ export const permissions = pgTable('permissions', {
 
 export const rolePermissions = pgTable('role_permissions', {
   role:       varchar('role', { length: 30 }).notNull(),
-  permission: varchar('permission', { length: 80 }).notNull().references(() => permissions.key, { onDelete: 'cascade' }),
-}, (t) => [primaryKey({ columns: [t.role, t.permission] })])
+  permission: varchar('permission', { length: 80 }).notNull(),
+})
 
 export type Permission    = typeof permissions.$inferSelect
 export type RolePermission = typeof rolePermissions.$inferSelect
