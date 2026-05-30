@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useCart } from '@/stores/cart'
+import { useToast } from '@/stores/toast'
 import { ProductCard } from '@/components/shop/product-card'
 import { AnimateIn } from '@/components/ui/animate-in'
 import { ShoppingCartIcon, HeartIcon, ShieldIcon, CheckIcon, PhoneIcon } from '@/components/ui/icons'
@@ -162,7 +163,8 @@ function ProductTabs({ product }: { product: ShopProduct }) {
 function AddToCartButton({ product }: { product: ShopProduct }) {
   const [qty, setQty] = useState(1)
   const [added, setAdded] = useState(false)
-  const { addItem } = useCart()
+  const { addItem, openCart } = useCart()
+  const toast = useToast()
 
   const handleAdd = () => {
     for (let i = 0; i < qty; i++) {
@@ -178,6 +180,11 @@ function AddToCartButton({ product }: { product: ShopProduct }) {
         placeholderTo: product.placeholderTo,
       })
     }
+    openCart()
+    toast.success('محصولات به سبد اضافه شدند', {
+      label: 'مشاهده سبد خرید',
+      onClick: openCart,
+    })
     setAdded(true)
     setTimeout(() => setAdded(false), 2000)
   }

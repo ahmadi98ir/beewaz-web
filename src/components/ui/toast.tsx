@@ -16,10 +16,20 @@ function ToastItem({ toast }: { toast: Toast }) {
   return (
     <div
       role="alert"
-      className={`flex items-start gap-3 px-4 py-3 rounded-2xl border shadow-lg animate-slide-up ${wrap} min-w-[260px] max-w-[340px]`}
+      className={`flex items-start gap-3 px-4 py-3 rounded-2xl border shadow-lg animate-slide-up ${wrap} min-w-[260px] max-w-[360px]`}
     >
       <Icon size={18} className={`mt-0.5 flex-shrink-0 ${icon}`} />
-      <p className="flex-1 text-sm font-semibold text-surface-800 leading-snug">{toast.message}</p>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-semibold text-surface-800 leading-snug">{toast.message}</p>
+        {toast.action && (
+          <button
+            onClick={() => { toast.action!.onClick(); dismiss(toast.id) }}
+            className="mt-1.5 text-xs font-bold text-brand-600 hover:text-brand-700 underline underline-offset-2 transition-colors"
+          >
+            {toast.action.label} ←
+          </button>
+        )}
+      </div>
       <button
         onClick={() => dismiss(toast.id)}
         className="flex-shrink-0 text-surface-400 hover:text-surface-700 transition-colors mt-0.5"

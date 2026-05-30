@@ -34,6 +34,7 @@ function StarRating({ rating, count }: { rating: number; count: number }) {
 export function QuickViewModal() {
   const { product, hide } = useQuickView()
   const addItem = useCart((s) => s.addItem)
+  const openCart = useCart((s) => s.openCart)
   const toast = useToast()
 
   useEffect(() => {
@@ -64,7 +65,11 @@ export function QuickViewModal() {
       placeholderFrom: product.placeholderFrom,
       placeholderTo: product.placeholderTo,
     })
-    toast.success(`${product.nameFa} به سبد اضافه شد`)
+    openCart()
+    toast.success(`${product.nameFa} به سبد اضافه شد`, {
+      label: 'مشاهده سبد خرید',
+      onClick: openCart,
+    })
     hide()
   }
 

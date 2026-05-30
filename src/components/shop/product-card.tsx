@@ -34,6 +34,7 @@ function StarRating({ rating }: { rating: number }) {
 
 export function ProductCard({ product, view = 'grid' }: Props) {
   const addItem = useCart((s) => s.addItem)
+  const openCart = useCart((s) => s.openCart)
   const toast = useToast()
   const showQuickView = useQuickView((s) => s.show)
 
@@ -55,7 +56,11 @@ export function ProductCard({ product, view = 'grid' }: Props) {
       placeholderFrom: product.placeholderFrom,
       placeholderTo: product.placeholderTo,
     })
-    toast.success(`${product.nameFa} به سبد اضافه شد`)
+    openCart()
+    toast.success(`${product.nameFa} به سبد اضافه شد`, {
+      label: 'مشاهده سبد خرید',
+      onClick: openCart,
+    })
   }
 
   const handleQuickView = (e: React.MouseEvent) => {
