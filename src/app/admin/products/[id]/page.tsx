@@ -51,16 +51,27 @@ export default function ProductDetailPage() {
 
   const save = async () => {
     setSaving(true)
-    const payload = { ...form }
-    if (payload.basePrice) payload.basePrice = String(parseInt(String(payload.basePrice)) * 10)
-    if (payload.compareAtPrice) payload.compareAtPrice = String(parseInt(String(payload.compareAtPrice)) * 10)
-    const res = await fetch(`/api/admin/products/${id}`, {
-      method: 'PUT', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    })
-    const j = await res.json() as { product: Product }
-    setProduct(j.product); setForm(j.product)
-    setSaving(false); setToast('ذخیره شد'); setTimeout(() => setToast(''), 2500)
+    try {
+      const payload = { ...form }
+      if (payload.basePrice) payload.basePrice = String(parseInt(String(payload.basePrice)) * 10)
+      if (payload.compareAtPrice) payload.compareAtPrice = String(parseInt(String(payload.compareAtPrice)) * 10)
+      const res = await fetch(`/api/admin/products/${id}`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      const j = await res.json() as { product: Product; error?: string }
+      if (!res.ok || !j.product) {
+        setToast('خطا در ذخیره: ' + (j.error ?? res.status))
+        setTimeout(() => setToast(''), 3000)
+        return
+      }
+      setProduct(j.product); setForm(j.product)
+      setToast('ذخیره شد'); setTimeout(() => setToast(''), 2500)
+    } catch (e) {
+      setToast('خطا: ' + String(e)); setTimeout(() => setToast(''), 3000)
+    } finally {
+      setSaving(false)
+    }
   }
 
   const f = (k: keyof Product) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>

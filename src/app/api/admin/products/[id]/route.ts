@@ -83,7 +83,26 @@ export async function PUT(req: NextRequest, { params }: Params) {
     if (typeof body.compareAtPrice === 'string')  update.comparePrice  = parseInt(body.compareAtPrice as string)
 
     const [updated] = await db.update(products).set(update).where(eq(products.id, id)).returning()
-    return NextResponse.json({ product: updated })
+    return NextResponse.json({
+      product: {
+        id: updated.id,
+        slug: updated.slug,
+        name: updated.nameFa,
+        modelCode: updated.sku,
+        sku: updated.sku,
+        shortDescription: updated.descriptionFa,
+        description: updated.descriptionFa,
+        status: updated.status,
+        basePrice: String(updated.price ?? 0),
+        compareAtPrice: updated.comparePrice ? String(updated.comparePrice) : null,
+        isFeatured: updated.isFeatured,
+        warrantyMonths: 18,
+        metaTitle: updated.metaTitle,
+        metaDescription: updated.metaDesc,
+        highlights: [],
+        categoryId: updated.categoryId,
+      }
+    })
   } catch (err) {
     console.error('[product PUT]', err)
     return NextResponse.json({ error: 'خطا در ویرایش' }, { status: 500 })
