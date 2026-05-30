@@ -3,20 +3,25 @@
 # After every "git push", this script waits for GitHub Actions to finish
 # and automatically runs deploy.ps1
 
-$REPO_API = "https://api.github.com/repos/ahmadi98ir/beewaz-web/releases/tags/deploy-cache"
-$SCRIPT_DIR = Split-Path -Parent $MyInvocation.MyCommand.Path
+$VERSION_URL = "https://github.com/ahmadi98ir/beewaz-web/releases/download/deploy-cache/build-version.txt"
+$SCRIPT_DIR  = Split-Path -Parent $MyInvocation.MyCommand.Path
 
 Write-Host "=== Beewaz Auto Deploy Watcher ===" -ForegroundColor Cyan
 Write-Host "Watching for new builds on GitHub..." -ForegroundColor Gray
 Write-Host "Press Ctrl+C to stop.`n" -ForegroundColor Gray
 
-# Get current deployed SHA
 $lastDeployedSha = ""
 
 function Get-LatestReleaseSha {
     try {
-        $release = Invoke-RestMethod -Uri $REPO_API -UseBasicParsing -TimeoutSec 10
-        return $release.name -replace "Deploy Cache \(([a-f0-9]+)\)", '$1'
+        $tmp = "$env:TEMP\bz-version.txt"
+        # دانلود مستقیم فایل version — بدون نیاز به GitHub API
+        $null = curl.exe -sL --max-time 15 -o $tmp $VERSION_URL 2>$null
+        if ($LASTEXITCODE -ne 0 -or -not (Test-Path $tmp)) { return $null }
+        $content = Get-Content $tmp -ErrorAction SilentlyContinue
+        Remove-Item $tmp -ErrorAction SilentlyContinue
+        if ($content -match "SHA=([a-f0-9]{8,})") { return $matches[1].Substring(0, 8) }
+        return $null
     } catch {
         return $null
     }
