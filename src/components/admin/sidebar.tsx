@@ -74,7 +74,8 @@ const bottomItems: NavItem[] = [
 // ── Permission-aware sidebar ──────────────────────────────────────────────────
 
 function useRolePermissions() {
-  const { data: session } = useSession()
+  const sessionResult = useSession()
+  const session = sessionResult?.data
   const role = (session?.user as { role?: string } | undefined)?.role
   const [perms, setPerms] = useState<Set<string>>(new Set())
 
@@ -101,7 +102,8 @@ function canSee(perms: Set<string>, permission?: string): boolean {
 }
 
 function UserCard() {
-  const { data: session } = useSession()
+  const sessionResult = useSession()
+  const session = sessionResult?.data
   const role = (session?.user as { role?: string } | undefined)?.role
   const name = session?.user?.name ?? 'کاربر'
   const initial = name.charAt(0)

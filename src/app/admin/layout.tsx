@@ -1,9 +1,7 @@
-/**
- * Admin Layout — sidebar + main area
- */
 import type { Metadata } from 'next'
 import type { ReactNode } from 'react'
 import { AdminSidebar } from '@/components/admin/sidebar'
+import { AdminSessionProvider } from './session-provider'
 
 export const metadata: Metadata = {
   title: {
@@ -15,11 +13,13 @@ export const metadata: Metadata = {
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="flex h-screen overflow-hidden bg-surface-50" dir="rtl">
-      <AdminSidebar />
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {children}
+    <AdminSessionProvider>
+      <div className="flex h-screen overflow-hidden bg-surface-50" dir="rtl">
+        <AdminSidebar />
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+          {children}
+        </div>
       </div>
-    </div>
+    </AdminSessionProvider>
   )
 }
