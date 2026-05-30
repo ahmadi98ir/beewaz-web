@@ -75,9 +75,15 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       } else if (body.status === 'delivered') {
         void sendBulkSms(customerPhone,
           `بیواز: سفارش #${shortId} تحویل داده شد. ممنون از خرید شما 🙏`)
+      } else if (body.status === 'processing') {
+        void sendBulkSms(customerPhone,
+          `بیواز: سفارش #${shortId} در حال آماده‌سازی است.`)
       } else if (body.status === 'cancelled') {
         void sendBulkSms(customerPhone,
           `بیواز: سفارش #${shortId} لغو شد. برای پیگیری با پشتیبانی تماس بگیرید.`)
+      } else if (body.status === 'refunded') {
+        void sendBulkSms(customerPhone,
+          `بیواز: مبلغ سفارش #${shortId} مسترد شد.`)
       }
     }
 

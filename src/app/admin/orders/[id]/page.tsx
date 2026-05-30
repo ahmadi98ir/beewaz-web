@@ -19,6 +19,16 @@ interface Order {
   createdAt: string; paidAt: string | null; shippedAt: string | null; deliveredAt: string | null
 }
 
+interface OrderNote {
+  id: string; note: string; type: 'internal' | 'refund' | 'customer'; createdBy: string | null; createdAt: string
+}
+
+const NOTE_TYPE_LABELS: Record<string, string> = {
+  internal: 'داخلی',
+  refund: 'استرداد',
+  customer: 'مشتری',
+}
+
 const STATUS_MAP: Record<string, { label: string; cls: string }> = {
   pending:    { label: 'در انتظار پرداخت',   cls: 'bg-amber-50 text-amber-700 border-amber-200' },
   paid:       { label: 'پرداخت شده',         cls: 'bg-blue-50 text-blue-700 border-blue-200' },
@@ -48,6 +58,10 @@ export default function OrderDetailPage() {
   const [toast, setToast] = useState('')
   const [tracking, setTracking] = useState('')
   const [adminNote, setAdminNote] = useState('')
+  const [notes, setNotes] = useState<OrderNote[]>([])
+  const [newNote, setNewNote] = useState('')
+  const [newNoteType, setNewNoteType] = useState<'internal' | 'refund' | 'customer'>('internal')
+  const [savingNote, setSavingNote] = useState(false)
 
   const fetchOrder = useCallback(async () => {
     setLoading(true)
@@ -59,7 +73,28 @@ export default function OrderDetailPage() {
     } finally { setLoading(false) }
   }, [id])
 
-  useEffect(() => { fetchOrder() }, [fetchOrder])
+  const fetchNotes = useCallback(async () => {
+    const res = await fetch(`/api/admin/orders/${id}/notes`)
+    const j = await res.json() as { notes: OrderNote[] }
+    setNotes(j.notes ?? [])
+  }, [id])
+
+  useEffect(() => { fetchOrder(); fetchNotes() }, [fetchOrder, fetchNotes])
+
+  const addNote = async () => {
+    if (!newNote.trim()) return
+    setSavingNote(true)
+    await fetch(`/api/admin/orders/${id}/notes`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ note: newNote.trim(), type: newNoteType }),
+    })
+    setNewNote(''); await fetchNotes(); setSavingNote(false)
+  }
+
+  const deleteNote = async (noteId: string) => {
+    await fetch(`/api/admin/orders/${id}/notes?noteId=${noteId}`, { method: 'DELETE' })
+    await fetchNotes()
+  }
 
   const patch = async (body: Record<string, unknown>) => {
     setSaving(true)
@@ -180,6 +215,42 @@ export default function OrderDetailPage() {
               className="btn btn-primary text-sm py-2.5 px-5 disabled:opacity-50">
               {saving ? 'ذخیره...' : 'ذخیره تغییرات'}
             </button>
+          </div>
+
+          {/* Order Notes */}
+          <div className="bg-white rounded-2xl border border-surface-200 p-6 space-y-4">
+            <h3 className="font-bold text-surface-900">یادداشت‌های سفارش</h3>
+            <div className="space-y-2">
+              {notes.length === 0 && <p className="text-sm text-surface-300 text-center py-3">هنوز یادداشتی ثبت نشده</p>}
+              {notes.map(n => (
+                <div key={n.id} className="flex gap-3 text-sm bg-surface-50 rounded-xl px-4 py-3">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-brand-100 text-brand-700">{NOTE_TYPE_LABELS[n.type]}</span>
+                      <span className="text-xs text-surface-400">{fdate(n.createdAt)}</span>
+                    </div>
+                    <p className="text-surface-700">{n.note}</p>
+                  </div>
+                  <button onClick={() => deleteNote(n.id)} className="text-surface-300 hover:text-red-400 transition-colors text-xs">✕</button>
+                </div>
+              ))}
+            </div>
+            <div className="space-y-2 pt-2 border-t border-surface-100">
+              <div className="flex gap-2">
+                <select value={newNoteType} onChange={e => setNewNoteType(e.target.value as typeof newNoteType)}
+                  className="px-3 py-2 text-sm border border-surface-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-300">
+                  <option value="internal">داخلی</option>
+                  <option value="refund">استرداد</option>
+                  <option value="customer">مشتری</option>
+                </select>
+                <textarea value={newNote} onChange={e => setNewNote(e.target.value)} rows={2} placeholder="یادداشت جدید..."
+                  className="flex-1 px-3.5 py-2.5 text-sm border border-surface-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-300 resize-none" />
+              </div>
+              <button onClick={addNote} disabled={savingNote || !newNote.trim()}
+                className="btn btn-primary text-sm py-2 px-4 disabled:opacity-50">
+                {savingNote ? '...' : '+ افزودن یادداشت'}
+              </button>
+            </div>
           </div>
         </div>
 

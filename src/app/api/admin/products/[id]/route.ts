@@ -41,6 +41,10 @@ export async function GET(req: NextRequest, { params }: Params) {
         metaDescription: product.metaDesc,
         highlights: [],
         categoryId: product.categoryId,
+        salePrice: product.salePrice ? String(product.salePrice) : null,
+        salePriceFrom: product.salePriceFrom ?? null,
+        salePriceTo: product.salePriceTo ?? null,
+        relatedProductIds: (product.relatedProductIds as string[] | null) ?? [],
       },
       images,
       variants,
@@ -87,6 +91,14 @@ export async function PUT(req: NextRequest, { params }: Params) {
       const cp = parseInt(body.compareAtPrice as string)
       update.comparePrice = isNaN(cp) ? null : cp
     }
+    if (typeof body.salePrice === 'number') update.salePrice = body.salePrice as number
+    if (typeof body.salePrice === 'string') {
+      const sp = parseInt(body.salePrice as string)
+      update.salePrice = isNaN(sp) ? null : sp
+    }
+    if (body.salePriceFrom !== undefined) update.salePriceFrom = body.salePriceFrom ? new Date(body.salePriceFrom as string) : null
+    if (body.salePriceTo !== undefined)   update.salePriceTo   = body.salePriceTo   ? new Date(body.salePriceTo as string) : null
+    if (Array.isArray(body.relatedProductIds)) update.relatedProductIds = body.relatedProductIds as string[]
 
     const rows = await db.update(products).set(update).where(eq(products.id, id)).returning()
     const updated = rows[0]

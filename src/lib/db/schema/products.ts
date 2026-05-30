@@ -1,5 +1,5 @@
 import {
-  pgTable, pgEnum, uuid, varchar, text, numeric, bigint, integer, boolean, timestamp
+  pgTable, pgEnum, uuid, varchar, text, numeric, bigint, integer, boolean, timestamp, jsonb
 } from 'drizzle-orm/pg-core'
 import { relations } from 'drizzle-orm'
 import { categories } from './categories'
@@ -16,8 +16,12 @@ export const products = pgTable('products', {
   slug:         varchar('slug', { length: 160 }).unique().notNull(),
   descriptionFa: text('description_fa'),
   price:        bigint('price', { mode: 'number' }).notNull().default(0),
-  comparePrice: bigint('compare_price', { mode: 'number' }),
-  stock:        integer('stock').default(0).notNull(),
+  comparePrice:    bigint('compare_price', { mode: 'number' }),
+  salePrice:       bigint('sale_price', { mode: 'number' }),
+  salePriceFrom:   timestamp('sale_price_from', { withTimezone: true }),
+  salePriceTo:     timestamp('sale_price_to', { withTimezone: true }),
+  relatedProductIds: jsonb('related_product_ids').$type<string[]>().default([]),
+  stock:           integer('stock').default(0).notNull(),
   status:       productStatusEnum('status').default('draft').notNull(),
   isFeatured:   boolean('is_featured').default(false).notNull(),
   ratingAvg:    numeric('rating_avg', { precision: 3, scale: 2 }).default('0'),
