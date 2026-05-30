@@ -17,47 +17,18 @@ $winscpPaths = @(
     "$env:LOCALAPPDATA\Programs\WinSCP\WinSCP.com"
 )
 $WINSCP = $winscpPaths | Where-Object { Test-Path $_ } | Select-Object -First 1
+if (-not $WINSCP) { throw "WinSCP.com پیدا نشد! لطفاً WinSCP را نصب کنید." }
 
-# پیدا کردن plink (PuTTY)
-$plinkPaths = @(
-    "C:\Program Files\PuTTY\plink.exe",
-    "C:\Program Files (x86)\PuTTY\plink.exe",
-    "$env:LOCALAPPDATA\Programs\PuTTY\plink.exe"
-)
-$PLINK = $plinkPaths | Where-Object { Test-Path $_ } | Select-Object -First 1
-if (-not $PLINK) { $PLINK = (Get-Command "plink" -ErrorAction SilentlyContinue)?.Source }
+$WS_OPEN = "open scp://${SSH_USER}:${SSH_PASS}@${SERVER}:${SSH_PORT}/ -hostkey=*"
 
 function Invoke-SSH {
     param([string]$Command)
-    if ($PLINK) {
-        & $PLINK -ssh -P $SSH_PORT -l $SSH_USER -pw $SSH_PASS -batch $SERVER $Command
-    } else {
-        # fallback: ssh بدون پسورد خودکار — ممکنه پسورد بخواد
-        ssh -o StrictHostKeyChecking=no -p $SSH_PORT "${SSH_USER}@${SERVER}" $Command
-    }
+    "$WS_OPEN`ncall $Command`nexit" | & $WINSCP /ini=nul /script=-
 }
 
 function Invoke-SCP {
     param([string]$LocalPath, [string]$RemotePath)
-    if ($WINSCP) {
-        # استفاده از WinSCP command-line
-        $script = @"
-open scp://${SSH_USER}:${SSH_PASS}@${SERVER}:${SSH_PORT}/ -hostkey=*
-put "$LocalPath" "$RemotePath"
-exit
-"@
-        $script | & $WINSCP /ini=nul /script=-
-    } elseif ($PLINK) {
-        # pscp کنار plink معمولاً هست
-        $pscp = $PLINK -replace "plink\.exe$","pscp.exe"
-        if (Test-Path $pscp) {
-            & $pscp -P $SSH_PORT -pw $SSH_PASS $LocalPath "${SSH_USER}@${SERVER}:${RemotePath}"
-        } else {
-            scp -o StrictHostKeyChecking=no -P $SSH_PORT $LocalPath "${SSH_USER}@${SERVER}:${RemotePath}"
-        }
-    } else {
-        scp -o StrictHostKeyChecking=no -P $SSH_PORT $LocalPath "${SSH_USER}@${SERVER}:${RemotePath}"
-    }
+    "$WS_OPEN`nput `"$LocalPath`" `"$RemotePath`"`nexit" | & $WINSCP /ini=nul /script=-
 }
 
 Write-Host "=== Beewaz Deploy ===" -ForegroundColor Cyan
