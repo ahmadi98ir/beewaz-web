@@ -1,4 +1,4 @@
-name: Build & Notify
+name: Build & Upload Release
 
 on:
   push:
@@ -6,8 +6,10 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-check:
+  build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout
@@ -22,16 +24,28 @@ jobs:
       - name: Install dependencies
         run: npm ci --include=dev
 
-      - name: Build check
+      - name: Build
         env:
           NEXT_PUBLIC_APP_URL: https://bz360.ir
           NEXT_TELEMETRY_DISABLED: 1
         run: npm run build
 
-      - name: Summary
-        if: always()
+      - name: Package build
         run: |
-          echo "## Build Result" >> $GITHUB_STEP_SUMMARY
+          tar -czf /tmp/beewaz-build.tar.gz -C .next/standalone .
+          echo "Build size: $(du -sh /tmp/beewaz-build.tar.gz | cut -f1)"
+          echo "SHA=$GITHUB_SHA" > /tmp/build-version.txt
+
+      - name: Upload to GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release delete deploy-cache --yes 2>/dev/null || true
+          gh release create deploy-cache \
+            /tmp/beewaz-build.tar.gz \
+            /tmp/build-version.txt \
+            --title "Deploy Cache (${GITHUB_SHA:0:8})" \
+            --notes "Built from commit $GITHUB_SHA at $(date -u)"
+          echo "✅ Build ready for deploy" >> $GITHUB_STEP_SUMMARY
+          echo "Run deploy.ps1 on your Windows machine to deploy." >> $GITHUB_STEP_SUMMARY
           echo "| Commit | \`${GITHUB_SHA:0:8}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| Branch | main |" >> $GITHUB_STEP_SUMMARY
-          echo "Server polls GitHub every 3 min and auto-deploys on new commits." >> $GITHUB_STEP_SUMMARY
