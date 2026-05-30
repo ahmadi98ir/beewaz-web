@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { XIcon, PhoneIcon } from '@/components/ui/icons'
-import type { ChatMessage, ChatStep, SessionData } from '@/types/chat'
+import type { ChatMessage } from '@/types/chat'
 import { MessageBubble } from './message-bubble'
 import { TypingIndicator } from './typing-indicator'
 
@@ -16,15 +16,20 @@ interface ChatConfig {
   footer_text: string
 }
 
+interface GeminiMessage {
+  role: 'user' | 'model'
+  text: string
+}
+
 const CONFIG_DEFAULTS: ChatConfig = {
   bot_name: 'دستیار هوشمند بیواز',
   bot_status: 'آنلاین — پاسخگو ۲۴ ساعته',
-  welcome_msg: 'سلام! 👋 چطور می‌تونم کمکتون کنم؟\n\nبرای شروع مشاوره رایگان، روی دکمه زیر بزنید.',
-  quickReplies: ['شروع مشاوره رایگان'],
+  welcome_msg: 'سلام! 👋 چطور می‌تونم کمکتون کنم؟\n\nمی‌تونم در انتخاب سیستم امنیتی مناسب، قیمت‌ها و شرایط نصب کمکتون کنم.',
+  quickReplies: ['مشاوره انتخاب دزدگیر', 'قیمت محصولات', 'شرایط نصب'],
   footer_text: 'بیواز — مشاوره رایگان ۲۴/۷',
 }
 
-// ── Helpers ────────────────────────────────────────────────────────────────
+const PHONE_REGEX = /^(\+98|0)?9\d{9}/
 
 function makeId() {
   return Math.random().toString(36).slice(2, 9)
@@ -40,16 +45,6 @@ function makeVisitorToken() {
   return id
 }
 
-function buildWelcomeMessage(config: ChatConfig): ChatMessage {
-  return {
-    id: 'init',
-    role: 'bot',
-    content: config.welcome_msg,
-    timestamp: Date.now(),
-    quickReplies: config.quickReplies,
-  }
-}
-
 // ── Main Widget ────────────────────────────────────────────────────────────
 
 export function ChatWidget() {
@@ -57,11 +52,9 @@ export function ChatWidget() {
   const [configLoaded, setConfigLoaded] = useState(false)
   const [open, setOpen] = useState(false)
   const [messages, setMessages] = useState<ChatMessage[]>([])
-  const [step, setStep] = useState<ChatStep>('GREETING')
-  const [sessionData, setSessionData] = useState<SessionData>({})
+  const [history, setHistory] = useState<GeminiMessage[]>([])
   const [inputValue, setInputValue] = useState('')
   const [isTyping, setIsTyping] = useState(false)
-  const [requirePhoneInput, setRequirePhoneInput] = useState(false)
   const [leadSaved, setLeadSaved] = useState(false)
   const [hasNewMsg, setHasNewMsg] = useState(false)
 
@@ -69,119 +62,125 @@ export function ChatWidget() {
   const inputRef = useRef<HTMLInputElement>(null)
   const visitorToken = useRef('')
 
-  // بارگذاری تنظیمات از CMS
   useEffect(() => {
+    visitorToken.current = makeVisitorToken()
     fetch('/api/chat/config')
       .then((r) => r.json())
-      .then((data: ChatConfig) => {
-        setConfig(data)
-        setMessages([buildWelcomeMessage(data)])
-        setConfigLoaded(true)
-      })
-      .catch(() => {
-        setMessages([buildWelcomeMessage(CONFIG_DEFAULTS)])
+      .then((data: ChatConfig) => setConfig(data))
+      .catch(() => {})
+      .finally(() => {
         setConfigLoaded(true)
       })
   }, [])
 
+  // welcome message
   useEffect(() => {
-    visitorToken.current = makeVisitorToken()
-  }, [])
+    if (!configLoaded) return
+    setMessages([{
+      id: 'init',
+      role: 'bot',
+      content: config.welcome_msg,
+      timestamp: Date.now(),
+      quickReplies: config.quickReplies,
+    }])
+  }, [configLoaded, config])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, isTyping])
 
   useEffect(() => {
-    if (open && requirePhoneInput) {
-      setTimeout(() => inputRef.current?.focus(), 300)
-    }
-  }, [open, requirePhoneInput])
+    if (open) inputRef.current?.focus()
+  }, [open])
 
   const pushBotMessage = useCallback((msg: ChatMessage) => {
     setMessages((prev) => [...prev, msg])
     if (!open) setHasNewMsg(true)
   }, [open])
 
-  const sendMessage = useCallback(
-    async (text: string) => {
-      if (!text.trim() || isTyping) return
+  const sendMessage = useCallback(async (text: string) => {
+    if (!text.trim() || isTyping) return
 
-      const userMsg: ChatMessage = {
-        id: makeId(),
-        role: 'user',
-        content: text.trim(),
-        timestamp: Date.now(),
+    const userMsg: ChatMessage = {
+      id: makeId(),
+      role: 'user',
+      content: text.trim(),
+      timestamp: Date.now(),
+    }
+    setMessages((prev) => [...prev, userMsg])
+    setInputValue('')
+    setIsTyping(true)
+
+    const newHistory: GeminiMessage[] = [...history, { role: 'user', text: text.trim() }]
+    setHistory(newHistory)
+
+    try {
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: newHistory }),
+      })
+
+      const data = await res.json() as {
+        message: string
+        leadCaptured?: boolean
+        phone?: string
+        error?: string
       }
-      setMessages((prev) => [...prev, userMsg])
-      setInputValue('')
-      setRequirePhoneInput(false)
-      setIsTyping(true)
 
-      try {
-        const res = await fetch('/api/chat', {
+      setIsTyping(false)
+
+      const replyText = data.error ?? data.message
+
+      // Extract quick replies from bot response if it contains numbered options
+      let quickReplies: string[] | undefined
+      const numbered = replyText.match(/[۱۲۳۴۵\d]\.\s*([^\n]+)/g)
+      if (numbered && numbered.length >= 2 && numbered.length <= 5) {
+        quickReplies = numbered.map((s) => s.replace(/^[۱۲۳۴۵\d]\.\s*/, '').trim()).slice(0, 4)
+      }
+
+      pushBotMessage({
+        id: makeId(),
+        role: 'bot',
+        content: replyText,
+        timestamp: Date.now(),
+        quickReplies,
+      })
+
+      setHistory((prev) => [...prev, { role: 'model', text: replyText }])
+
+      // Lead capture — detect phone number
+      if (data.leadCaptured && data.phone && !leadSaved) {
+        setLeadSaved(true)
+        const phone = data.phone.replace(/\D/g, '')
+        const normalized = phone.startsWith('98') ? '0' + phone.slice(2) : phone.startsWith('9') ? '0' + phone : phone
+        fetch('/api/leads', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message: text.trim(), step, sessionData }),
-        })
-
-        const data = await res.json()
-        setIsTyping(false)
-
-        const botMsg: ChatMessage = {
-          id: makeId(),
-          role: 'bot',
-          content: data.message,
-          timestamp: Date.now(),
-          quickReplies: data.quickReplies,
-          requirePhoneInput: data.requirePhoneInput,
-        }
-
-        pushBotMessage(botMsg)
-        setStep(data.nextStep)
-        setSessionData(data.sessionData ?? {})
-        setRequirePhoneInput(!!data.requirePhoneInput)
-
-        if (data.leadCaptured && data.sessionData?.phone && !leadSaved) {
-          setLeadSaved(true)
-          fetch('/api/leads', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              phone: data.sessionData.phone,
-              place: data.sessionData.place,
-              size: data.sessionData.size,
-              budget: data.sessionData.budget,
-              source: 'chatbot',
-              visitorToken: visitorToken.current,
-            }),
-          }).catch(console.error)
-        }
-      } catch {
-        setIsTyping(false)
-        pushBotMessage({
-          id: makeId(),
-          role: 'bot',
-          content: 'مشکلی پیش آمد. لطفاً دوباره تلاش کنید.',
-          timestamp: Date.now(),
-          quickReplies: ['تلاش مجدد'],
-        })
+          body: JSON.stringify({
+            phone: normalized,
+            source: 'chatbot',
+            visitorToken: visitorToken.current,
+          }),
+        }).catch(console.error)
       }
-    },
-    [step, sessionData, isTyping, leadSaved, pushBotMessage],
-  )
+    } catch {
+      setIsTyping(false)
+      pushBotMessage({
+        id: makeId(),
+        role: 'bot',
+        content: 'مشکلی پیش آمد. لطفاً دوباره تلاش کنید.',
+        timestamp: Date.now(),
+        quickReplies: ['تلاش مجدد'],
+      })
+    }
+  }, [history, isTyping, leadSaved, pushBotMessage])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (inputValue.trim()) sendMessage(inputValue)
   }
 
-  const handleOpen = () => {
-    setOpen(true)
-    setHasNewMsg(false)
-  }
-
-  // نمایش نده تا config بارگذاری شود
   if (!configLoaded) return null
 
   return (
@@ -231,19 +230,19 @@ export function ChatWidget() {
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Input Area */}
+          {/* Input */}
           <div className="flex-shrink-0 border-t border-surface-100 p-3 bg-surface-50/50">
             <form onSubmit={handleSubmit} className="flex gap-2">
               <input
                 ref={inputRef}
-                type={requirePhoneInput ? 'tel' : 'text'}
+                type="text"
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
-                placeholder={requirePhoneInput ? 'شماره موبایل: ۰۹۱۲...' : 'پیام بنویسید...'}
+                placeholder="پیام بنویسید..."
                 disabled={isTyping}
-                dir={requirePhoneInput ? 'ltr' : 'rtl'}
+                dir="rtl"
                 className="flex-1 input text-sm py-2.5 px-3.5 disabled:opacity-50"
-                autoComplete={requirePhoneInput ? 'tel' : 'off'}
+                autoComplete="off"
               />
               <button
                 type="submit"
@@ -263,11 +262,11 @@ export function ChatWidget() {
 
       {/* ── Floating Button ───────────────────────────────────────────────── */}
       <button
-        onClick={open ? () => setOpen(false) : handleOpen}
+        onClick={() => { setOpen((v) => !v); setHasNewMsg(false) }}
         className={[
           'fixed bottom-4 right-4 sm:right-6 z-50 w-14 h-14 rounded-2xl shadow-xl',
           'flex items-center justify-center transition-all duration-300',
-          open ? 'bg-surface-700 rotate-0' : 'bg-brand-600 hover:bg-brand-700 hover:scale-105',
+          open ? 'bg-surface-700' : 'bg-brand-600 hover:bg-brand-700 hover:scale-105',
         ].join(' ')}
         aria-label={open ? 'بستن چت' : 'باز کردن چت'}
         aria-expanded={open}

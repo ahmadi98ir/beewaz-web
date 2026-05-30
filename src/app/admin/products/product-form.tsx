@@ -408,22 +408,31 @@ export function ProductForm({ initial, mode }: Props) {
 
         {/* SEO */}
         <div className="bg-white rounded-2xl border border-surface-200 p-6 space-y-4">
-          <h3 className="font-bold text-surface-900">تنظیمات SEO</h3>
+          <div className="flex items-center justify-between">
+            <h3 className="font-bold text-surface-900">تنظیمات SEO</h3>
+            <GenerateSeoButton
+              name={form.nameFa}
+              description={form.descriptionFa || ''}
+              onGenerated={(t, d) => { update('metaTitle', t); update('metaDesc', d) }}
+            />
+          </div>
 
-          <Field label="عنوان متا (Meta Title)">
+          <Field label={`عنوان متا (Meta Title) — ${(form.metaTitle || '').length}/60`}>
             <input
               type="text"
               value={form.metaTitle || ''}
               onChange={(e) => update('metaTitle', e.target.value)}
+              maxLength={60}
               className="input w-full"
             />
           </Field>
 
-          <Field label="توضیح متا (Meta Description)">
+          <Field label={`توضیح متا (Meta Description) — ${(form.metaDesc || '').length}/155`}>
             <textarea
               value={form.metaDesc || ''}
               onChange={(e) => update('metaDesc', e.target.value)}
               rows={2}
+              maxLength={155}
               className="input w-full resize-none"
             />
           </Field>
@@ -462,6 +471,59 @@ export function ProductForm({ initial, mode }: Props) {
         </div>
       </form>
     </div>
+  )
+}
+
+function GenerateSeoButton({
+  name, description, onGenerated,
+}: {
+  name: string
+  description: string
+  onGenerated: (title: string, desc: string) => void
+}) {
+  const [loading, setLoading] = useState(false)
+
+  async function generate() {
+    if (!name.trim()) { alert('ابتدا نام محصول را وارد کنید'); return }
+    setLoading(true)
+    try {
+      const res = await fetch('/api/admin/products/generate-seo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, description: description || '' }),
+      })
+      const data = await res.json() as { metaTitle?: string; metaDesc?: string; error?: string }
+      if (!res.ok) { alert(data.error ?? 'خطا'); return }
+      onGenerated(data.metaTitle ?? '', data.metaDesc ?? '')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={generate}
+      disabled={loading}
+      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-violet-50 text-violet-700 border border-violet-200 text-xs font-semibold hover:bg-violet-100 disabled:opacity-50 transition-colors"
+    >
+      {loading ? (
+        <>
+          <svg className="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none">
+            <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" className="opacity-25" />
+            <path d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="4" strokeLinecap="round" className="opacity-75" />
+          </svg>
+          در حال تولید...
+        </>
+      ) : (
+        <>
+          <svg viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5">
+            <path fillRule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clipRule="evenodd" />
+          </svg>
+          تولید خودکار با AI
+        </>
+      )}
+    </button>
   )
 }
 
