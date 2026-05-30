@@ -26,7 +26,7 @@ Write-Host "`n[3/3] Deploying on server..." -ForegroundColor Yellow
 $target = "${SSH_USER}@${SERVER}"
 $sshOpts = "-p", $SSH_PORT
 
-ssh @sshOpts $target 'docker ps --format "{{.Names}}\t{{.Image}}" | grep "beewaz-web" | cut -f1 | head -1 > /tmp/cname.txt; echo "Container: $(cat /tmp/cname.txt)"'
+ssh @sshOpts $target 'docker ps --filter "ancestor=ghcr.io/ahmadi98ir/beewaz-web:latest" --format "{{.Names}}" | head -1 > /tmp/cname.txt; echo "Container: $(cat /tmp/cname.txt)"'
 ssh @sshOpts $target "mkdir -p /tmp/beewaz-extract && tar -xzf /tmp/beewaz-build.tar.gz -C /tmp/beewaz-extract"
 ssh @sshOpts $target 'CONTAINER=$(cat /tmp/cname.txt); echo "Copying to $CONTAINER"; docker cp /tmp/beewaz-extract/. $CONTAINER:/app/'
 ssh @sshOpts $target "rm -rf /tmp/beewaz-extract /tmp/beewaz-build.tar.gz"
