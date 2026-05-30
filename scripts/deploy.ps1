@@ -66,7 +66,7 @@ Invoke-SSH "rm -rf /tmp/beewaz-extract /tmp/beewaz-build.tar.gz"
 Invoke-SSH 'CONTAINER=$(cat /tmp/cname.txt); docker restart $CONTAINER'
 Invoke-SSH "rm -f /tmp/cname.txt"
 
-Start-Sleep -Seconds 12
+Start-Sleep -Seconds 25
 
 Write-Host "`n[OK] Checking site..." -ForegroundColor Yellow
 try {
