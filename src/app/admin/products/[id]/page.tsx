@@ -53,8 +53,7 @@ export default function ProductDetailPage() {
     setSaving(true)
     try {
       const payload = { ...form }
-      if (payload.basePrice) payload.basePrice = String(parseInt(String(payload.basePrice)) * 10)
-      if (payload.compareAtPrice) payload.compareAtPrice = String(parseInt(String(payload.compareAtPrice)) * 10)
+      // basePrice و compareAtPrice در form همیشه به ریال هستند — بدون تبدیل
       const res = await fetch(`/api/admin/products/${id}`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -151,11 +150,17 @@ export default function ProductDetailPage() {
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-surface-600 mb-1.5">قیمت پایه (تومان)</label>
-                  <input type="number" value={form.basePrice ? Math.round(parseInt(String(form.basePrice))/10) : ''} onChange={f('basePrice')} className={inputCls} dir="ltr" />
+                  <input type="number"
+                    value={form.basePrice ? Math.round(parseInt(String(form.basePrice))/10) : ''}
+                    onChange={e => setForm(p => ({ ...p, basePrice: e.target.value ? String(Math.round(parseFloat(e.target.value) * 10)) : '0' }))}
+                    className={inputCls} dir="ltr" />
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-surface-600 mb-1.5">قیمت قبل از تخفیف (تومان)</label>
-                  <input type="number" value={form.compareAtPrice ? Math.round(parseInt(String(form.compareAtPrice))/10) : ''} onChange={f('compareAtPrice')} className={inputCls} dir="ltr" />
+                  <input type="number"
+                    value={form.compareAtPrice ? Math.round(parseInt(String(form.compareAtPrice))/10) : ''}
+                    onChange={e => setForm(p => ({ ...p, compareAtPrice: e.target.value ? String(Math.round(parseFloat(e.target.value) * 10)) : '' }))}
+                    className={inputCls} dir="ltr" />
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-surface-600 mb-1.5">وضعیت</label>
