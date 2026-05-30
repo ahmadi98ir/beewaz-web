@@ -1,24 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { headers } from 'next/headers'
+import { requireAdmin } from '@/lib/admin-auth'
 import { db } from '@/lib/db'
-import { productReviews, products } from '@/lib/db/schema'
+import { productReviews } from '@/lib/db/schema'
 import { eq, sql } from 'drizzle-orm'
-
-async function isAdmin() {
-  const h = await headers()
-  return h.get('x-admin-token') === process.env.ADMIN_TOKEN
-}
 
 type Params = { params: Promise<{ id: string }> }
 
 export async function PATCH(req: NextRequest, { params }: Params) {
-  if (!await isAdmin()) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  const auth = await requireAdmin(req)
+  if (!auth.ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
   const { id } = await params
   const body = await req.json() as { approved?: boolean }
 
   await db.update(productReviews).set({ approved: body.approved ?? true }).where(eq(productReviews.id, id))
 
-  // recalculate rating_avg and rating_count for product
   const [review] = await db.select({ productId: productReviews.productId }).from(productReviews).where(eq(productReviews.id, id)).limit(1)
   if (review) {
     await db.execute(sql`
@@ -32,8 +28,10 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   return NextResponse.json({ ok: true })
 }
 
-export async function DELETE(_req: NextRequest, { params }: Params) {
-  if (!await isAdmin()) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+export async function DELETE(req: NextRequest, { params }: Params) {
+  const auth = await requireAdmin(req)
+  if (!auth.ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
   const { id } = await params
 
   const [review] = await db.select({ productId: productReviews.productId }).from(productReviews).where(eq(productReviews.id, id)).limit(1)

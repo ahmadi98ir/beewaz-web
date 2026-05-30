@@ -1,16 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { headers } from 'next/headers'
+import { requireAdmin } from '@/lib/admin-auth'
 import { db } from '@/lib/db'
 import { productReviews, products } from '@/lib/db/schema'
-import { eq, desc, sql } from 'drizzle-orm'
-
-async function isAdmin() {
-  const h = await headers()
-  return h.get('x-admin-token') === process.env.ADMIN_TOKEN
-}
+import { eq, desc } from 'drizzle-orm'
 
 export async function GET(req: NextRequest) {
-  if (!await isAdmin()) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  const auth = await requireAdmin(req)
+  if (!auth.ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const pending = req.nextUrl.searchParams.get('pending') === '1'
 
