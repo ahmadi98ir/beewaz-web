@@ -32,7 +32,11 @@ jobs:
 
       - name: Package build
         run: |
-          tar -czf /tmp/beewaz-build.tar.gz -C .next/standalone .
+          mkdir -p /tmp/beewaz-pkg
+          cp -r .next/standalone/. /tmp/beewaz-pkg/
+          cp -r .next/static /tmp/beewaz-pkg/.next/static
+          cp -r public /tmp/beewaz-pkg/public
+          tar -czf /tmp/beewaz-build.tar.gz -C /tmp/beewaz-pkg .
           echo "Build size: $(du -sh /tmp/beewaz-build.tar.gz | cut -f1)"
           echo "SHA=$GITHUB_SHA" > /tmp/build-version.txt
 
