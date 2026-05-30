@@ -11,6 +11,7 @@ export type ShopProduct = {
   price: number
   comparePrice?: number
   rating: number
+  ratingAvg: string
   reviewCount: number
   stock: number
   isFeatured: boolean
@@ -60,6 +61,8 @@ type DbProductForShop = {
   stock: number
   isFeatured: boolean
   createdAt: Date | string
+  ratingAvg?: string | null
+  ratingCount?: number | null
   category?: { nameFa: string; slug: string } | null
   specs?: { keyFa: string; valueFa: string }[]
   images?: { url: string; alt: string | null }[]
@@ -79,8 +82,9 @@ export function dbProductToShop(p: DbProductForShop): ShopProduct {
     categoryName: p.category?.nameFa ?? '',
     price: p.price,
     comparePrice: p.comparePrice ?? undefined,
-    rating: 0,
-    reviewCount: 0,
+    rating: Math.round(parseFloat(p.ratingAvg ?? '0')),
+    ratingAvg: p.ratingAvg ?? '0',
+    reviewCount: p.ratingCount ?? 0,
     stock: p.stock,
     isFeatured: p.isFeatured,
     isNew: Date.now() - createdAt.getTime() < THIRTY_DAYS,
