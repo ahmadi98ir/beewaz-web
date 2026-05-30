@@ -1,34 +1,59 @@
-import { GoogleGenerativeAI } from '@google/generative-ai'
+// AvalAI — OpenAI-compatible API that works from Iranian servers
+// Docs: https://avalai.ir
 
-const apiKey = process.env.GEMINI_API_KEY
-if (!apiKey) console.warn('[gemini] GEMINI_API_KEY not set')
+const BASE_URL = process.env.AVALAI_BASE_URL ?? 'https://api.avalai.ir/v1'
+const API_KEY  = process.env.AVALAI_API_KEY ?? process.env.GEMINI_API_KEY ?? ''
+const MODEL    = process.env.AI_MODEL ?? 'gemini-2.0-flash'
 
-const genAI = apiKey ? new GoogleGenerativeAI(apiKey) : null
+if (!API_KEY) console.warn('[ai] No API key configured (AVALAI_API_KEY)')
 
-export function getGeminiModel(model = 'gemini-2.0-flash') {
-  if (!genAI) throw new Error('GEMINI_API_KEY is not configured')
-  return genAI.getGenerativeModel({ model })
+interface Message {
+  role: 'system' | 'user' | 'assistant'
+  content: string
+}
+
+async function callAI(messages: Message[]): Promise<string> {
+  if (!API_KEY) throw new Error('AI API key not configured')
+
+  const res = await fetch(`${BASE_URL}/chat/completions`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${API_KEY}`,
+    },
+    body: JSON.stringify({
+      model: MODEL,
+      messages,
+      temperature: 0.7,
+      max_tokens: 1024,
+    }),
+  })
+
+  if (!res.ok) {
+    const err = await res.text().catch(() => res.statusText)
+    throw new Error(`AI API error ${res.status}: ${err}`)
+  }
+
+  const data = await res.json() as {
+    choices: { message: { content: string } }[]
+  }
+  return data.choices[0]?.message?.content ?? ''
 }
 
 export async function generateText(prompt: string): Promise<string> {
-  const model = getGeminiModel()
-  const result = await model.generateContent(prompt)
-  return result.response.text()
+  return callAI([{ role: 'user', content: prompt }])
 }
 
 export async function chat(
   history: { role: 'user' | 'model'; text: string }[],
   systemInstruction: string,
 ): Promise<string> {
-  const model = getGeminiModel()
-  const chatSession = model.startChat({
-    systemInstruction,
-    history: history.slice(0, -1).map((m) => ({
-      role: m.role,
-      parts: [{ text: m.text }],
+  const messages: Message[] = [
+    { role: 'system', content: systemInstruction },
+    ...history.map((m) => ({
+      role: m.role === 'model' ? 'assistant' as const : 'user' as const,
+      content: m.text,
     })),
-  })
-  const lastMessage = history[history.length - 1]?.text ?? ''
-  const result = await chatSession.sendMessage(lastMessage)
-  return result.response.text()
+  ]
+  return callAI(messages)
 }
