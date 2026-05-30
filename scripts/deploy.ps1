@@ -11,7 +11,8 @@ Write-Host "=== Beewaz Deploy ===" -ForegroundColor Cyan
 
 # Download build from GitHub Release
 Write-Host "`n[1/3] Downloading build from GitHub..." -ForegroundColor Yellow
-Invoke-WebRequest -Uri $RELEASE_URL -OutFile $LOCAL_FILE -UseBasicParsing
+curl.exe -L -o $LOCAL_FILE $RELEASE_URL
+if ($LASTEXITCODE -ne 0) { throw "Download failed" }
 $size = [math]::Round((Get-Item $LOCAL_FILE).Length / 1MB, 1)
 Write-Host "      Downloaded: ${size} MB" -ForegroundColor Green
 
