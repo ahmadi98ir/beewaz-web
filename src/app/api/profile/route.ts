@@ -11,6 +11,14 @@ export async function GET() {
   }
   const userId = session.user.id
 
+  // admin-env is a virtual admin not in DB
+  if (userId === 'admin-env') {
+    return NextResponse.json({
+      user: { id: 'admin-env', fullName: 'مدیر سیستم', phone: process.env.ADMIN_PHONE ?? '', email: null, createdAt: new Date().toISOString() },
+      orders: [],
+    })
+  }
+
   try {
     const [user, userOrders] = await Promise.all([
       db
