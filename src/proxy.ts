@@ -18,8 +18,11 @@ export default auth((req) => {
       loginUrl.searchParams.set('callbackUrl', pathname)
       return NextResponse.redirect(loginUrl)
     }
+    // نقش‌های کارمندی اجازه ورود به پنل دارند؛ دسترسی دقیق هر بخش
+    // با RBAC در سطح صفحه/API و نوار کناری کنترل می‌شود.
     // @ts-expect-error -- custom role field
-    if (req.auth.user?.role !== 'admin') {
+    const role = req.auth.user?.role as string | undefined
+    if (role !== 'admin' && role !== 'sales_agent') {
       return NextResponse.redirect(new URL('/', req.url))
     }
   }
