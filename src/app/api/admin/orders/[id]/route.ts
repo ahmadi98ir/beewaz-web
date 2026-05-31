@@ -9,6 +9,8 @@ import { requireAdmin } from '@/lib/admin-auth'
 import { eq } from 'drizzle-orm'
 import type { OrderStatus } from '@/lib/db/schema'
 import { sendBulkSms } from '@/lib/sms'
+import { auditLog } from '@/lib/audit'
+import { auth } from '@/lib/auth'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -30,9 +32,12 @@ export async function GET(req: NextRequest, { params }: Params) {
 }
 
 export async function PATCH(req: NextRequest, { params }: Params) {
-  const auth = await requireAdmin(req)
-  if (!auth.ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const adminCheck = await requireAdmin(req)
+  if (!adminCheck.ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { id } = await params
+
+  const session = await auth()
+  const adminId = session?.user?.id ?? 'admin-env'
 
   try {
     const body = await req.json() as {
@@ -58,8 +63,13 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     if (body.shippedAt)   update.shippedAt = new Date(body.shippedAt)
     if (body.deliveredAt) update.deliveredAt = new Date(body.deliveredAt)
 
+    const [before] = await db.select({ status: orders.status, trackingCode: orders.trackingCode })
+      .from(orders).where(eq(orders.id, id)).limit(1)
+
     const [updated] = await db.update(orders).set(update).where(eq(orders.id, id)).returning()
     if (!updated) return NextResponse.json({ error: 'سفارش یافت نشد' }, { status: 404 })
+
+    void auditLog(adminId, 'order.updated', 'order', id, before, update)
 
     // پیامک اطلاع‌رسانی وضعیت سفارش
     const addr = updated.shippingAddress as { phone?: string; fullName?: string } | null

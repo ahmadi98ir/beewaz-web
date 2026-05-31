@@ -71,6 +71,9 @@ export {
   type Coupon, type NewCoupon, type CouponType, type CouponUsage,
 } from './coupons'
 
+// ─── Audit Log ───────────────────────────────────────────────────────────────
+export { adminAuditLogs, type AdminAuditLog, type NewAdminAuditLog } from './audit'
+
 // ─── CRM Extended ────────────────────────────────────────────────────────────
 export {
   leadNotes, leadActivities, followUps, customerNotes,

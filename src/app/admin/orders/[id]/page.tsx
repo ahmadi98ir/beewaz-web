@@ -107,6 +107,19 @@ export default function OrderDetailPage() {
     setSaving(false); setToast('ذخیره شد'); setTimeout(() => setToast(''), 2500)
   }
 
+  const handleRefund = async () => {
+    const reason = window.prompt('دلیل استرداد (اختیاری):')
+    if (reason === null) return // cancelled
+    setSaving(true)
+    const res = await fetch(`/api/admin/orders/${id}/refund`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reason }),
+    })
+    if (res.ok) { await fetchOrder(); setToast('استرداد با موفقیت انجام شد') }
+    else { const j = await res.json() as { error?: string }; setToast(j.error ?? 'خطا در استرداد') }
+    setSaving(false); setTimeout(() => setToast(''), 3000)
+  }
+
   if (loading || !order) return (
     <div className="flex-1 flex items-center justify-center text-surface-300">بارگذاری...</div>
   )
@@ -157,6 +170,10 @@ export default function OrderDetailPage() {
               <button onClick={() => patch({ status: 'cancelled' })} disabled={saving || order.status === 'cancelled' || order.status === 'delivered'}
                 className="mr-2 px-3 py-2 rounded-xl border border-red-200 text-red-500 text-xs font-semibold hover:bg-red-50 disabled:opacity-40 flex-shrink-0">
                 لغو
+              </button>
+              <button onClick={handleRefund} disabled={saving || order.status === 'refunded' || order.status === 'cancelled' || order.status === 'pending'}
+                className="px-3 py-2 rounded-xl border border-orange-200 text-orange-500 text-xs font-semibold hover:bg-orange-50 disabled:opacity-40 flex-shrink-0">
+                استرداد
               </button>
             </div>
           </div>
