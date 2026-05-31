@@ -126,7 +126,7 @@ export async function POST(req: Request) {
   }
 
   const totalAmount = Math.max(0, subtotal + shippingAmount - discountAmount)
-  const userId = session.user!.id
+  const userId = session.user!.id === 'admin-env' ? null : session.user!.id
 
   // ثبت سفارش در یک transaction برای جلوگیری از ناسازگاری داده
   let order: { id: string }
