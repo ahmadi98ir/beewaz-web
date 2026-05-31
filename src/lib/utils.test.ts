@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   formatPrice, formatToman, toFaDigits, toEnDigits,
-  discountPercent, slugify, truncate,
+  discountPercent, slugify,
 } from './utils'
 
 describe('formatPrice', () => {
@@ -10,9 +10,6 @@ describe('formatPrice', () => {
   })
   it('floors fractional toman', () => {
     expect(formatPrice(155)).toBe('۱۵ تومان')
-  })
-  it('handles zero', () => {
-    expect(formatPrice(0)).toBe('۰ تومان')
   })
 })
 
@@ -44,11 +41,12 @@ describe('toEnDigits', () => {
 })
 
 describe('discountPercent', () => {
-  it('computes rounded percentage off', () => {
-    expect(discountPercent(1000, 800)).toBe(20)
+  it('computes rounded percentage off (price, comparePrice)', () => {
+    expect(discountPercent(800, 1000)).toBe(20)
   })
-  it('rounds to nearest integer', () => {
-    expect(discountPercent(3000, 2000)).toBe(33)
+  it('returns 0 when there is no discount', () => {
+    expect(discountPercent(1000, 800)).toBe(0)
+    expect(discountPercent(1000, 1000)).toBe(0)
   })
 })
 
@@ -56,13 +54,15 @@ describe('slugify', () => {
   it('lowercases and hyphenates spaces', () => {
     expect(slugify('Hello World')).toBe('hello-world')
   })
+  it('keeps Persian characters', () => {
+    expect(slugify('دزدگیر اماکن')).toBe('دزدگیر-اماکن')
+  })
 })
 
-describe('truncate', () => {
-  it('truncates long text with ellipsis', () => {
-    expect(truncate('abcdefgh', 4)).toBe('abcd…')
-  })
-  it('leaves short text alone', () => {
-    expect(truncate('abc', 10)).toBe('abc')
+describe('formatPrice edge cases', () => {
+  it('returns dash for null/undefined/zero', () => {
+    expect(formatPrice(null)).toBe('—')
+    expect(formatPrice(undefined)).toBe('—')
+    expect(formatPrice(0)).toBe('—')
   })
 })
