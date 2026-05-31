@@ -27,7 +27,7 @@ export async function GET() {
       .limit(50)
     return NextResponse.json({
       user: { id: 'admin-env', fullName: 'مدیر سیستم', phone: process.env.ADMIN_PHONE ?? '', email: null, createdAt: new Date().toISOString() },
-      orders: adminOrders,
+      orders: adminOrders.map((o) => ({ ...o, createdAt: new Date(o.createdAt).toISOString() })),
     })
   }
 
@@ -60,7 +60,10 @@ export async function GET() {
         .limit(20),
     ])
 
-    return NextResponse.json({ user, orders: userOrders })
+    return NextResponse.json({
+      user: user ? { ...user, createdAt: new Date(user.createdAt).toISOString() } : null,
+      orders: userOrders.map((o) => ({ ...o, createdAt: new Date(o.createdAt).toISOString() })),
+    })
   } catch (err) {
     console.error('[profile GET]', err)
     return NextResponse.json({ error: 'Server error' }, { status: 500 })
