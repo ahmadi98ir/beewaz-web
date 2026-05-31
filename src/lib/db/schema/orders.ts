@@ -2,7 +2,7 @@
  * اسکیمای سفارشات
  */
 
-import { pgTable, pgEnum, uuid, varchar, text, numeric, integer, jsonb, timestamp, boolean } from 'drizzle-orm/pg-core'
+import { pgTable, pgEnum, uuid, varchar, text, numeric, integer, jsonb, timestamp, boolean, index } from 'drizzle-orm/pg-core'
 import { relations, sql } from 'drizzle-orm'
 import { users } from './users'
 import { products, productVariants } from './products'
@@ -75,7 +75,11 @@ export const orders = pgTable('orders', {
 
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-})
+}, (t) => [
+  index('orders_user_id_idx').on(t.userId),
+  index('orders_status_idx').on(t.status),
+  index('orders_created_at_idx').on(t.createdAt),
+])
 
 // ─── Order Items ──────────────────────────────────────────────────────────────
 

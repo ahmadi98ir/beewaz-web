@@ -4,10 +4,28 @@ import { db } from '@/lib/db'
 import { coupons, couponUsages } from '@/lib/db/schema'
 import { eq, and, count } from 'drizzle-orm'
 
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>()
+
+function checkRateLimit(userId: string): boolean {
+  const now = Date.now()
+  const entry = rateLimitMap.get(userId)
+  if (!entry || entry.resetAt < now) {
+    rateLimitMap.set(userId, { count: 1, resetAt: now + 60_000 })
+    return true
+  }
+  if (entry.count >= 10) return false
+  entry.count++
+  return true
+}
+
 export async function POST(req: NextRequest) {
   const session = await auth()
   if (!session?.user?.id) {
     return NextResponse.json({ error: 'لطفاً وارد شوید' }, { status: 401 })
+  }
+
+  if (!checkRateLimit(session.user.id)) {
+    return NextResponse.json({ error: 'تعداد درخواست‌ها زیاد است. لطفاً کمی صبر کنید' }, { status: 429 })
   }
 
   const body = await req.json() as { code?: string; orderAmount?: number }

@@ -39,31 +39,38 @@ export async function POST(req: NextRequest) {
     body: JSON.stringify({ id: body.id, order_id: orderId }),
   })
 
-  const verifyData = await verifyRes.json() as { status?: number; track_id?: number; error_code?: number }
+  const verifyData = await verifyRes.json() as { status?: number; track_id?: number; id?: string; error_code?: number }
 
   if (!verifyRes.ok || (verifyData.status !== 100 && verifyData.status !== 101)) {
     console.error('[idpay/verify]', verifyData)
     return NextResponse.redirect(new URL(`/checkout?error=payment_failed`, req.url))
   }
 
-  // به‌روزرسانی سفارش + کاهش موجودی
-  await db.update(orders).set({
-    status: 'paid',
-    trackingCode: String(verifyData.track_id ?? body.track_id ?? ''),
-    paidAt: new Date(),
-  }).where(eq(orders.id, order.id))
-
-  // کاهش موجودی محصولات
-  const items = await db.select({ productId: orderItems.productId, quantity: orderItems.quantity })
-    .from(orderItems).where(eq(orderItems.orderId, order.id))
-
-  for (const item of items) {
-    if (item.productId) {
-      await db.update(products)
-        .set({ stock: sql`GREATEST(${products.stock} - ${item.quantity}, 0)` })
-        .where(eq(products.id, item.productId))
-    }
+  // اطمینان از تطابق transaction id
+  if (order.transactionId && verifyData.id && order.transactionId !== verifyData.id) {
+    console.error('[idpay/verify] transaction id mismatch', { stored: order.transactionId, received: verifyData.id })
+    return NextResponse.redirect(new URL(`/checkout?error=payment_failed`, req.url))
   }
+
+  // به‌روزرسانی سفارش + کاهش موجودی در یک transaction
+  await db.transaction(async (tx) => {
+    await tx.update(orders).set({
+      status: 'paid',
+      trackingCode: String(verifyData.track_id ?? body.track_id ?? ''),
+      paidAt: new Date(),
+    }).where(eq(orders.id, order.id))
+
+    const items = await tx.select({ productId: orderItems.productId, quantity: orderItems.quantity })
+      .from(orderItems).where(eq(orderItems.orderId, order.id))
+
+    for (const item of items) {
+      if (item.productId) {
+        await tx.update(products)
+          .set({ stock: sql`GREATEST(${products.stock} - ${item.quantity}, 0)` })
+          .where(eq(products.id, item.productId))
+      }
+    }
+  })
 
   return NextResponse.redirect(new URL(`/orders/${order.id}/confirmation`, req.url))
 }

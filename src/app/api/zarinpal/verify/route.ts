@@ -50,24 +50,25 @@ export async function GET(req: Request) {
     return NextResponse.redirect(new URL(`/checkout?error=payment_failed`, req.url))
   }
 
-  // به‌روزرسانی وضعیت سفارش
-  await db.update(orders).set({
-    status: 'paid',
-    trackingCode: String(zpData.data?.ref_id ?? ''),
-    paidAt: new Date(),
-  }).where(eq(orders.id, order.id))
+  // به‌روزرسانی وضعیت سفارش + کاهش موجودی در یک transaction
+  await db.transaction(async (tx) => {
+    await tx.update(orders).set({
+      status: 'paid',
+      trackingCode: String(zpData.data?.ref_id ?? ''),
+      paidAt: new Date(),
+    }).where(eq(orders.id, order.id))
 
-  // کاهش موجودی محصولات
-  const items = await db.select({ productId: orderItems.productId, quantity: orderItems.quantity })
-    .from(orderItems).where(eq(orderItems.orderId, order.id))
+    const items = await tx.select({ productId: orderItems.productId, quantity: orderItems.quantity })
+      .from(orderItems).where(eq(orderItems.orderId, order.id))
 
-  for (const item of items) {
-    if (item.productId) {
-      await db.update(products)
-        .set({ stock: sql`GREATEST(${products.stock} - ${item.quantity}, 0)` })
-        .where(eq(products.id, item.productId))
+    for (const item of items) {
+      if (item.productId) {
+        await tx.update(products)
+          .set({ stock: sql`GREATEST(${products.stock} - ${item.quantity}, 0)` })
+          .where(eq(products.id, item.productId))
+      }
     }
-  }
+  })
 
   return NextResponse.redirect(new URL(`/orders/${order.id}/confirmation`, req.url))
 }
