@@ -134,7 +134,7 @@ export default function ProfilePage() {
 
   const displayName = user?.fullName ?? session?.user?.name ?? null
   const phone = user?.phone ?? (session?.user as { phone?: string })?.phone ?? '—'
-  const totalSpent = userOrders.reduce((sum, o) => sum + o.totalAmount, 0)
+  const totalSpent = userOrders.reduce((sum, o) => sum + Number(o.totalAmount), 0)
   const tier = getLoyaltyTier(totalSpent)
 
   if (loading) {
