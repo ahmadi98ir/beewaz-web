@@ -11,11 +11,16 @@ describe('formatPrice', () => {
   it('floors fractional toman', () => {
     expect(formatPrice(155)).toBe('۱۵ تومان')
   })
+  it('returns dash for null/undefined/zero', () => {
+    expect(formatPrice(null)).toBe('—')
+    expect(formatPrice(undefined)).toBe('—')
+    expect(formatPrice(0)).toBe('—')
+  })
 })
 
 describe('formatToman', () => {
-  it('returns number string without unit', () => {
-    expect(formatToman(2_000_000)).toBe('۲۰۰٬۰۰۰')
+  it('converts rial to toman with تومان unit', () => {
+    expect(formatToman(2_000_000)).toBe('۲۰۰٬۰۰۰ تومان')
   })
 })
 
@@ -56,13 +61,5 @@ describe('slugify', () => {
   })
   it('keeps Persian characters', () => {
     expect(slugify('دزدگیر اماکن')).toBe('دزدگیر-اماکن')
-  })
-})
-
-describe('formatPrice edge cases', () => {
-  it('returns dash for null/undefined/zero', () => {
-    expect(formatPrice(null)).toBe('—')
-    expect(formatPrice(undefined)).toBe('—')
-    expect(formatPrice(0)).toBe('—')
   })
 })

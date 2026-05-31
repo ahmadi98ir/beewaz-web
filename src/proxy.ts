@@ -6,8 +6,35 @@ import { authConfig } from '@/lib/auth.config'
 // از auth.config (بدون DB/bcrypt) استفاده می‌کند تا edge-safe باشد.
 const { auth } = NextAuth(authConfig)
 
+const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS'])
+
+function hostFromUrl(value: string | null): string | null {
+  if (!value) return null
+  try {
+    return new URL(value).host
+  } catch {
+    return null
+  }
+}
+
 export default auth((req) => {
   const { pathname } = req.nextUrl
+
+  // محافظت CSRF برای درخواست‌های تغییردهنده روی API
+  if (pathname.startsWith('/api/') && !SAFE_METHODS.has(req.method)) {
+    const exempt =
+      pathname.startsWith('/api/auth/') ||
+      pathname.startsWith('/api/zarinpal/verify') ||
+      pathname.startsWith('/api/idpay/verify')
+    const hasBearer = req.headers.get('authorization')?.startsWith('Bearer ')
+    if (!exempt && !hasBearer) {
+      const host = req.headers.get('host')
+      const sourceHost = hostFromUrl(req.headers.get('origin')) ?? hostFromUrl(req.headers.get('referer'))
+      if (!host || !sourceHost || sourceHost !== host) {
+        return NextResponse.json({ error: 'CSRF check failed' }, { status: 403 })
+      }
+    }
+  }
 
   // اضافه کردن x-pathname برای استفاده در root layout
   const requestId = crypto.randomUUID()
