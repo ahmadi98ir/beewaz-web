@@ -1,11 +1,11 @@
 'use client'
 
-import { useCart } from '@/stores/cart'
+import { useCart, cartCount } from '@/stores/cart'
 import { ShoppingCartIcon } from '@/components/ui/icons'
 import { toFaDigits } from '@/lib/utils'
 
 export function CartButton() {
-  const count = useCart((s) => s.count)
+  const count = useCart(cartCount)
   const openCart = useCart((s) => s.openCart)
 
   return (

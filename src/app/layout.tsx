@@ -7,6 +7,7 @@ import { ToastContainer } from '@/components/ui/toast'
 import { PageTransition } from '@/components/ui/page-transition'
 import { QuickViewModal } from '@/components/shop/quick-view-modal'
 import { FloatingCart } from '@/components/layout/floating-cart'
+import { FloatingCartButton } from '@/components/layout/floating-cart-button'
 import { AppSessionProvider } from '@/components/providers/session-provider'
 import { PageTracker } from '@/components/analytics/page-tracker'
 import './globals.css'
@@ -87,6 +88,7 @@ export default async function RootLayout({
             <ChatWidget />
             <QuickViewModal />
             <FloatingCart />
+            <FloatingCartButton />
             <ToastContainer />
             <PageTracker />
           </AppSessionProvider>

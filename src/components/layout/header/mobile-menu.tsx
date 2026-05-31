@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { MenuIcon, XIcon, ChevronDownIcon, PhoneIcon, ShoppingCartIcon, UserIcon } from '@/components/ui/icons'
 import { BeewazLogo } from '@/components/ui/logo'
-import { useCart } from '@/stores/cart'
+import { useCart, cartCount as cartCountSelector } from '@/stores/cart'
 import { useSession } from 'next-auth/react'
 import { toFaDigits } from '@/lib/utils'
 import type { NavItem } from '@/config/navigation'
@@ -16,7 +16,7 @@ export function MobileMenu({ items }: Props) {
   const [open, setOpen] = useState(false)
   const [expanded, setExpanded] = useState<string | null>(null)
   const pathname = usePathname()
-  const cartCount = useCart((s) => s.count)
+  const cartCount = useCart(cartCountSelector)
   const openCart = useCart((s) => s.openCart)
   const { data: session } = useSession()
 

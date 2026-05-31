@@ -27,7 +27,7 @@ const schema = z.object({
   notes: z.string().max(500).optional(),
   couponCode: z.string().optional(),
   paymentMethod: z.enum(['online', 'card_to_card', 'cash_on_delivery', 'installment']).default('online'),
-  gateway: z.enum(['zarinpal', 'idpay']).default('zarinpal'),
+  gateway: z.enum(['zarinpal', 'idpay', 'card_to_card', 'cash_on_delivery']).default('zarinpal'),
 })
 
 export async function POST(req: Request) {

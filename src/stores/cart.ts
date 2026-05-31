@@ -24,15 +24,11 @@ type CartStore = {
   clearCart: () => void
   openCart: () => void
   closeCart: () => void
-
-  // computed
-  count: number
-  subtotal: number
 }
 
 export const useCart = create<CartStore>()(
   persist(
-    (set, get) => ({
+    (set) => ({
       items: [],
       isOpen: false,
 
@@ -64,13 +60,6 @@ export const useCart = create<CartStore>()(
       clearCart: () => set({ items: [] }),
       openCart: () => set({ isOpen: true }),
       closeCart: () => set({ isOpen: false }),
-
-      get count() {
-        return get().items.reduce((sum, i) => sum + i.quantity, 0)
-      },
-      get subtotal() {
-        return get().items.reduce((sum, i) => sum + i.price * i.quantity, 0)
-      },
     }),
     {
       name: 'beewaz-cart',
@@ -79,3 +68,10 @@ export const useCart = create<CartStore>()(
     },
   ),
 )
+
+// Selectors — use these instead of s.count / s.subtotal
+export const cartCount = (s: CartStore) =>
+  s.items.reduce((sum, i) => sum + i.quantity, 0)
+
+export const cartSubtotal = (s: CartStore) =>
+  s.items.reduce((sum, i) => sum + i.price * i.quantity, 0)

@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useCart } from '@/stores/cart'
+import { useCart, cartSubtotal } from '@/stores/cart'
 import { formatPrice, toFaDigits } from '@/lib/utils'
 import { ShoppingCartIcon, XIcon, ArrowLeftIcon } from '@/components/ui/icons'
 
@@ -71,7 +71,8 @@ function CartItemRow({ item }: { item: import('@/stores/cart').CartItem }) {
 }
 
 export default function CartPage() {
-  const { items, subtotal, clearCart } = useCart()
+  const { items, clearCart } = useCart()
+  const subtotal = useCart(cartSubtotal)
 
   const shipping = subtotal >= 500_000 ? 0 : 80_000
   const total = subtotal + shipping

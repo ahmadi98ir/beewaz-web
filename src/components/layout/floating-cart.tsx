@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react'
 import Link from 'next/link'
-import { useCart } from '@/stores/cart'
+import { useCart, cartCount, cartSubtotal } from '@/stores/cart'
 import type { CartItem } from '@/stores/cart'
 import { formatPrice, toFaDigits } from '@/lib/utils'
 import { XIcon, ShoppingCartIcon, ArrowLeftIcon } from '@/components/ui/icons'
@@ -82,8 +82,10 @@ function CartItemRow({ item }: { item: CartItem }) {
 // ─── Floating Cart Panel ──────────────────────────────────────────────────────
 
 export function FloatingCart() {
-  const { items, isOpen, closeCart, subtotal } = useCart()
-  const count = useCart((s) => s.count)
+  const { items, isOpen, closeCart } = useCart()
+  const count = useCart(cartCount)
+  const subtotal = useCart(cartSubtotal)
+  
 
   const shipping = subtotal >= 2_000_000 ? 0 : 150_000
   const total = subtotal + shipping
