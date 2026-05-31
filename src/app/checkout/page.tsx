@@ -1,6 +1,8 @@
 import type { Metadata } from 'next'
 import { Suspense } from 'react'
+import { redirect } from 'next/navigation'
 import CheckoutClient from './checkout-client'
+import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { siteSettings } from '@/lib/db/schema'
 import { inArray } from 'drizzle-orm'
@@ -36,6 +38,11 @@ async function getBankCardSettings(): Promise<BankCardSettings> {
 }
 
 export default async function CheckoutPage() {
+  const session = await auth()
+  if (!session?.user?.id) {
+    redirect('/login?callbackUrl=/checkout')
+  }
+
   const bankCard = await getBankCardSettings()
   return (
     <Suspense fallback={<div className="min-h-screen bg-surface-50 flex items-center justify-center"><div className="w-8 h-8 border-4 border-brand-600 border-t-transparent rounded-full animate-spin" /></div>}>

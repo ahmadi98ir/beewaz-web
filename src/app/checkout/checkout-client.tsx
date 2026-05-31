@@ -137,13 +137,6 @@ export default function CheckoutClient({ bankCard }: { bankCard: BankCardSetting
     if (session?.user?.name) setFullName(session.user.name)
   }, [session])
 
-  // redirect به login
-  useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/login?callbackUrl=/checkout')
-    }
-  }, [status, router])
-
   if (status === 'loading') {
     return (
       <div className="min-h-screen flex items-center justify-center">
