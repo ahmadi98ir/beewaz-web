@@ -34,14 +34,17 @@ const statusMap: Record<string, { label: string; cls: string }> = {
 
 function formatJalaliDate(iso: string) {
   try {
+    // UTC+3:30 Tehran offset
+    const tehranOffset = 3.5 * 60 * 60 * 1000
+    const tehranDate = new Date(new Date(iso).getTime() + tehranOffset)
     return new Intl.DateTimeFormat('fa-IR', {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
-      timeZone: 'Asia/Tehran',
-    }).format(new Date(iso))
+      timeZone: 'UTC',
+    }).format(tehranDate)
   } catch {
     return iso
   }
