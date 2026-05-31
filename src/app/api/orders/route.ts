@@ -147,7 +147,7 @@ export async function POST(req: Request) {
       if (!newOrder) throw new Error('order_insert_failed')
 
       await tx.insert(orderItems).values(
-        orderItemsData.map((item) => ({ orderId: newOrder.id, ...item }))
+        orderItemsData.map((item) => ({ orderId: newOrder.id, ...item, snapshot: {} }))
       )
 
       // ثبت کوپن با بررسی اتمیک (جلوگیری از race condition)
