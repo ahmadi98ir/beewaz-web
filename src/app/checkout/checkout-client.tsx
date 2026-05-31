@@ -45,6 +45,8 @@ interface OrderResponse {
   totalAmount?: number
   gateway?: string
   error?: string
+  detail?: string
+  field?: string
 }
 
 const BASE_GATEWAYS: { key: GatewayKey; label: string; desc: string; icon: React.ReactNode }[] = [
@@ -279,7 +281,7 @@ export default function CheckoutClient({ bankCard, phone: sessionPhone, userName
 
       const data = await res.json() as OrderResponse
       if (!res.ok || !data.orderId) {
-        setError(data.error ?? 'خطا در ثبت سفارش')
+        setError((data.error ?? 'خطا در ثبت سفارش') + (data.detail ? ` — ${data.detail}` : '') + (data.field ? ` (${data.field})` : ''))
         setLoading(false)
         return
       }

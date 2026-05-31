@@ -39,7 +39,8 @@ export async function POST(req: Request) {
   const body = await req.json() as unknown
   const parsed = schema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.errors[0]?.message ?? 'اطلاعات نامعتبر' }, { status: 400 })
+    const firstErr = parsed.error.errors[0]
+    return NextResponse.json({ error: firstErr?.message ?? 'اطلاعات نامعتبر', field: firstErr?.path?.join('.') }, { status: 400 })
   }
 
   const { address, items, notes, couponCode, paymentMethod, gateway } = parsed.data
@@ -186,7 +187,7 @@ export async function POST(req: Request) {
     const msg = err instanceof Error ? err.message : ''
     if (msg === 'coupon_exhausted') return NextResponse.json({ error: 'ظرفیت این کد تخفیف پر شده است' }, { status: 400 })
     console.error('[orders POST] transaction failed', err)
-    const detail = process.env.NODE_ENV !== 'production' && err instanceof Error ? err.message : undefined
+    const detail = err instanceof Error ? err.message : String(err)
     return NextResponse.json({ error: 'خطا در ثبت سفارش', detail }, { status: 500 })
   }
 
