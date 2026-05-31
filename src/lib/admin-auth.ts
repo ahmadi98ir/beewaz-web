@@ -1,26 +1,35 @@
 import { cookies } from 'next/headers'
 import { NextRequest } from 'next/server'
 import { auth } from '@/lib/auth'
+import { verifyOrigin } from '@/lib/csrf'
 
 export async function requireAdmin(req?: NextRequest): Promise<{ ok: boolean; error?: string }> {
-  // ۱. بررسی NextAuth session — اگر role=admin یا sales_agent باشد اجازه داده می‌شود
+  // ۰. دسترسی با ADMIN_TOKEN (برای ابزارهای خارجی / CI) — معاف از CSRF
+  const token = process.env.ADMIN_TOKEN
+  if (token && req) {
+    const authHeader = req.headers?.get('authorization')
+    if (authHeader === `Bearer ${token}`) return { ok: true }
+  }
+
+  // ۱. برای دسترسی مبتنی بر کوکی/سشن، در درخواست‌های تغییردهنده CSRF بررسی شود
+  if (req && !verifyOrigin(req)) {
+    return { ok: false, error: 'CSRF check failed' }
+  }
+
+  // ۲. بررسی NextAuth session — اگر role=admin یا sales_agent باشد اجازه داده می‌شود
   try {
     const session = await auth()
     const role = (session?.user as { role?: string } | undefined)?.role
     if (role === 'admin' || role === 'sales_agent') return { ok: true }
   } catch { /* noop */ }
 
-  // ۲. بررسی ADMIN_TOKEN (fallback برای ابزارهای خارجی / CI)
-  const token = process.env.ADMIN_TOKEN
+  // ۳. بررسی ADMIN_TOKEN از طریق کوکی
   if (token) {
     try {
       const cookieStore = await cookies()
       const cookieToken = cookieStore.get('admin_token')?.value
       if (cookieToken === token) return { ok: true }
     } catch { /* noop */ }
-
-    const authHeader = req?.headers?.get('authorization')
-    if (authHeader === `Bearer ${token}`) return { ok: true }
   }
 
   return { ok: false, error: 'Unauthorized' }

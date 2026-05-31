@@ -5,6 +5,8 @@ import { db } from '@/lib/db'
 import { orders, orderItems, products, coupons, couponUsages, siteSettings, users } from '@/lib/db/schema'
 import { eq, inArray, and, count, sql } from 'drizzle-orm'
 import { sendVerifySms, sendBulkSms, SMS_TEMPLATES } from '@/lib/sms'
+import { calcShipping, calcCouponDiscount, calcOrderTotal } from '@/lib/pricing'
+import { logger } from '@/lib/logger'
 
 const addressSchema = z.object({
   fullName: z.string().min(2),
@@ -87,7 +89,7 @@ export async function POST(req: Request) {
   const shippingMap = Object.fromEntries(shippingRows.map((r) => [r.key, r.value]))
   const FREE_SHIPPING_THRESHOLD = parseInt(shippingMap['free_shipping_threshold'] ?? '2000000', 10)
   const SHIPPING_COST = parseInt(shippingMap['shipping_cost'] ?? '150000', 10)
-  const shippingAmount = subtotal >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_COST
+  const shippingAmount = calcShipping(subtotal, { shippingCost: SHIPPING_COST, freeThreshold: FREE_SHIPPING_THRESHOLD })
 
   // ── پردازش کوپن ───────────────────────────────────────────────────────────
   let discountAmount = 0
@@ -120,16 +122,15 @@ export async function POST(req: Request) {
       }
     }
 
-    if (coupon.type === 'percentage') {
-      discountAmount = Math.floor(subtotal * Number(coupon.value) / 100)
-      if (coupon.maxDiscountAmount) discountAmount = Math.min(discountAmount, Number(coupon.maxDiscountAmount))
-    } else {
-      discountAmount = Math.min(Number(coupon.value), subtotal)
-    }
+    discountAmount = calcCouponDiscount(subtotal, {
+      type: coupon.type as 'percentage' | 'fixed',
+      value: Number(coupon.value),
+      maxDiscountAmount: coupon.maxDiscountAmount != null ? Number(coupon.maxDiscountAmount) : null,
+    })
     appliedCoupon = coupon
   }
 
-  const totalAmount = Math.max(0, subtotal + shippingAmount - discountAmount)
+  const totalAmount = calcOrderTotal({ subtotal, shipping: shippingAmount, discount: discountAmount })
   const userId = session.user!.id === 'admin-env' ? null : session.user!.id
 
   // ثبت سفارش در یک transaction برای جلوگیری از ناسازگاری داده
@@ -208,7 +209,7 @@ export async function POST(req: Request) {
       const name = msg.replace('stock_insufficient:', '')
       return NextResponse.json({ error: `موجودی کافی برای "${name}" وجود ندارد` }, { status: 400 })
     }
-    console.error('[orders POST] transaction failed', err)
+    logger.error('[orders POST] transaction failed', err)
     const detail = err instanceof Error ? err.message : String(err)
     return NextResponse.json({ error: 'خطا در ثبت سفارش', detail }, { status: 500 })
   }
