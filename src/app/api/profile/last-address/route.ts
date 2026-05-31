@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { orders } from '@/lib/db/schema'
-import { eq, desc, isNotNull } from 'drizzle-orm'
+import { users } from '@/lib/db/schema'
+import { eq } from 'drizzle-orm'
 
 export async function GET() {
   const session = await auth()
@@ -11,15 +11,14 @@ export async function GET() {
   }
 
   try {
-    const lastOrder = await db
-      .select({ shippingAddress: orders.shippingAddress })
-      .from(orders)
-      .where(eq(orders.userId, session.user.id))
-      .orderBy(desc(orders.createdAt))
+    const user = await db
+      .select({ lastShippingAddress: users.lastShippingAddress })
+      .from(users)
+      .where(eq(users.id, session.user.id))
       .limit(1)
       .then((r) => r[0] ?? null)
 
-    return NextResponse.json({ address: lastOrder?.shippingAddress ?? null })
+    return NextResponse.json({ address: user?.lastShippingAddress ?? null })
   } catch {
     return NextResponse.json({ address: null })
   }

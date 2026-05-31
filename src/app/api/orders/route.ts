@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { orders, orderItems, products, coupons, couponUsages, siteSettings } from '@/lib/db/schema'
+import { orders, orderItems, products, coupons, couponUsages, siteSettings, users } from '@/lib/db/schema'
 import { eq, inArray, and, count, sql } from 'drizzle-orm'
 import { sendVerifySms, sendBulkSms, SMS_TEMPLATES } from '@/lib/sms'
 
@@ -212,6 +212,26 @@ export async function POST(req: Request) {
       }
     } catch { /* نادیده گرفتن خطای اطلاع‌رسانی ادمین */ }
   })()
+
+  // ذخیره آخرین آدرس ارسال روی پروفایل کاربر (fire-and-forget)
+  if (session.user.id !== 'admin-env') {
+    void db.update(users)
+      .set({
+        lastShippingAddress: {
+          fullName: address.fullName,
+          province: address.province,
+          city: address.city,
+          street: address.street,
+          alley: address.alley,
+          plaque: address.plaque,
+          unit: address.unit,
+          postalCode: address.postalCode,
+        },
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, session.user.id))
+      .catch(() => {})
+  }
 
   return NextResponse.json({ orderId: order.id, totalAmount, gateway })
 }

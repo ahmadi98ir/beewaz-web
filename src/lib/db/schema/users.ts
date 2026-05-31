@@ -1,5 +1,5 @@
 import {
-  pgTable, pgEnum, uuid, varchar, text, boolean, timestamp
+  pgTable, pgEnum, uuid, varchar, text, boolean, timestamp, jsonb
 } from 'drizzle-orm/pg-core'
 
 // ─── Enums ──────────────────────────────────────────────────────────────────────────────
@@ -12,16 +12,22 @@ export const userRoleEnum = pgEnum('user_role', [
 
 // ─── Table ──────────────────────────────────────────────────────────────────────────────
 
+type ShippingAddress = {
+  fullName?: string; province?: string; city?: string
+  street?: string; alley?: string; plaque?: string; unit?: string; postalCode?: string
+}
+
 export const users = pgTable('users', {
-  id:           uuid('id').primaryKey().defaultRandom(),
-  phone:        varchar('phone', { length: 15 }).unique().notNull(),
-  email:        varchar('email', { length: 255 }).unique(),
-  fullName:     varchar('full_name', { length: 100 }),
-  role:         userRoleEnum('role').default('customer').notNull(),
-  passwordHash: text('password_hash'),
-  isVerified:   boolean('is_verified').default(false).notNull(),
-  createdAt:    timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-  updatedAt:    timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  id:                   uuid('id').primaryKey().defaultRandom(),
+  phone:                varchar('phone', { length: 15 }).unique().notNull(),
+  email:                varchar('email', { length: 255 }).unique(),
+  fullName:             varchar('full_name', { length: 100 }),
+  role:                 userRoleEnum('role').default('customer').notNull(),
+  passwordHash:         text('password_hash'),
+  isVerified:           boolean('is_verified').default(false).notNull(),
+  lastShippingAddress:  jsonb('last_shipping_address').$type<ShippingAddress>(),
+  createdAt:            timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt:            timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 })
 
 // ─── Types ──────────────────────────────────────────────────────────────────────────────

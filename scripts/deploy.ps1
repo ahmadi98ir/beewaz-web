@@ -67,6 +67,10 @@ Invoke-SSH "rm -rf /tmp/beewaz-extract /tmp/beewaz-build.tar.gz"
 Invoke-SSH 'CONTAINER=$(cat /tmp/cname.txt | tr -d "[:space:]"); docker restart $CONTAINER && echo "Restarted: $CONTAINER"'
 Invoke-SSH "rm -f /tmp/cname.txt"
 
+# Step 3b: Run DB migrations
+Write-Host "`n[3b] Running DB migrations..." -ForegroundColor Yellow
+Invoke-SSH 'psql $DATABASE_URL -c "ALTER TABLE users ADD COLUMN IF NOT EXISTS last_shipping_address jsonb;" 2>/dev/null && echo "Migration OK" || docker exec $(docker ps --filter "name=postgres" --format "{{.Names}}" | head -1) psql -U postgres -d beewaz -c "ALTER TABLE users ADD COLUMN IF NOT EXISTS last_shipping_address jsonb;" && echo "Migration OK (via docker)"'
+
 Start-Sleep -Seconds 25
 
 Write-Host "`n[OK] Checking site..." -ForegroundColor Yellow

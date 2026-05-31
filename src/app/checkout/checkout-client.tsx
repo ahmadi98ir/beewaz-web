@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useSession } from 'next-auth/react'
 import Link from 'next/link'
 import { useCart } from '@/stores/cart'
 import { toEnDigits, toFaDigits, formatPrice } from '@/lib/utils'
@@ -91,15 +90,13 @@ const BASE_GATEWAYS: { key: GatewayKey; label: string; desc: string; icon: React
   },
 ]
 
-export default function CheckoutClient({ bankCard }: { bankCard: BankCardSettings }) {
+export default function CheckoutClient({ bankCard, phone: sessionPhone, userName }: { bankCard: BankCardSettings; phone: string; userName: string }) {
   const router = useRouter()
   const params = useSearchParams()
-  const { data: session, status } = useSession()
   const { items, clearCart } = useCart()
 
   // ── اطلاعات گیرنده ──────────────────────────────────────────────────────
-  const [fullName, setFullName] = useState('')
-  const sessionPhone = (session?.user as { phone?: string })?.phone ?? ''
+  const [fullName, setFullName] = useState(userName)
 
   // ── آدرس ساختاریافته ────────────────────────────────────────────────────
   const [province, setProvince] = useState('')
@@ -180,19 +177,6 @@ export default function CheckoutClient({ bankCard }: { bankCard: BankCardSetting
     params.get('error') === 'gateway_error' ? 'خطا در اتصال به درگاه پرداخت' : ''
   )
   const [loading, setLoading] = useState(false)
-
-  // پر کردن نام از session
-  useEffect(() => {
-    if (session?.user?.name) setFullName(session.user.name)
-  }, [session])
-
-  if (status === 'loading') {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="w-8 h-8 border-4 border-brand-600 border-t-transparent rounded-full animate-spin" />
-      </div>
-    )
-  }
 
   if (items.length === 0) {
     return (

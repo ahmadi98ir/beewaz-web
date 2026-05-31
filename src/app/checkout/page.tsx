@@ -43,10 +43,12 @@ export default async function CheckoutPage() {
     redirect('/login?callbackUrl=/checkout')
   }
 
+  const phone = (session.user as { phone?: string }).phone ?? ''
+  const userName = session.user.name ?? ''
   const bankCard = await getBankCardSettings()
   return (
     <Suspense fallback={<div className="min-h-screen bg-surface-50 flex items-center justify-center"><div className="w-8 h-8 border-4 border-brand-600 border-t-transparent rounded-full animate-spin" /></div>}>
-      <CheckoutClient bankCard={bankCard} />
+      <CheckoutClient bankCard={bankCard} phone={phone} userName={userName} />
     </Suspense>
   )
 }
