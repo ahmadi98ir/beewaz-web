@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { ShoppingCartIcon, HeartIcon } from '@/components/ui/icons'
-import { formatPrice, discountPercent } from '@/lib/utils'
+import { formatPrice, discountPercent, toFaDigits } from '@/lib/utils'
 import { useCart } from '@/stores/cart'
 import { useToast } from '@/stores/toast'
 import { useQuickView } from '@/stores/quick-view'
@@ -196,7 +196,7 @@ export function ProductCard({ product, view = 'grid' }: Props) {
         {isLowStock && (
           <div className="absolute bottom-3 start-3 end-3 group-hover:opacity-0 transition-opacity">
             <div className="bg-amber-50 text-amber-700 text-xs font-semibold text-center py-1.5 px-3 rounded-lg border border-amber-200">
-              فقط {product.stock} عدد باقی مانده
+              فقط {toFaDigits(product.stock)} عدد باقی مانده
             </div>
           </div>
         )}

@@ -79,10 +79,14 @@ export async function POST(req: Request) {
     })
   }
 
-  // هزینه ارسال (تهران ارزان‌تر، شهرستان گران‌تر)
-  const FREE_SHIPPING_THRESHOLD = 2_000_000
-  const isTehran = address.province?.includes('تهران') || address.city?.includes('تهران')
-  const SHIPPING_COST = isTehran ? 100_000 : 200_000
+  // هزینه ارسال — از تنظیمات سایت
+  const shippingRows = await db
+    .select({ key: siteSettings.key, value: siteSettings.value })
+    .from(siteSettings)
+    .where(inArray(siteSettings.key, ['shipping_cost', 'free_shipping_threshold']))
+  const shippingMap = Object.fromEntries(shippingRows.map((r) => [r.key, r.value]))
+  const FREE_SHIPPING_THRESHOLD = parseInt(shippingMap['free_shipping_threshold'] ?? '2000000', 10)
+  const SHIPPING_COST = parseInt(shippingMap['shipping_cost'] ?? '150000', 10)
   const shippingAmount = subtotal >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_COST
 
   // ── پردازش کوپن ───────────────────────────────────────────────────────────

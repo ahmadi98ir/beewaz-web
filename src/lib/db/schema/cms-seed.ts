@@ -33,7 +33,8 @@ export const DEFAULT_SITE_SETTINGS: NewSiteSetting[] = [
   { key: 'social_linkedin',  value: '',                          type: 'url',     label: 'لینکدین',              group: 'social' },
 
   // ── Commerce ──
-  { key: 'free_shipping_threshold', value: '500000',             type: 'number',  label: 'حد نصاب ارسال رایگان (تومان)', group: 'commerce' },
+  { key: 'free_shipping_threshold', value: '2000000',            type: 'number',  label: 'حد نصاب ارسال رایگان (ریال)', group: 'commerce' },
+  { key: 'shipping_cost',           value: '150000',             type: 'number',  label: 'هزینه ارسال (ریال)',           group: 'commerce', hint: 'برای سفارش‌های زیر حد نصاب' },
   { key: 'default_warranty_months', value: '18',                 type: 'number',  label: 'ماه‌های گارانتی پیش‌فرض', group: 'commerce' },
   { key: 'shop_enabled',     value: 'true',                      type: 'boolean', label: 'فروشگاه فعال است',     group: 'commerce' },
   { key: 'checkout_notes',   value: '',                          type: 'text',    label: 'توضیح صفحه پرداخت',   group: 'commerce' },

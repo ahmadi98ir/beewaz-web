@@ -72,7 +72,7 @@ export async function GET() {
 
 export async function PATCH(req: Request) {
   const session = await auth()
-  if (!session?.user?.id) {
+  if (!session?.user?.id || session.user.id === 'admin-env') {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

@@ -97,6 +97,11 @@ export default function CheckoutClient({ bankCard, phone: sessionPhone, userName
   const params = useSearchParams()
   const { items, clearCart } = useCart()
 
+  const [shippingConfig, setShippingConfig] = useState({ shippingCost: 150_000, freeThreshold: 2_000_000 })
+  useEffect(() => {
+    fetch('/api/shop/shipping').then(r => r.json()).then((d) => setShippingConfig(d as typeof shippingConfig)).catch(() => {})
+  }, [])
+
   // ── اطلاعات گیرنده ──────────────────────────────────────────────────────
   const [fullName, setFullName] = useState(userName)
 
@@ -190,7 +195,7 @@ export default function CheckoutClient({ bankCard, phone: sessionPhone, userName
   }
 
   const subtotal = items.reduce((s, i) => s + i.price * i.quantity, 0)
-  const shipping = subtotal >= 2_000_000 ? 0 : 150_000
+  const shipping = subtotal >= shippingConfig.freeThreshold ? 0 : shippingConfig.shippingCost
   const discount = couponApplied?.discountAmount ?? 0
   const total = Math.max(0, subtotal + shipping - discount)
 
@@ -676,7 +681,7 @@ export default function CheckoutClient({ bankCard, phone: sessionPhone, userName
 
               {shipping > 0 && (
                 <p className="text-xs text-surface-400 mt-3 bg-surface-50 rounded-lg p-2 text-center">
-                  خرید بالای {toToman(2_000_000)} — ارسال رایگان
+                  خرید بالای {toToman(shippingConfig.freeThreshold)} — ارسال رایگان
                 </p>
               )}
             </div>

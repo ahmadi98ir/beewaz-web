@@ -1,11 +1,24 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useCart, cartCount, cartSubtotal } from '@/stores/cart'
 import type { CartItem } from '@/stores/cart'
 import { formatPrice, toFaDigits } from '@/lib/utils'
 import { XIcon, ShoppingCartIcon, ArrowLeftIcon } from '@/components/ui/icons'
+
+const DEFAULT_SHIPPING = { shippingCost: 150_000, freeThreshold: 2_000_000 }
+
+function useShippingConfig() {
+  const [config, setConfig] = useState(DEFAULT_SHIPPING)
+  useEffect(() => {
+    fetch('/api/shop/shipping')
+      .then((r) => r.json())
+      .then((d) => setConfig(d as typeof DEFAULT_SHIPPING))
+      .catch(() => {})
+  }, [])
+  return config
+}
 
 // ─── Single cart item row ─────────────────────────────────────────────────────
 
@@ -85,9 +98,9 @@ export function FloatingCart() {
   const { items, isOpen, closeCart } = useCart()
   const count = useCart(cartCount)
   const subtotal = useCart(cartSubtotal)
-  
+  const { shippingCost, freeThreshold } = useShippingConfig()
 
-  const shipping = subtotal >= 2_000_000 ? 0 : 150_000
+  const shipping = subtotal >= freeThreshold ? 0 : shippingCost
   const total = subtotal + shipping
 
   // بستن با کلید Escape
@@ -194,7 +207,7 @@ export function FloatingCart() {
               </div>
               {shipping > 0 && (
                 <p className="text-xs text-surface-400">
-                  برای ارسال رایگان {formatPrice(2_000_000 - subtotal)} دیگر خرید کنید
+                  برای ارسال رایگان {formatPrice(freeThreshold - subtotal)} دیگر خرید کنید
                 </p>
               )}
               <div className="flex justify-between items-center pt-2.5 border-t border-surface-200">
