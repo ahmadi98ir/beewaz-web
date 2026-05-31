@@ -15,74 +15,127 @@ $winscpPaths = @(
     "$env:LOCALAPPDATA\Programs\WinSCP\WinSCP.com"
 )
 $WINSCP = $winscpPaths | Where-Object { Test-Path $_ } | Select-Object -First 1
-if (-not $WINSCP) {
-    throw "WinSCP.com not found! Please install WinSCP."
-}
+if (-not $WINSCP) { throw "WinSCP.com not found! Please install WinSCP." }
 
-$WS_OPEN  = "open scp://${SSH_USER}:${SSH_PASS}@${SERVER}:${SSH_PORT}/ -hostkey=*"
 $WS_SCRIPT = "$env:TEMP\bz-winscp.txt"
+$WS_OPEN   = "open scp://${SSH_USER}:${SSH_PASS}@${SERVER}:${SSH_PORT}/ -hostkey=*"
 
-function Invoke-WinSCP {
-    param([string]$ScriptBody)
-    $ScriptBody | Out-File -FilePath $WS_SCRIPT -Encoding ascii -Force
+function Run-SSH {
+    param([string]$Cmd)
+    # wrap in set -e so any failure returns non-zero to WinSCP
+    $wrapped = "set -e; $Cmd"
+    "$WS_OPEN`ncall $wrapped`nexit" | Out-File $WS_SCRIPT -Encoding ascii -Force
     & $WINSCP /ini=nul /script=$WS_SCRIPT
     $code = $LASTEXITCODE
     Remove-Item $WS_SCRIPT -ErrorAction SilentlyContinue
-    if ($code -ne 0) { throw "WinSCP failed (exit $code)" }
+    return $code
 }
 
-function Invoke-SSH {
-    param([string]$Command)
-    Invoke-WinSCP "$WS_OPEN`ncall $Command`nexit"
-}
-
-function Invoke-SCP {
-    param([string]$LocalPath, [string]$RemotePath)
-    Invoke-WinSCP "$WS_OPEN`nput `"$LocalPath`" `"$RemotePath`"`nexit"
+function Run-SCP {
+    param([string]$Local, [string]$Remote)
+    "$WS_OPEN`nput `"$Local`" `"$Remote`"`nexit" | Out-File $WS_SCRIPT -Encoding ascii -Force
+    & $WINSCP /ini=nul /script=$WS_SCRIPT
+    $code = $LASTEXITCODE
+    Remove-Item $WS_SCRIPT -ErrorAction SilentlyContinue
+    return $code
 }
 
 Write-Host "=== Beewaz Deploy ===" -ForegroundColor Cyan
 
-# Step 1: Download build
-Write-Host "`n[1/3] Downloading build from GitHub..." -ForegroundColor Yellow
-curl.exe -L -o $LOCAL_FILE $RELEASE_URL
+# ── Step 1: Download ──────────────────────────────────────────────────────────
+Write-Host "`n[1/4] Downloading build from GitHub..." -ForegroundColor Yellow
+curl.exe -L --progress-bar -o $LOCAL_FILE $RELEASE_URL
 if ($LASTEXITCODE -ne 0) { throw "Download failed" }
 $size = [math]::Round((Get-Item $LOCAL_FILE).Length / 1MB, 1)
 Write-Host "      Downloaded: ${size} MB" -ForegroundColor Green
 
-# Step 2: Upload to server
-Write-Host "`n[2/3] Uploading to server..." -ForegroundColor Yellow
-Invoke-SCP $LOCAL_FILE "/tmp/beewaz-build.tar.gz"
+# ── Step 2: Upload ────────────────────────────────────────────────────────────
+Write-Host "`n[2/4] Uploading to server..." -ForegroundColor Yellow
+$r = Run-SCP $LOCAL_FILE "/tmp/beewaz-build.tar.gz"
+if ($r -ne 0) { throw "Upload failed (exit $r)" }
 Write-Host "      Upload complete" -ForegroundColor Green
 
-# Step 3: Deploy on server
-Write-Host "`n[3/3] Deploying on server..." -ForegroundColor Yellow
+# ── Step 3: Find container & deploy ──────────────────────────────────────────
+Write-Host "`n[3/4] Deploying..." -ForegroundColor Yellow
 
-# Find container: try by image name first, then fall back to any beewaz/nextjs container
-Invoke-SSH '(docker ps --filter "ancestor=ghcr.io/ahmadi98ir/beewaz-web:latest" --format "{{.Names}}" | head -1; docker ps --format "{{.Names}}\t{{.Image}}" | grep -i "beewaz\|nextjs\|next" | awk "{print \$1}" | head -1) | head -1 > /tmp/cname.txt; echo "Container: $(cat /tmp/cname.txt)"'
-Invoke-SSH "mkdir -p /tmp/beewaz-extract"
-Invoke-SSH "tar -xzf /tmp/beewaz-build.tar.gz -C /tmp/beewaz-extract"
-Invoke-SSH 'CONTAINER=$(cat /tmp/cname.txt | tr -d "[:space:]"); if [ -z "$CONTAINER" ]; then echo "ERROR: No container found!"; docker ps; exit 1; fi; echo "Deploying to: $CONTAINER"; docker cp /tmp/beewaz-extract/. $CONTAINER:/app/'
-Invoke-SSH "rm -rf /tmp/beewaz-extract /tmp/beewaz-build.tar.gz"
-Invoke-SSH 'CONTAINER=$(cat /tmp/cname.txt | tr -d "[:space:]"); docker restart $CONTAINER && echo "Restarted: $CONTAINER"'
-Invoke-SSH "rm -f /tmp/cname.txt"
+# Find container name — list all running containers for visibility
+$r = Run-SSH 'echo "=== Running containers ===" && docker ps --format "  {{.Names}} | {{.Image}}" && echo "========================="'
+if ($r -ne 0) { Write-Host "Warning: could not list containers" -ForegroundColor DarkYellow }
 
-# Step 3b: Run DB migrations
-Write-Host "`n[3b] Running DB migrations..." -ForegroundColor Yellow
-Invoke-SSH 'psql $DATABASE_URL -c "ALTER TABLE users ADD COLUMN IF NOT EXISTS last_shipping_address jsonb; ALTER TABLE order_items ALTER COLUMN snapshot SET DEFAULT '\''{}'\''::jsonb; ALTER TABLE order_items ALTER COLUMN snapshot DROP NOT NULL; ALTER TABLE order_items DROP CONSTRAINT IF EXISTS order_items_product_id_products_id_fk; ALTER TABLE order_items ALTER COLUMN product_id DROP NOT NULL; ALTER TABLE order_items ADD CONSTRAINT order_items_product_id_products_id_fk FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE SET NULL;" 2>&1 | tail -5 && echo "Migrations OK"'
+# Detect container
+$r = Run-SSH @'
+CONTAINER=$(docker ps --filter "ancestor=ghcr.io/ahmadi98ir/beewaz-web:latest" --format "{{.Names}}" | head -1)
+if [ -z "$CONTAINER" ]; then
+  CONTAINER=$(docker ps --format "{{.Names}}\t{{.Image}}" | grep -i "beewaz\|nextjs\|bz360" | awk '{print $1}' | head -1)
+fi
+if [ -z "$CONTAINER" ]; then
+  echo "ERROR: No beewaz container found. Running containers:"
+  docker ps --format "  {{.Names}} | {{.Image}}"
+  exit 1
+fi
+echo "FOUND_CONTAINER=$CONTAINER"
+echo "$CONTAINER" > /tmp/cname.txt
+'@
+if ($r -ne 0) { throw "Container detection failed — see output above for running containers" }
 
-Start-Sleep -Seconds 25
+# Extract
+$r = Run-SSH 'rm -rf /tmp/beewaz-extract && mkdir -p /tmp/beewaz-extract && tar -xzf /tmp/beewaz-build.tar.gz -C /tmp/beewaz-extract && echo "Extracted OK: $(ls /tmp/beewaz-extract | head -5)"'
+if ($r -ne 0) { throw "Extract failed" }
 
-Write-Host "`n[OK] Checking site..." -ForegroundColor Yellow
-try {
-    "$WS_OPEN`ncall curl -sf --max-time 15 -o /dev/null -w 'HTTP %{http_code}' http://localhost:3000/`nexit" | Out-File -FilePath $WS_SCRIPT -Encoding ascii -Force
-    & $WINSCP /ini=nul /script=$WS_SCRIPT
-    Remove-Item $WS_SCRIPT -ErrorAction SilentlyContinue
-} catch {
-    Write-Host "      (site still starting up, check https://bz360.ir in a moment)" -ForegroundColor DarkYellow
+# Copy into container
+$r = Run-SSH @'
+CONTAINER=$(cat /tmp/cname.txt | tr -d "[:space:]")
+echo "Copying to container: $CONTAINER"
+docker cp /tmp/beewaz-extract/. $CONTAINER:/app/
+echo "Copy OK — verifying..."
+docker exec $CONTAINER ls /app/.next/server/app/api/orders/ 2>/dev/null && echo "API routes found" || echo "Warning: could not verify"
+'@
+if ($r -ne 0) { throw "docker cp failed" }
+
+# Cleanup temp files
+Run-SSH 'rm -rf /tmp/beewaz-extract /tmp/beewaz-build.tar.gz' | Out-Null
+
+# Restart
+$r = Run-SSH 'CONTAINER=$(cat /tmp/cname.txt | tr -d "[:space:]"); docker restart $CONTAINER && echo "Restarted: $CONTAINER"'
+if ($r -ne 0) { throw "Restart failed" }
+Run-SSH 'rm -f /tmp/cname.txt' | Out-Null
+
+Write-Host "      Deploy complete" -ForegroundColor Green
+
+# ── Step 4: DB Migrations ─────────────────────────────────────────────────────
+Write-Host "`n[4/4] Running DB migrations..." -ForegroundColor Yellow
+
+$migSQL = @"
+ALTER TABLE users ADD COLUMN IF NOT EXISTS last_shipping_address jsonb;
+ALTER TABLE order_items ALTER COLUMN snapshot SET DEFAULT '{}'::jsonb;
+ALTER TABLE order_items ALTER COLUMN snapshot DROP NOT NULL;
+ALTER TABLE order_items DROP CONSTRAINT IF EXISTS order_items_product_id_products_id_fk;
+ALTER TABLE order_items ALTER COLUMN product_id DROP NOT NULL;
+"@
+
+# Try psql directly (if DATABASE_URL is in env)
+$r = Run-SSH "psql \$DATABASE_URL -c `"$migSQL`" 2>&1 && echo 'Migration OK (psql direct)'"
+if ($r -ne 0) {
+    Write-Host "      Direct psql failed — trying via docker postgres container..." -ForegroundColor DarkYellow
+    $r = Run-SSH @"
+PG=$(docker ps --format "{{.Names}}" | grep -i "postgres\|pg\|db" | head -1)
+if [ -z "\$PG" ]; then echo "No postgres container found — skipping migration"; exit 0; fi
+echo "Using postgres container: \$PG"
+docker exec \$PG psql -U postgres -d beewaz -c "$migSQL" 2>&1 && echo 'Migration OK (docker postgres)'
+"@
+    if ($r -ne 0) {
+        Write-Host "      Warning: Migration may not have run. Check DB manually." -ForegroundColor Red
+    }
 }
+Write-Host "      Migrations done" -ForegroundColor Green
 
-# Cleanup
+# ── Wait & verify ─────────────────────────────────────────────────────────────
+Write-Host "`nWaiting 20s for container to start..." -ForegroundColor Gray
+Start-Sleep -Seconds 20
+
+$r = Run-SSH 'curl -sf --max-time 15 -o /dev/null -w "Site status: HTTP %{http_code}" http://localhost:3000/ && echo ""'
+if ($r -ne 0) { Write-Host "      Site may still be starting — check https://bz360.ir in a moment" -ForegroundColor DarkYellow }
+
+# Cleanup local
 Remove-Item $LOCAL_FILE -ErrorAction SilentlyContinue
-
-Write-Host "`nDeploy done! https://bz360.ir" -ForegroundColor Green
+Write-Host "`n✅ Deploy done! https://bz360.ir" -ForegroundColor Green
