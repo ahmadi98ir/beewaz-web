@@ -186,7 +186,8 @@ export async function POST(req: Request) {
     const msg = err instanceof Error ? err.message : ''
     if (msg === 'coupon_exhausted') return NextResponse.json({ error: 'ظرفیت این کد تخفیف پر شده است' }, { status: 400 })
     console.error('[orders POST] transaction failed', err)
-    return NextResponse.json({ error: 'خطا در ثبت سفارش' }, { status: 500 })
+    const detail = process.env.NODE_ENV !== 'production' && err instanceof Error ? err.message : undefined
+    return NextResponse.json({ error: 'خطا در ثبت سفارش', detail }, { status: 500 })
   }
 
   const shortId = order.id.slice(0, 8).toUpperCase()
