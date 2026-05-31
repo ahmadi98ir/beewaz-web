@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { orders, products, orderItems } from '@/lib/db/schema'
-import { eq, sql } from 'drizzle-orm'
+import { and, eq, sql } from 'drizzle-orm'
 
 const IDPAY_API_KEY = process.env.IDPAY_API_KEY ?? ''
 const IDPAY_SANDBOX = process.env.IDPAY_SANDBOX === 'true'
@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
     body: JSON.stringify({ id: body.id, order_id: orderId }),
   })
 
-  const verifyData = await verifyRes.json() as { status?: number; track_id?: number; id?: string; error_code?: number }
+  const verifyData = await verifyRes.json() as { status?: number; track_id?: number; id?: string; error_code?: number; amount?: string | number }
 
   if (!verifyRes.ok || (verifyData.status !== 100 && verifyData.status !== 101)) {
     console.error('[idpay/verify]', verifyData)
@@ -52,13 +52,22 @@ export async function POST(req: NextRequest) {
     return NextResponse.redirect(new URL(`/checkout?error=payment_failed`, req.url))
   }
 
-  // به‌روزرسانی سفارش + کاهش موجودی در یک transaction
+  // اطمینان از تطابق مبلغ پرداختی با مبلغ سفارش (جلوگیری از دستکاری مبلغ)
+  if (verifyData.amount != null && Number(verifyData.amount) !== Number(order.totalAmount)) {
+    console.error('[idpay/verify] amount mismatch', { expected: order.totalAmount, received: verifyData.amount })
+    return NextResponse.redirect(new URL(`/checkout?error=payment_failed`, req.url))
+  }
+
+  // به‌روزرسانی سفارش + کاهش موجودی در یک transaction (idempotent)
   await db.transaction(async (tx) => {
-    await tx.update(orders).set({
+    const updated = await tx.update(orders).set({
       status: 'paid',
       trackingCode: String(verifyData.track_id ?? body.track_id ?? ''),
       paidAt: new Date(),
-    }).where(eq(orders.id, order.id))
+    }).where(and(eq(orders.id, order.id), eq(orders.status, 'pending')))
+      .returning({ id: orders.id })
+
+    if (updated.length === 0) return // قبلاً پردازش شده
 
     const items = await tx.select({ productId: orderItems.productId, quantity: orderItems.quantity })
       .from(orderItems).where(eq(orderItems.orderId, order.id))

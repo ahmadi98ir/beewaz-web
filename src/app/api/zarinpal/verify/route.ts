@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { orders, products, orderItems } from '@/lib/db/schema'
-import { eq, sql } from 'drizzle-orm'
+import { and, eq, sql } from 'drizzle-orm'
 
 const ZARINPAL_MERCHANT = process.env.ZARINPAL_MERCHANT_ID ?? ''
 const ZARINPAL_VERIFY_URL = 'https://api.zarinpal.com/pg/v4/payment/verify.json'
@@ -50,13 +50,17 @@ export async function GET(req: Request) {
     return NextResponse.redirect(new URL(`/checkout?error=payment_failed`, req.url))
   }
 
-  // به‌روزرسانی وضعیت سفارش + کاهش موجودی در یک transaction
+  // به‌روزرسانی وضعیت سفارش + کاهش موجودی در یک transaction (idempotent)
   await db.transaction(async (tx) => {
-    await tx.update(orders).set({
+    // فقط اگر سفارش هنوز pending است به‌روزرسانی کن — جلوگیری از پردازش دوباره در callbackهای همزمان
+    const updated = await tx.update(orders).set({
       status: 'paid',
       trackingCode: String(zpData.data?.ref_id ?? ''),
       paidAt: new Date(),
-    }).where(eq(orders.id, order.id))
+    }).where(and(eq(orders.id, order.id), eq(orders.status, 'pending')))
+      .returning({ id: orders.id })
+
+    if (updated.length === 0) return // قبلاً پردازش شده — موجودی دوباره کم نشود
 
     const items = await tx.select({ productId: orderItems.productId, quantity: orderItems.quantity })
       .from(orderItems).where(eq(orderItems.orderId, order.id))
