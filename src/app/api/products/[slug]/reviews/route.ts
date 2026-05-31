@@ -53,7 +53,7 @@ export async function POST(req: NextRequest, { params }: Params) {
 
   await db.insert(productReviews).values({
     productId: product.id,
-    userId: session?.user?.id ?? null,
+    userId: session?.user?.id && session.user.id !== 'admin-env' ? session.user.id : null,
     authorName,
     rating,
     body: reviewBody,
