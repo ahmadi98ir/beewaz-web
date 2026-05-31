@@ -32,10 +32,11 @@ export default async function ConfirmationPage({ params }: { params: Promise<{ i
   const session = await auth()
   if (!session?.user?.id) notFound()
 
+  const isAdmin = session.user.id === 'admin-env'
   const [order] = await db
     .select()
     .from(orders)
-    .where(and(eq(orders.id, id), eq(orders.userId, session.user.id)))
+    .where(isAdmin ? eq(orders.id, id) : and(eq(orders.id, id), eq(orders.userId, session.user.id)))
     .limit(1)
 
   // برای پرداخت آنلاین بدون تأیید: notFound (باید از مسیر پرداخت بیاید)
