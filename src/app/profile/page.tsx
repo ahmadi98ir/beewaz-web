@@ -67,6 +67,40 @@ export default function ProfilePage() {
   const [saved, setSaved] = useState(false)
   const [saving, setSaving] = useState(false)
 
+  // ── آدرس ────────────────────────────────────────────────────────────────
+  type SavedAddress = { fullName?: string; province?: string; city?: string; street?: string; alley?: string; plaque?: string; unit?: string; postalCode?: string }
+  const [address, setAddress] = useState<SavedAddress | null>(null)
+  const [addrEdit, setAddrEdit] = useState(false)
+  const [addrForm, setAddrForm] = useState<SavedAddress>({})
+  const [addrSaving, setAddrSaving] = useState(false)
+  const [addrSaved, setAddrSaved] = useState(false)
+
+  useEffect(() => {
+    fetch('/api/profile/last-address')
+      .then(r => r.json())
+      .then((d: { address: SavedAddress | null }) => {
+        if (d.address) { setAddress(d.address); setAddrForm(d.address) }
+      })
+      .catch(() => {})
+  }, [])
+
+  const onSaveAddress = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setAddrSaving(true)
+    try {
+      await fetch('/api/profile/address', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(addrForm),
+      })
+      setAddress(addrForm)
+      setAddrEdit(false)
+      setAddrSaved(true)
+      setTimeout(() => setAddrSaved(false), 2500)
+    } catch {}
+    finally { setAddrSaving(false) }
+  }
+
   useEffect(() => {
     fetch('/api/profile')
       .then((r) => r.json())
@@ -399,20 +433,95 @@ export default function ProfilePage() {
 
         {/* ─── تب آدرس‌ها ─────────────────────────────────────────── */}
         {activeTab === 'address' && (
-          <div className="bg-white rounded-2xl border border-surface-200 p-8 text-center">
-            <div
-              className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
-              style={{ background: '#EFF4FF' }}
-            >
-              <MapPinIcon size={28} className="text-brand-600" />
+          <div className="bg-white rounded-2xl border border-surface-200 p-6 shadow-sm">
+            <div className="flex items-center justify-between mb-6 pb-4 border-b border-surface-100">
+              <h2 className="text-base font-bold text-surface-800">آدرس ارسال</h2>
+              {address && !addrEdit && (
+                <button onClick={() => setAddrEdit(true)} className="btn btn-ghost py-1.5 px-4 text-sm text-brand-600">
+                  ویرایش
+                </button>
+              )}
             </div>
-            <h3 className="font-black text-surface-900 mb-2">مدیریت آدرس</h3>
-            <p className="text-surface-500 text-sm mb-6 max-w-xs mx-auto">
-              قابلیت مدیریت آدرس‌های ارسال به‌زودی اضافه خواهد شد. در حال حاضر آدرس را هنگام تسویه حساب وارد کنید.
-            </p>
-            <Link href="/shop" className="btn btn-ghost py-2.5 px-6 text-sm">
-              ادامه خرید
-            </Link>
+
+            {!addrEdit && !address && (
+              <div className="text-center py-8">
+                <div className="w-14 h-14 rounded-2xl bg-surface-100 flex items-center justify-center mx-auto mb-3">
+                  <MapPinIcon size={24} className="text-surface-400" />
+                </div>
+                <p className="text-surface-500 text-sm mb-4">هنوز آدرسی ذخیره نشده است.</p>
+                <button onClick={() => setAddrEdit(true)} className="btn btn-primary py-2 px-6 text-sm">
+                  افزودن آدرس
+                </button>
+              </div>
+            )}
+
+            {!addrEdit && address && (
+              <div className="space-y-3 text-sm">
+                {addrSaved && (
+                  <div className="flex items-center gap-2 text-green-600 bg-green-50 border border-green-200 rounded-xl px-4 py-2.5 mb-4">
+                    <CheckIcon size={16} />
+                    <span className="font-semibold">آدرس ذخیره شد</span>
+                  </div>
+                )}
+                <div className="bg-surface-50 rounded-xl p-4 space-y-2">
+                  {address.fullName && <p><span className="text-surface-400 ml-2">گیرنده:</span><span className="font-semibold text-surface-800">{address.fullName}</span></p>}
+                  {(address.province || address.city) && <p><span className="text-surface-400 ml-2">استان/شهر:</span><span className="font-semibold text-surface-800">{[address.province, address.city].filter(Boolean).join('، ')}</span></p>}
+                  {address.street && <p><span className="text-surface-400 ml-2">خیابان:</span><span className="font-semibold text-surface-800">{[address.street, address.alley].filter(Boolean).join(' — ')}</span></p>}
+                  {address.plaque && <p><span className="text-surface-400 ml-2">پلاک:</span><span className="font-semibold text-surface-800">{address.plaque}{address.unit ? ` واحد ${address.unit}` : ''}</span></p>}
+                  {address.postalCode && <p><span className="text-surface-400 ml-2">کد پستی:</span><span className="font-mono font-semibold text-surface-800">{address.postalCode}</span></p>}
+                </div>
+                <p className="text-xs text-surface-400 pt-1">این آدرس در خرید بعدی شما پیش‌فرض خواهد بود.</p>
+              </div>
+            )}
+
+            {addrEdit && (
+              <form onSubmit={onSaveAddress} className="space-y-4">
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <div className="sm:col-span-2">
+                    <label className="block text-sm font-semibold text-surface-700 mb-1.5">نام گیرنده</label>
+                    <input value={addrForm.fullName ?? ''} onChange={e => setAddrForm(f => ({...f, fullName: e.target.value}))} className="input w-full" placeholder="نام و نام‌خانوادگی" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-surface-700 mb-1.5">استان</label>
+                    <input value={addrForm.province ?? ''} onChange={e => setAddrForm(f => ({...f, province: e.target.value}))} className="input w-full" placeholder="مثال: تهران" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-surface-700 mb-1.5">شهر</label>
+                    <input value={addrForm.city ?? ''} onChange={e => setAddrForm(f => ({...f, city: e.target.value}))} className="input w-full" placeholder="نام شهر" />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="block text-sm font-semibold text-surface-700 mb-1.5">خیابان اصلی</label>
+                    <input value={addrForm.street ?? ''} onChange={e => setAddrForm(f => ({...f, street: e.target.value}))} className="input w-full" placeholder="مثال: خیابان ولیعصر" required />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="block text-sm font-semibold text-surface-700 mb-1.5">کوچه / خیابان فرعی <span className="text-surface-400 font-normal">(اختیاری)</span></label>
+                    <input value={addrForm.alley ?? ''} onChange={e => setAddrForm(f => ({...f, alley: e.target.value}))} className="input w-full" placeholder="کوچه گلستان" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-surface-700 mb-1.5">پلاک</label>
+                    <input value={addrForm.plaque ?? ''} onChange={e => setAddrForm(f => ({...f, plaque: e.target.value}))} className="input w-full" placeholder="۱۲" required />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-surface-700 mb-1.5">واحد <span className="text-surface-400 font-normal">(اختیاری)</span></label>
+                    <input value={addrForm.unit ?? ''} onChange={e => setAddrForm(f => ({...f, unit: e.target.value}))} className="input w-full" placeholder="۳" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-surface-700 mb-1.5">کد پستی</label>
+                    <input value={addrForm.postalCode ?? ''} onChange={e => setAddrForm(f => ({...f, postalCode: e.target.value}))} className="input w-full" placeholder="۱۰ رقم" dir="ltr" inputMode="numeric" maxLength={10} required />
+                  </div>
+                </div>
+                <div className="flex gap-3 pt-2">
+                  <button type="submit" disabled={addrSaving} className="btn btn-primary py-2.5 px-6 text-sm flex-1">
+                    {addrSaving ? 'در حال ذخیره...' : 'ذخیره آدرس'}
+                  </button>
+                  {address && (
+                    <button type="button" onClick={() => { setAddrEdit(false); setAddrForm(address) }} className="btn btn-ghost py-2.5 px-4 text-sm">
+                      انصراف
+                    </button>
+                  )}
+                </div>
+              </form>
+            )}
           </div>
         )}
 
