@@ -23,8 +23,5 @@ export async function requireAdmin(req?: NextRequest): Promise<{ ok: boolean; er
     if (authHeader === `Bearer ${token}`) return { ok: true }
   }
 
-  // ۳. در development بدون توکن اجازه داده می‌شود
-  if (process.env.NODE_ENV !== 'production') return { ok: true }
-
   return { ok: false, error: 'Unauthorized' }
 }

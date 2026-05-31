@@ -173,9 +173,21 @@ export async function POST(req: Request) {
         }
       }
 
-      // کاهش موجودی برای پرداخت غیرآنلاین
+      // کاهش موجودی برای پرداخت غیرآنلاین — با بررسی مجدد داخل transaction
       if (paymentMethod === 'cash_on_delivery' || paymentMethod === 'card_to_card') {
+        const lockedProducts = await tx
+          .select({ id: products.id, nameFa: products.nameFa, stock: products.stock })
+          .from(products)
+          .where(inArray(products.id, orderItemsData.map((i) => i.productId)))
+          .for('update')
+
+        const lockedMap = new Map(lockedProducts.map((p) => [p.id, p]))
         for (const item of orderItemsData) {
+          const p = lockedMap.get(item.productId)
+          const currentStock = typeof p?.stock === 'string' ? parseInt(p.stock, 10) : (p?.stock ?? 0)
+          if (currentStock < item.quantity) {
+            throw new Error(`stock_insufficient:${p?.nameFa ?? item.productId}`)
+          }
           await tx.update(products)
             .set({ stock: sql`GREATEST(${products.stock} - ${item.quantity}, 0)` })
             .where(eq(products.id, item.productId))
@@ -188,6 +200,10 @@ export async function POST(req: Request) {
   } catch (err) {
     const msg = err instanceof Error ? err.message : ''
     if (msg === 'coupon_exhausted') return NextResponse.json({ error: 'ظرفیت این کد تخفیف پر شده است' }, { status: 400 })
+    if (msg.startsWith('stock_insufficient:')) {
+      const name = msg.replace('stock_insufficient:', '')
+      return NextResponse.json({ error: `موجودی کافی برای "${name}" وجود ندارد` }, { status: 400 })
+    }
     console.error('[orders POST] transaction failed', err)
     const detail = err instanceof Error ? err.message : String(err)
     return NextResponse.json({ error: 'خطا در ثبت سفارش', detail }, { status: 500 })
@@ -200,7 +216,7 @@ export async function POST(req: Request) {
   void sendVerifySms(address.phone, SMS_TEMPLATES.ORDER_CONFIRM, {
     ORDERID: shortId,
     PRICE: tomanStr,
-  })
+  }).catch((e) => console.error('[orders] customer SMS failed', e))
 
   // پیامک اطلاع‌رسانی به ادمین (اگر شماره ثبت شده باشد)
   void (async () => {
