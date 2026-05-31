@@ -163,12 +163,14 @@ export async function POST(req: Request) {
 
         if (updated.length === 0) throw new Error('coupon_exhausted')
 
-        await tx.insert(couponUsages).values({
-          couponId: appliedCoupon.id,
-          userId,
-          orderId: newOrder.id,
-          discountAmount: String(discountAmount),
-        })
+        if (userId) {
+          await tx.insert(couponUsages).values({
+            couponId: appliedCoupon.id,
+            userId,
+            orderId: newOrder.id,
+            discountAmount: String(discountAmount),
+          })
+        }
       }
 
       // کاهش موجودی برای پرداخت غیرآنلاین
