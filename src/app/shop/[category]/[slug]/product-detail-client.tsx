@@ -163,7 +163,7 @@ function ProductTabs({ product }: { product: ShopProduct }) {
 function AddToCartButton({ product }: { product: ShopProduct }) {
   const [qty, setQty] = useState(1)
   const [added, setAdded] = useState(false)
-  const { addItem, openCart } = useCart()
+  const { addItem } = useCart()
   const toast = useToast()
 
   const handleAdd = () => {
@@ -180,10 +180,9 @@ function AddToCartButton({ product }: { product: ShopProduct }) {
         placeholderTo: product.placeholderTo,
       })
     }
-    openCart()
     toast.success('محصولات به سبد اضافه شدند', {
-      label: 'مشاهده سبد خرید',
-      onClick: openCart,
+      label: 'ادامه و پرداخت ←',
+      onClick: () => { window.location.href = '/checkout' },
     })
     setAdded(true)
     setTimeout(() => setAdded(false), 2000)
