@@ -95,8 +95,9 @@ export default function LoginForm() {
     try {
       const session = await fetch('/api/auth/session').then((r) => r.json())
 
-      // ادمین → پنل مدیریت
-      if (session?.user?.role === 'admin') {
+      // نقش‌های کارمندی → پنل مدیریت
+      const role = session?.user?.role
+      if (role === 'admin' || role === 'sales_agent') {
         window.location.href = '/admin'
         return
       }
