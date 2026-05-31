@@ -11,11 +11,23 @@ export async function GET() {
   }
   const userId = session.user.id
 
-  // admin-env is a virtual admin not in DB
+  // admin-env is a virtual admin not in DB — fetch their orders by userId IS NULL
   if (userId === 'admin-env') {
+    const adminOrders = await db
+      .select({
+        id: orders.id,
+        status: orders.status,
+        totalAmount: orders.totalAmount,
+        createdAt: orders.createdAt,
+        itemCount: sql<number>`(select count(*)::int from order_items where order_id = ${orders.id})`,
+      })
+      .from(orders)
+      .where(sql`${orders.userId} IS NULL`)
+      .orderBy(desc(orders.createdAt))
+      .limit(50)
     return NextResponse.json({
       user: { id: 'admin-env', fullName: 'مدیر سیستم', phone: process.env.ADMIN_PHONE ?? '', email: null, createdAt: new Date().toISOString() },
-      orders: [],
+      orders: adminOrders,
     })
   }
 
