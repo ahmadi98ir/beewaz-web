@@ -111,6 +111,55 @@ export default function CheckoutClient({ bankCard }: { bankCard: BankCardSetting
   const [postalCode, setPostalCode] = useState('')
   const [notes, setNotes] = useState('')
 
+  // ── آدرس ذخیره‌شده ────────────────────────────────────────────────────
+  type SavedAddress = {
+    fullName?: string; province?: string; city?: string
+    street?: string; alley?: string; plaque?: string; unit?: string; postalCode?: string
+  }
+  const [savedAddress, setSavedAddress] = useState<SavedAddress | null>(null)
+  const [addressMode, setAddressMode] = useState<'saved' | 'new' | 'loading'>('loading')
+
+  useEffect(() => {
+    fetch('/api/profile/last-address')
+      .then(r => r.json())
+      .then((d: { address: SavedAddress | null }) => {
+        if (d.address?.street) {
+          setSavedAddress(d.address)
+          setAddressMode('saved')
+          setProvince(d.address.province ?? '')
+          setCity(d.address.city ?? '')
+          setStreet(d.address.street ?? '')
+          setAlley(d.address.alley ?? '')
+          setPlaque(d.address.plaque ?? '')
+          setUnit(d.address.unit ?? '')
+          setPostalCode(d.address.postalCode ?? '')
+          if (d.address.fullName) setFullName(d.address.fullName)
+        } else {
+          setAddressMode('new')
+        }
+      })
+      .catch(() => setAddressMode('new'))
+  }, [])
+
+  const applyNewAddress = () => {
+    setAddressMode('new')
+    setProvince(''); setCity(''); setStreet(''); setAlley('')
+    setPlaque(''); setUnit(''); setPostalCode('')
+  }
+
+  const applySavedAddress = () => {
+    if (!savedAddress) return
+    setAddressMode('saved')
+    setProvince(savedAddress.province ?? '')
+    setCity(savedAddress.city ?? '')
+    setStreet(savedAddress.street ?? '')
+    setAlley(savedAddress.alley ?? '')
+    setPlaque(savedAddress.plaque ?? '')
+    setUnit(savedAddress.unit ?? '')
+    setPostalCode(savedAddress.postalCode ?? '')
+    if (savedAddress.fullName) setFullName(savedAddress.fullName)
+  }
+
   // ── کوپن ──────────────────────────────────────────────────────────────
   const [couponInput, setCouponInput] = useState('')
   const [couponLoading, setCouponLoading] = useState(false)
@@ -324,9 +373,40 @@ export default function CheckoutClient({ bankCard }: { bankCard: BankCardSetting
 
             {/* آدرس ارسال */}
             <div className="bg-white rounded-2xl border border-surface-200 p-6 shadow-sm">
-              <h2 className="text-base font-bold text-surface-800 mb-5 pb-3 border-b border-surface-100">
-                آدرس ارسال
-              </h2>
+              <div className="flex items-center justify-between mb-5 pb-3 border-b border-surface-100">
+                <h2 className="text-base font-bold text-surface-800">آدرس ارسال</h2>
+                {savedAddress && (
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={applySavedAddress}
+                      className={`text-xs px-3 py-1.5 rounded-lg font-semibold transition-all ${addressMode === 'saved' ? 'bg-brand-600 text-white' : 'bg-surface-100 text-surface-500 hover:bg-surface-200'}`}
+                    >
+                      آدرس قبلی
+                    </button>
+                    <button
+                      type="button"
+                      onClick={applyNewAddress}
+                      className={`text-xs px-3 py-1.5 rounded-lg font-semibold transition-all ${addressMode === 'new' ? 'bg-brand-600 text-white' : 'bg-surface-100 text-surface-500 hover:bg-surface-200'}`}
+                    >
+                      آدرس جدید
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {savedAddress && addressMode === 'saved' && (
+                <div className="mb-5 bg-brand-50 border border-brand-200 rounded-xl p-4 text-sm text-brand-800">
+                  <p className="font-bold mb-1">
+                    {savedAddress.province && savedAddress.city ? `${savedAddress.province}، ${savedAddress.city}` : ''}
+                  </p>
+                  <p className="text-brand-700 leading-relaxed">
+                    {[savedAddress.street, savedAddress.alley, savedAddress.plaque && `پلاک ${savedAddress.plaque}`, savedAddress.unit && `واحد ${savedAddress.unit}`].filter(Boolean).join(' — ')}
+                    {savedAddress.postalCode && <span className="text-brand-500 text-xs ms-2">کد پستی: {savedAddress.postalCode}</span>}
+                  </p>
+                  <p className="text-xs text-brand-500 mt-2">می‌توانید فیلدها را ویرایش کنید یا «آدرس جدید» را انتخاب کنید.</p>
+                </div>
+              )}
               <div className="grid sm:grid-cols-2 gap-4">
 
                 <div>
