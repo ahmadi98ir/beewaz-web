@@ -40,20 +40,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci --include=dev
-
-      - name: Build Next.js
-        env:
-          NEXT_PUBLIC_APP_URL: https://bz360.ir
-          NEXT_TELEMETRY_DISABLED: 1
-        run: npm run build
-
       - name: Build Docker image
         run: |
           docker build \
@@ -61,21 +47,20 @@ jobs:
             -t beewaz-web:${{ github.sha }} \
             -t beewaz-web:latest \
             .
-          docker save beewaz-web:latest | gzip > /tmp/beewaz-image.tar.gz
-          SIZE=$(du -sh /tmp/beewaz-image.tar.gz | cut -f1)
+          docker save beewaz-web:latest | gzip > beewaz-image.tar.gz
+          SIZE=$(du -sh beewaz-image.tar.gz | cut -f1)
           echo "IMAGE_SIZE=$SIZE" >> $GITHUB_ENV
           echo "Docker image size: $SIZE"
 
-      - name: Upload image to server + deploy
+      - name: Upload image to server
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.SSH_HOST }}
           port: ${{ secrets.SSH_PORT }}
           username: ${{ secrets.SSH_USER }}
           password: ${{ secrets.SSH_PASS }}
-          source: /tmp/beewaz-image.tar.gz
+          source: "beewaz-image.tar.gz"
           target: /tmp/
-          strip_components: 2
 
       - name: Load image & restart via Coolify
         uses: appleboy/ssh-action@v1.0.3
@@ -135,6 +120,6 @@ jobs:
         run: |
           gh release delete deploy-cache --yes 2>/dev/null || true
           gh release create deploy-cache \
-            /tmp/beewaz-image.tar.gz \
+            beewaz-image.tar.gz \
             --title "Deploy (${GITHUB_SHA:0:8})" \
             --notes "Auto-deployed at $(date -u '+%Y-%m-%d %H:%M UTC')"
