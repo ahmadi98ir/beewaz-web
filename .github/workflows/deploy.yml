@@ -52,11 +52,10 @@ jobs:
           echo "Docker image size: $SIZE"
           ls -lh beewaz-image.tar.gz
 
-      - name: Stream image to server & deploy
+      - name: Stream image to server
         run: |
           sudo apt-get install -y sshpass > /dev/null 2>&1
-          SIZE=$(du -sh beewaz-image.tar.gz | cut -f1)
-          echo "Streaming $SIZE image directly to docker load on server..."
+          echo "Image size: $(du -sh beewaz-image.tar.gz | cut -f1)"
           cat beewaz-image.tar.gz | sshpass -p '${{ secrets.SSH_PASS }}' ssh \
             -p ${{ secrets.SSH_PORT }} \
             -o StrictHostKeyChecking=no \
@@ -64,24 +63,28 @@ jobs:
             -o ServerAliveInterval=60 \
             -o ServerAliveCountMax=20 \
             ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
-            "
-            set -e
-            echo 'Loading image...'
-            gunzip | docker load
-            echo 'Image loaded. Restarting via Coolify...'
-            HTTP=\$(curl -sf -o /dev/null -w '%{http_code}' \
+            "docker load"
+          echo "✅ Image loaded on server"
+
+      - name: Restart via Coolify
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          port: ${{ secrets.SSH_PORT }}
+          username: ${{ secrets.SSH_USER }}
+          password: ${{ secrets.SSH_PASS }}
+          script: |
+            HTTP=$(curl -sf -o /dev/null -w "%{http_code}" \
               -X POST http://localhost:8000/api/v1/applications/${{ secrets.COOLIFY_APP_UUID }}/restart \
-              -H 'Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}' \
-              -H 'Content-Type: application/json' \
-              --max-time 15 || echo '000')
-            if [ \"\$HTTP\" = '200' ] || [ \"\$HTTP\" = '202' ]; then
-              echo '✅ Coolify restart triggered'
+              -H "Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}" \
+              -H "Content-Type: application/json" \
+              --max-time 15 || echo "000")
+            if [ "$HTTP" = "200" ] || [ "$HTTP" = "202" ]; then
+              echo "✅ Coolify restart triggered"
             else
-              CONTAINER=\$(docker ps --format '{{.Names}}' | grep -i beewaz | head -1)
-              [ -n \"\$CONTAINER\" ] && docker restart \"\$CONTAINER\" && echo '✅ Container restarted' || exit 1
+              CONTAINER=$(docker ps --format "{{.Names}}" | grep -i beewaz | head -1)
+              [ -n "$CONTAINER" ] && docker restart "$CONTAINER" && echo "✅ Container restarted" || exit 1
             fi
-            "
-          echo "✅ Deploy complete"
 
       - name: Health check
         run: |
