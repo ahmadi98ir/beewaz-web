@@ -1,34 +1,46 @@
-name: Build & Deploy
+name: CI / CD
 
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 jobs:
+  # ── مرحله ۱: تست ──────────────────────────────────────────────────────────
   test:
+    name: Test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: 'npm'
-      - run: npm ci
-      - run: npm run typecheck
-      - run: npm test
 
+      - run: npm ci
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm test
+
+  # ── مرحله ۲: Build + Deploy (فقط main) ───────────────────────────────────
   deploy:
+    name: Deploy
     runs-on: ubuntu-latest
     needs: test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     permissions:
       contents: write
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: 'npm'
@@ -36,7 +48,7 @@ jobs:
       - name: Install dependencies
         run: npm ci --include=dev
 
-      - name: Build
+      - name: Build Next.js
         env:
           NEXT_PUBLIC_APP_URL: https://bz360.ir
           NEXT_TELEMETRY_DISABLED: 1
@@ -50,71 +62,79 @@ jobs:
             -t beewaz-web:latest \
             .
           docker save beewaz-web:latest | gzip > /tmp/beewaz-image.tar.gz
-          echo "Image size: $(du -sh /tmp/beewaz-image.tar.gz | cut -f1)"
+          SIZE=$(du -sh /tmp/beewaz-image.tar.gz | cut -f1)
+          echo "IMAGE_SIZE=$SIZE" >> $GITHUB_ENV
+          echo "Docker image size: $SIZE"
 
-      - name: Upload image to server (chunked)
-        env:
-          RECEIVER_URL: http://78.157.51.14:5001
-          RECEIVER_TOKEN: ${{ secrets.DEPLOY_RECEIVER_TOKEN }}
+      - name: Upload image to server + deploy
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          port: ${{ secrets.SSH_PORT }}
+          username: ${{ secrets.SSH_USER }}
+          password: ${{ secrets.SSH_PASS }}
+          source: /tmp/beewaz-image.tar.gz
+          target: /tmp/
+          strip_components: 2
+
+      - name: Load image & restart via Coolify
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          port: ${{ secrets.SSH_PORT }}
+          username: ${{ secrets.SSH_USER }}
+          password: ${{ secrets.SSH_PASS }}
+          script: |
+            set -e
+            echo "Loading Docker image..."
+            docker load < /tmp/beewaz-image.tar.gz
+            echo "Image loaded."
+            rm -f /tmp/beewaz-image.tar.gz
+
+            echo "Triggering Coolify restart..."
+            HTTP=$(curl -sf -o /dev/null -w "%{http_code}" \
+              -X POST http://localhost:8000/api/v1/applications/${{ secrets.COOLIFY_APP_UUID }}/restart \
+              -H "Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}" \
+              -H "Content-Type: application/json" \
+              --max-time 15 || echo "000")
+
+            if [ "$HTTP" = "200" ] || [ "$HTTP" = "202" ]; then
+              echo "✅ Coolify restart triggered (HTTP $HTTP)"
+            else
+              echo "Coolify returned $HTTP — using docker restart as fallback"
+              CONTAINER=$(docker ps --format "{{.Names}}" | grep -i beewaz | head -1)
+              if [ -n "$CONTAINER" ]; then
+                docker restart "$CONTAINER"
+                echo "✅ Container $CONTAINER restarted"
+              else
+                echo "⚠️ No beewaz container found"
+                exit 1
+              fi
+            fi
+
+      - name: Health check
         run: |
-          python3 - << 'PYEOF'
-          import os, base64, json, urllib.request, math
-
-          url   = os.environ['RECEIVER_URL']
-          token = os.environ['RECEIVER_TOKEN']
-          path  = '/tmp/beewaz-image.tar.gz'
-          chunk = 5 * 1024 * 1024  # 5MB chunks
-
-          with open(path, 'rb') as f:
-            data = f.read()
-
-          total = math.ceil(len(data) / chunk)
-          print(f"Uploading {len(data)//1024//1024}MB in {total} chunks...")
-
-          for i in range(total):
-            part = data[i*chunk:(i+1)*chunk]
-            payload = json.dumps({
-              'token': token,
-              'chunk': i,
-              'total': total,
-              'data': base64.b64encode(part).decode()
-            }).encode()
-            req = urllib.request.Request(url + '/upload', data=payload,
-              headers={'Content-Type': 'application/json'})
-            with urllib.request.urlopen(req, timeout=30) as r:
-              print(f"  chunk {i+1}/{total}: {r.status}")
-
-          print("Upload complete")
-          PYEOF
-
-      - name: Trigger deploy on server
-        env:
-          RECEIVER_URL: http://78.157.51.14:5001
-          RECEIVER_TOKEN: ${{ secrets.DEPLOY_RECEIVER_TOKEN }}
-        run: |
-          curl -sf -X POST "$RECEIVER_URL/deploy" \
-            -H "Content-Type: application/json" \
-            -d "{\"token\": \"$RECEIVER_TOKEN\", \"sha\": \"$GITHUB_SHA\"}" \
-            --max-time 30 || echo "Deploy triggered (timeout is normal)"
-
-      - name: Wait for health check
-        run: |
-          echo "Waiting 40s for container to restart..."
-          sleep 40
+          echo "Waiting 45s for container to start..."
+          sleep 45
           HTTP=$(curl -sf --max-time 15 -o /dev/null -w '%{http_code}' https://bz360.ir/ || echo "000")
           echo "Site returned HTTP $HTTP"
           if [ "$HTTP" = "200" ] || [ "$HTTP" = "301" ] || [ "$HTTP" = "302" ]; then
-            echo "✅ Deploy successful — commit ${GITHUB_SHA:0:8}" >> $GITHUB_STEP_SUMMARY
+            echo "## ✅ Deploy موفق" >> $GITHUB_STEP_SUMMARY
+            echo "| Commit | \`${GITHUB_SHA:0:8}\` |" >> $GITHUB_STEP_SUMMARY
+            echo "| Image  | ${{ env.IMAGE_SIZE }} |" >> $GITHUB_STEP_SUMMARY
+            echo "| URL    | https://bz360.ir |" >> $GITHUB_STEP_SUMMARY
           else
-            echo "⚠️ Site returned HTTP $HTTP — check server logs" >> $GITHUB_STEP_SUMMARY
+            echo "## ⚠️ Health check failed (HTTP $HTTP)" >> $GITHUB_STEP_SUMMARY
+            exit 1
           fi
 
       - name: Save release artifact
+        if: success()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release delete deploy-cache --yes 2>/dev/null || true
           gh release create deploy-cache \
             /tmp/beewaz-image.tar.gz \
-            --title "Deploy Cache (${GITHUB_SHA:0:8})" \
-            --notes "Auto-deployed from commit $GITHUB_SHA at $(date -u)"
+            --title "Deploy (${GITHUB_SHA:0:8})" \
+            --notes "Auto-deployed at $(date -u '+%Y-%m-%d %H:%M UTC')"
