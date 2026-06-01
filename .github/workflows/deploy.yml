@@ -34,8 +34,6 @@ jobs:
     runs-on: ubuntu-latest
     needs: test
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    permissions:
-      contents: write
 
     steps:
       - uses: actions/checkout@v4
@@ -50,55 +48,30 @@ jobs:
           SIZE=$(du -sh beewaz-image.tar.gz | cut -f1)
           echo "IMAGE_SIZE=$SIZE" >> $GITHUB_ENV
           echo "Docker image size: $SIZE"
-          ls -lh beewaz-image.tar.gz
 
-      - name: Stream image to server
-        env:
-          SSHPASS: ${{ secrets.SSH_PASS }}
+      - name: Deploy via webhook
         run: |
-          sudo apt-get install -y sshpass > /dev/null 2>&1
-          echo "Image size: $(du -sh beewaz-image.tar.gz | cut -f1)"
-          sshpass -e ssh \
-            -p ${{ secrets.SSH_PORT }} \
-            -o StrictHostKeyChecking=no \
-            -o ConnectTimeout=30 \
-            -o ServerAliveInterval=60 \
-            -o ServerAliveCountMax=20 \
-            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
-            "cat > /tmp/beewaz-image.tar.gz" < beewaz-image.tar.gz
-          echo "✅ Image uploaded to server"
-
-      - name: Restart via Coolify
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          port: ${{ secrets.SSH_PORT }}
-          username: ${{ secrets.SSH_USER }}
-          password: ${{ secrets.SSH_PASS }}
-          script: |
-            set -e
-            docker load < /tmp/beewaz-image.tar.gz
-            rm -f /tmp/beewaz-image.tar.gz
-            HTTP=$(curl -sf -o /dev/null -w "%{http_code}" \
-              -X POST http://localhost:8000/api/v1/applications/${{ secrets.COOLIFY_APP_UUID }}/restart \
-              -H "Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}" \
-              -H "Content-Type: application/json" \
-              --max-time 15 || echo "000")
-            if [ "$HTTP" = "200" ] || [ "$HTTP" = "202" ]; then
-              echo "✅ Coolify restart triggered"
-            else
-              CONTAINER=$(docker ps --format "{{.Names}}" | grep -i beewaz | head -1)
-              [ -n "$CONTAINER" ] && docker restart "$CONTAINER" && echo "✅ Container restarted" || exit 1
-            fi
+          echo "Uploading ${{ env.IMAGE_SIZE }} image to deploy webhook..."
+          HTTP=$(curl -sf -o /dev/null -w "%{http_code}" \
+            --max-time 300 \
+            -X POST http://${{ secrets.SSH_HOST }}:9001 \
+            -H "Authorization: Bearer ${{ secrets.DEPLOY_RECEIVER_TOKEN }}" \
+            -H "Content-Type: application/octet-stream" \
+            --data-binary @beewaz-image.tar.gz)
+          echo "Webhook returned HTTP $HTTP"
+          if [ "$HTTP" = "200" ]; then
+            echo "## ✅ Deploy موفق — commit \`${GITHUB_SHA:0:8}\` | image ${{ env.IMAGE_SIZE }}" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "## ❌ Deploy failed (HTTP $HTTP)" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
 
       - name: Health check
         run: |
-          sleep 45
+          sleep 30
           HTTP=$(curl -sf --max-time 15 -o /dev/null -w '%{http_code}' https://bz360.ir/ || echo "000")
           echo "Site returned HTTP $HTTP"
-          if [ "$HTTP" = "200" ] || [ "$HTTP" = "301" ] || [ "$HTTP" = "302" ]; then
-            echo "## ✅ Deploy موفق — commit \`${GITHUB_SHA:0:8}\` | image ${{ env.IMAGE_SIZE }}" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "## ⚠️ Health check failed (HTTP $HTTP)" >> $GITHUB_STEP_SUMMARY
+          if [ "$HTTP" != "200" ] && [ "$HTTP" != "301" ] && [ "$HTTP" != "302" ]; then
+            echo "⚠️ Health check failed (HTTP $HTTP)" >> $GITHUB_STEP_SUMMARY
             exit 1
           fi
