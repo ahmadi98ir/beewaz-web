@@ -28,7 +28,7 @@ jobs:
       - name: Unit tests
         run: npm test
 
-  # ── مرحله ۲: Build + Deploy (فقط main) ───────────────────────────────────
+  # ── مرحله ۲: Build + Release (فقط main) ──────────────────────────────────
   deploy:
     name: Deploy
     runs-on: ubuntu-latest
@@ -44,7 +44,6 @@ jobs:
         run: |
           docker build \
             --build-arg NEXT_PUBLIC_APP_URL=https://bz360.ir \
-            -t beewaz-web:${{ github.sha }} \
             -t beewaz-web:latest \
             .
           docker save beewaz-web:latest | gzip > beewaz-image.tar.gz
@@ -52,74 +51,16 @@ jobs:
           echo "IMAGE_SIZE=$SIZE" >> $GITHUB_ENV
           echo "Docker image size: $SIZE"
 
-      - name: Upload image to server
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          port: ${{ secrets.SSH_PORT }}
-          username: ${{ secrets.SSH_USER }}
-          password: ${{ secrets.SSH_PASS }}
-          source: "beewaz-image.tar.gz"
-          target: /tmp/
-
-      - name: Load image & restart via Coolify
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          port: ${{ secrets.SSH_PORT }}
-          username: ${{ secrets.SSH_USER }}
-          password: ${{ secrets.SSH_PASS }}
-          script: |
-            set -e
-            echo "Loading Docker image..."
-            docker load < /tmp/beewaz-image.tar.gz
-            echo "Image loaded."
-            rm -f /tmp/beewaz-image.tar.gz
-
-            echo "Triggering Coolify restart..."
-            HTTP=$(curl -sf -o /dev/null -w "%{http_code}" \
-              -X POST http://localhost:8000/api/v1/applications/${{ secrets.COOLIFY_APP_UUID }}/restart \
-              -H "Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}" \
-              -H "Content-Type: application/json" \
-              --max-time 15 || echo "000")
-
-            if [ "$HTTP" = "200" ] || [ "$HTTP" = "202" ]; then
-              echo "✅ Coolify restart triggered (HTTP $HTTP)"
-            else
-              echo "Coolify returned $HTTP — using docker restart as fallback"
-              CONTAINER=$(docker ps --format "{{.Names}}" | grep -i beewaz | head -1)
-              if [ -n "$CONTAINER" ]; then
-                docker restart "$CONTAINER"
-                echo "✅ Container $CONTAINER restarted"
-              else
-                echo "⚠️ No beewaz container found"
-                exit 1
-              fi
-            fi
-
-      - name: Health check
-        run: |
-          echo "Waiting 45s for container to start..."
-          sleep 45
-          HTTP=$(curl -sf --max-time 15 -o /dev/null -w '%{http_code}' https://bz360.ir/ || echo "000")
-          echo "Site returned HTTP $HTTP"
-          if [ "$HTTP" = "200" ] || [ "$HTTP" = "301" ] || [ "$HTTP" = "302" ]; then
-            echo "## ✅ Deploy موفق" >> $GITHUB_STEP_SUMMARY
-            echo "| Commit | \`${GITHUB_SHA:0:8}\` |" >> $GITHUB_STEP_SUMMARY
-            echo "| Image  | ${{ env.IMAGE_SIZE }} |" >> $GITHUB_STEP_SUMMARY
-            echo "| URL    | https://bz360.ir |" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "## ⚠️ Health check failed (HTTP $HTTP)" >> $GITHUB_STEP_SUMMARY
-            exit 1
-          fi
-
-      - name: Save release artifact
-        if: success()
+      - name: Publish release (server will auto-pull)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release delete deploy-cache --yes 2>/dev/null || true
-          gh release create deploy-cache \
+          gh release delete deploy-latest --yes 2>/dev/null || true
+          gh release create deploy-latest \
             beewaz-image.tar.gz \
-            --title "Deploy (${GITHUB_SHA:0:8})" \
-            --notes "Auto-deployed at $(date -u '+%Y-%m-%d %H:%M UTC')"
+            --title "Deploy ${GITHUB_SHA:0:8} ($(date -u '+%Y-%m-%d %H:%M UTC'))" \
+            --notes "size: ${{ env.IMAGE_SIZE }} | commit: ${GITHUB_SHA:0:8}"
+          echo "## ✅ Release آپلود شد" >> $GITHUB_STEP_SUMMARY
+          echo "| Commit | \`${GITHUB_SHA:0:8}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Image  | ${{ env.IMAGE_SIZE }} |" >> $GITHUB_STEP_SUMMARY
+          echo "سرور تا ۵ دقیقه دیگر به‌روز می‌شود" >> $GITHUB_STEP_SUMMARY
