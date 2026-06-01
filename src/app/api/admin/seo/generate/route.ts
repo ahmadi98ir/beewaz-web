@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requirePermission } from '@/lib/rbac'
 import { generateText } from '@/lib/gemini'
+import { checkRateLimit, getClientIp } from '@/lib/rate-limit'
 
 interface Body {
   type?: 'product' | 'article'
@@ -20,6 +21,12 @@ export async function POST(req: NextRequest) {
     // اگر مجوز محصولات نبود، مجوز محتوا را امتحان کن
     const contentAuth = await requirePermission(req, 'content:write')
     if (contentAuth instanceof NextResponse) return contentAuth
+  }
+
+  // حداکثر ۱۰ درخواست در ساعت به ازای هر IP — جلوگیری از هزینه AI بی‌رویه
+  const ip = getClientIp(req)
+  if (!checkRateLimit(`seo:${ip}`, 10, 60 * 60 * 1000)) {
+    return NextResponse.json({ error: 'تعداد درخواست‌ها بیش از حد مجاز است. لطفاً بعداً تلاش کنید.' }, { status: 429 })
   }
 
   const body = await req.json() as Body

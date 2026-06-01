@@ -2,7 +2,7 @@
  * اسکیمای سفارشات
  */
 
-import { pgTable, pgEnum, uuid, varchar, text, numeric, integer, jsonb, timestamp, boolean, index } from 'drizzle-orm/pg-core'
+import { pgTable, pgEnum, uuid, varchar, text, numeric, integer, bigint, jsonb, timestamp, boolean, index, uniqueIndex } from 'drizzle-orm/pg-core'
 import { relations, sql } from 'drizzle-orm'
 import { users } from './users'
 import { products, productVariants } from './products'
@@ -74,8 +74,8 @@ export const orders = pgTable('orders', {
   // ── فاکتور رسمی ──
   /** آیا مشتری فاکتور رسمی خواسته است */
   officialInvoice: boolean('official_invoice').notNull().default(false),
-  /** شماره فاکتور یکتا (پس از صدور) */
-  invoiceNumber: varchar('invoice_number', { length: 40 }),
+  /** شماره فاکتور ترتیبی — از sequence invoice_number_seq */
+  invoiceNumber: bigint('invoice_number', { mode: 'number' }),
   /** snapshot اطلاعات صورتحساب (حقیقی/حقوقی) در لحظه ثبت */
   billingSnapshot: jsonb('billing_snapshot').$type<{
     customerType?: 'individual' | 'legal'
@@ -108,7 +108,8 @@ export const orders = pgTable('orders', {
   index('orders_user_id_idx').on(t.userId),
   index('orders_status_idx').on(t.status),
   index('orders_created_at_idx').on(t.createdAt),
-])
+]
+)
 
 // ─── Order Items ──────────────────────────────────────────────────────────────
 

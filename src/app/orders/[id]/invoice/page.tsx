@@ -19,7 +19,7 @@ interface Order {
   discountAmount: string
   taxAmount: string
   officialInvoice: boolean
-  invoiceNumber: string | null
+  invoiceNumber: number | string | null
   billingSnapshot: {
     customerType?: 'individual' | 'legal'
     nationalId?: string
@@ -68,7 +68,7 @@ export default function InvoicePage() {
         <div className="flex items-start justify-between border-b-2 border-surface-900 pb-4 mb-6">
           <div>
             <h1 className="text-2xl font-black text-surface-900">فاکتور فروش رسمی</h1>
-            <p className="text-sm text-surface-500 mt-1">شماره: {toFaDigits(order.invoiceNumber ?? order.id.slice(0, 8).toUpperCase())}</p>
+            <p className="text-sm text-surface-500 mt-1">شماره فاکتور: {order.invoiceNumber ? toFaDigits(String(order.invoiceNumber)) : '—'}</p>
             <p className="text-sm text-surface-500">تاریخ: {dateFa}</p>
           </div>
           <div className="text-left text-sm">

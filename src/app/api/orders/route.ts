@@ -8,6 +8,7 @@ import { sendVerifySms, sendBulkSms, SMS_TEMPLATES } from '@/lib/sms'
 import { calcShipping, calcCouponDiscount, calcOrderTotal, calcVat } from '@/lib/pricing'
 import { isValidNationalId, isValidCompanyId, toEnDigits } from '@/lib/utils'
 import { logger } from '@/lib/logger'
+import { checkRateLimit, getClientIp } from '@/lib/rate-limit'
 
 const addressSchema = z.object({
   fullName: z.string().min(2),
@@ -49,6 +50,12 @@ const schema = z.object({
 })
 
 export async function POST(req: Request) {
+  // حداکثر ۵ سفارش در ۵ دقیقه به ازای هر IP
+  const ip = getClientIp(req)
+  if (!checkRateLimit(`orders:${ip}`, 5, 5 * 60 * 1000)) {
+    return NextResponse.json({ error: 'درخواست‌های بیش از حد. لطفاً چند دقیقه صبر کنید.' }, { status: 429 })
+  }
+
   const session = await auth()
   if (!session?.user?.id) {
     return NextResponse.json({ error: 'لطفاً وارد شوید' }, { status: 401 })

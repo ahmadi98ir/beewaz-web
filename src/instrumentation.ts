@@ -225,7 +225,9 @@ export async function register() {
         ALTER TABLE "users"  ADD COLUMN IF NOT EXISTS "billing_info" jsonb;
         ALTER TABLE "orders" ADD COLUMN IF NOT EXISTS "tax_amount" numeric(14,0) DEFAULT '0' NOT NULL;
         ALTER TABLE "orders" ADD COLUMN IF NOT EXISTS "official_invoice" boolean DEFAULT false NOT NULL;
-        ALTER TABLE "orders" ADD COLUMN IF NOT EXISTS "invoice_number" varchar(40);
+        ALTER TABLE "orders" ADD COLUMN IF NOT EXISTS "invoice_number" bigint;
+        CREATE SEQUENCE IF NOT EXISTS invoice_number_seq START 1000;
+        CREATE UNIQUE INDEX IF NOT EXISTS orders_invoice_number_idx ON "orders" ("invoice_number") WHERE "invoice_number" IS NOT NULL;
         ALTER TABLE "orders" ADD COLUMN IF NOT EXISTS "billing_snapshot" jsonb;
         ALTER TABLE "orders" ADD COLUMN IF NOT EXISTS "needs_installation" boolean DEFAULT false NOT NULL;
         ALTER TABLE "orders" ADD COLUMN IF NOT EXISTS "assigned_installer_id" uuid REFERENCES "users"("id") ON DELETE SET NULL;
