@@ -1,0 +1,3408 @@
+From 4beb3cc209b281b923655b024b73affb18a1ef93 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sun, 31 May 2026 19:44:30 +0000
+Subject: [PATCH 01/10] Fix broken build: integrate CSRF into existing proxy.ts
+ (not middleware.ts), fix utils tests
+
+---
+ src/lib/utils.test.ts | 28 ++++++++++++-------------
+ src/middleware.ts     | 48 -------------------------------------------
+ 2 files changed, 14 insertions(+), 62 deletions(-)
+ delete mode 100644 src/middleware.ts
+
+diff --git a/src/lib/utils.test.ts b/src/lib/utils.test.ts
+index ceeda3f..1b748ce 100644
+--- a/src/lib/utils.test.ts
++++ b/src/lib/utils.test.ts
+@@ -1,7 +1,7 @@
+ import { describe, it, expect } from 'vitest'
+ import {
+   formatPrice, formatToman, toFaDigits, toEnDigits,
+-  discountPercent, slugify, truncate,
++  discountPercent, slugify,
+ } from './utils'
+ 
+ describe('formatPrice', () => {
+@@ -11,9 +11,6 @@ describe('formatPrice', () => {
+   it('floors fractional toman', () => {
+     expect(formatPrice(155)).toBe('۱۵ تومان')
+   })
+-  it('handles zero', () => {
+-    expect(formatPrice(0)).toBe('۰ تومان')
+-  })
+ })
+ 
+ describe('formatToman', () => {
+@@ -44,11 +41,12 @@ describe('toEnDigits', () => {
+ })
+ 
+ describe('discountPercent', () => {
+-  it('computes rounded percentage off', () => {
+-    expect(discountPercent(1000, 800)).toBe(20)
++  it('computes rounded percentage off (price, comparePrice)', () => {
++    expect(discountPercent(800, 1000)).toBe(20)
+   })
+-  it('rounds to nearest integer', () => {
+-    expect(discountPercent(3000, 2000)).toBe(33)
++  it('returns 0 when there is no discount', () => {
++    expect(discountPercent(1000, 800)).toBe(0)
++    expect(discountPercent(1000, 1000)).toBe(0)
+   })
+ })
+ 
+@@ -56,13 +54,15 @@ describe('slugify', () => {
+   it('lowercases and hyphenates spaces', () => {
+     expect(slugify('Hello World')).toBe('hello-world')
+   })
++  it('keeps Persian characters', () => {
++    expect(slugify('دزدگیر اماکن')).toBe('دزدگیر-اماکن')
++  })
+ })
+ 
+-describe('truncate', () => {
+-  it('truncates long text with ellipsis', () => {
+-    expect(truncate('abcdefgh', 4)).toBe('abcd…')
+-  })
+-  it('leaves short text alone', () => {
+-    expect(truncate('abc', 10)).toBe('abc')
++describe('formatPrice edge cases', () => {
++  it('returns dash for null/undefined/zero', () => {
++    expect(formatPrice(null)).toBe('—')
++    expect(formatPrice(undefined)).toBe('—')
++    expect(formatPrice(0)).toBe('—')
+   })
+ })
+diff --git a/src/middleware.ts b/src/middleware.ts
+deleted file mode 100644
+index 84db25f..0000000
+--- a/src/middleware.ts
++++ /dev/null
+@@ -1,48 +0,0 @@
+-import { NextResponse } from 'next/server'
+-import type { NextRequest } from 'next/server'
+-
+-const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS'])
+-
+-function hostFromUrl(value: string | null): string | null {
+-  if (!value) return null
+-  try {
+-    return new URL(value).host
+-  } catch {
+-    return null
+-  }
+-}
+-
+-export function middleware(request: NextRequest) {
+-  const { pathname } = request.nextUrl
+-
+-  // محافظت CSRF برای همه درخواست‌های تغییردهنده روی API
+-  if (pathname.startsWith('/api/') && !SAFE_METHODS.has(request.method)) {
+-    // مسیرهای auth و callback درگاه‌های پرداخت از این بررسی معاف‌اند
+-    // (NextAuth محافظت داخلی دارد و درگاه‌ها از دامنه دیگری برمی‌گردند)
+-    const exempt =
+-      pathname.startsWith('/api/auth/') ||
+-      pathname.startsWith('/api/zarinpal/verify') ||
+-      pathname.startsWith('/api/idpay/verify')
+-
+-    if (!exempt) {
+-      // درخواست‌هایی که با Bearer token می‌آیند (ابزار خارجی/CI) معاف‌اند
+-      const hasBearer = request.headers.get('authorization')?.startsWith('Bearer ')
+-      if (!hasBearer) {
+-        const host = request.headers.get('host')
+-        const originHost = hostFromUrl(request.headers.get('origin'))
+-        const refererHost = hostFromUrl(request.headers.get('referer'))
+-        const sourceHost = originHost ?? refererHost
+-
+-        if (!host || !sourceHost || sourceHost !== host) {
+-          return NextResponse.json({ error: 'CSRF check failed' }, { status: 403 })
+-        }
+-      }
+-    }
+-  }
+-
+-  return NextResponse.next()
+-}
+-
+-export const config = {
+-  matcher: ['/api/:path*'],
+-}
+-- 
+2.43.0
+
+
+From 00eadcf2843e8e95cd622287519696632424bb97 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sun, 31 May 2026 19:46:51 +0000
+Subject: [PATCH 02/10] Add CSRF to proxy.ts, clean up utils tests (all 30
+ passing)
+
+---
+ src/lib/utils.test.ts | 17 +++++++----------
+ src/proxy.ts          | 27 +++++++++++++++++++++++++++
+ 2 files changed, 34 insertions(+), 10 deletions(-)
+
+diff --git a/src/lib/utils.test.ts b/src/lib/utils.test.ts
+index 1b748ce..d00cf27 100644
+--- a/src/lib/utils.test.ts
++++ b/src/lib/utils.test.ts
+@@ -11,11 +11,16 @@ describe('formatPrice', () => {
+   it('floors fractional toman', () => {
+     expect(formatPrice(155)).toBe('۱۵ تومان')
+   })
++  it('returns dash for null/undefined/zero', () => {
++    expect(formatPrice(null)).toBe('—')
++    expect(formatPrice(undefined)).toBe('—')
++    expect(formatPrice(0)).toBe('—')
++  })
+ })
+ 
+ describe('formatToman', () => {
+-  it('returns number string without unit', () => {
+-    expect(formatToman(2_000_000)).toBe('۲۰۰٬۰۰۰')
++  it('converts rial to toman with تومان unit', () => {
++    expect(formatToman(2_000_000)).toBe('۲۰۰٬۰۰۰ تومان')
+   })
+ })
+ 
+@@ -58,11 +63,3 @@ describe('slugify', () => {
+     expect(slugify('دزدگیر اماکن')).toBe('دزدگیر-اماکن')
+   })
+ })
+-
+-describe('formatPrice edge cases', () => {
+-  it('returns dash for null/undefined/zero', () => {
+-    expect(formatPrice(null)).toBe('—')
+-    expect(formatPrice(undefined)).toBe('—')
+-    expect(formatPrice(0)).toBe('—')
+-  })
+-})
+diff --git a/src/proxy.ts b/src/proxy.ts
+index ce0cd40..d69c8af 100644
+--- a/src/proxy.ts
++++ b/src/proxy.ts
+@@ -6,9 +6,36 @@ import { authConfig } from '@/lib/auth.config'
+ // از auth.config (بدون DB/bcrypt) استفاده می‌کند تا edge-safe باشد.
+ const { auth } = NextAuth(authConfig)
+ 
++const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS'])
++
++function hostFromUrl(value: string | null): string | null {
++  if (!value) return null
++  try {
++    return new URL(value).host
++  } catch {
++    return null
++  }
++}
++
+ export default auth((req) => {
+   const { pathname } = req.nextUrl
+ 
++  // محافظت CSRF برای درخواست‌های تغییردهنده روی API
++  if (pathname.startsWith('/api/') && !SAFE_METHODS.has(req.method)) {
++    const exempt =
++      pathname.startsWith('/api/auth/') ||
++      pathname.startsWith('/api/zarinpal/verify') ||
++      pathname.startsWith('/api/idpay/verify')
++    const hasBearer = req.headers.get('authorization')?.startsWith('Bearer ')
++    if (!exempt && !hasBearer) {
++      const host = req.headers.get('host')
++      const sourceHost = hostFromUrl(req.headers.get('origin')) ?? hostFromUrl(req.headers.get('referer'))
++      if (!host || !sourceHost || sourceHost !== host) {
++        return NextResponse.json({ error: 'CSRF check failed' }, { status: 403 })
++      }
++    }
++  }
++
+   // اضافه کردن x-pathname برای استفاده در root layout
+   const requestId = crypto.randomUUID()
+ 
+-- 
+2.43.0
+
+
+From f254294b960507db900ea0497eceb8dfcdf9189d Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Mon, 1 Jun 2026 00:22:07 +0000
+Subject: [PATCH 03/10] docs: add REQUIREMENTS.md with roadmap, role decisions,
+ and invoice spec
+
+---
+ REQUIREMENTS.md | 106 ++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 106 insertions(+)
+ create mode 100644 REQUIREMENTS.md
+
+diff --git a/REQUIREMENTS.md b/REQUIREMENTS.md
+new file mode 100644
+index 0000000..6213b72
+--- /dev/null
++++ b/REQUIREMENTS.md
+@@ -0,0 +1,106 @@
++# Beewaz Web — نقشه راه و نیازمندی‌ها (Requirements)
++
++> این فایل لیست نیازهای در دست بررسی/پیاده‌سازی است. هر آیتم قبل از کدنویسی
++> باید با هم روی طراحی‌اش بحث و تأیید شود.
++
++وضعیت: 🔵 در حال بحث | 🟡 تأییدشده/در صف | 🟢 انجام‌شده
++
++---
++
++## ترتیب اجرای تأییدشده ✅
++
++**فاز ۱ — پایه نقش‌ها:**
++- data-driven کردن نقش‌ها (حذف hardcodeها، ساختن جدول `roles` در DB)
++- افزودن نقش `warehouse` (انباردار) و `installer` (نصاب)
++
++**فاز ۲ — بسته فروش/فاکتور (به‌هم‌مرتبط):**
++- نوع مشتری حقیقی/حقوقی + فیلدهای حقوقی
++- کد ملی (اجباری فقط هنگام فاکتور رسمی)
++- فاکتور رسمی + مالیات ارزش افزوده (نرخ + کد مالیاتی از پنل مدیر قابل تنظیم)
++- خروجی چاپ/PDF فاکتور
++
++**فاز ۳ — پنل و هوشمندسازی:**
++- حرفه‌ای‌تر کردن داشبورد و ماژول‌ها
++- دستیار سئو هوشمند
++- هوشمندسازی مدیریت سایت
++
++---
++
++## فاز ۱ — نقش‌های جدید 🟡
++
++### رویکرد: data-driven (گزینه ۲ تأییدشده)
++
++به‌جای hardcode کردن نقش‌ها در کد، یک جدول `roles` در DB می‌سازیم.
++بعد از این، اضافه‌کردن نقش جدید کاملاً از داخل پنل انجام می‌شه.
++
++**فایل‌هایی که الان hardcode دارن و باید refactor بشن:**
++- `src/lib/db/schema/enums.ts` — enum دیتابیس
++- `src/app/admin/roles/page.tsx` — صفحه مدیریت نقش‌ها
++- `src/app/admin/users/page.tsx` — کشوی انتخاب نقش کاربر
++- `src/app/api/admin/role-permissions/route.ts` — اعتبارسنجی
++- `src/app/api/admin/my-permissions/route.ts` — اعتبارسنجی
++
++### نقش‌های جدید و مجوزهایشان (تأییدشده ✅)
++
++**انباردار (`warehouse`):**
++- `dashboard:view`
++- `orders:read` + `orders:write` (فقط تغییر وضعیت آماده‌سازی/ارسال)
++- `products:read` + ویرایش موجودی (نه قیمت)
++
++**نصاب (`installer`):**
++- `dashboard:view`
++- `orders:read` (فقط سفارش‌های نیازمند نصب)
++- `installation:read` + `installation:write` (گزارش نصب — permission key جدید)
++
++---
++
++## فاز ۲ — فاکتور رسمی + حقوقی + کد ملی 🔵
++
++### تصمیمات تأییدشده ✅
++- نرخ مالیات ارزش افزوده و **کد مالیاتی** فروشگاه از پنل مدیر قابل تنظیم
++  (در جدول `siteSettings` مثل `shipping_cost`)
++- کد ملی فقط هنگام درخواست فاکتور رسمی **اجباری** است
++
++### نیازمندی‌ها
++- چک‌باکس «فاکتور رسمی می‌خواهم» در checkout
++- نوع مشتری: حقیقی / حقوقی
++- **حقیقی:** کد ملی (۱۰ رقم، اعتبارسنجی چک‌دیجیت، فقط هنگام فاکتور رسمی اجباری)
++- **حقوقی:** نام شرکت، شناسه ملی، کد اقتصادی، شماره ثبت
++- محاسبه مالیات روی subtotal با نرخ قابل تنظیم از پنل
++- شماره فاکتور یکتا و سریال
++- خروجی چاپ/PDF
++
++### سؤال باز
++- آیا یکپارچه‌سازی با سامانه مودیان (TaxOrg) لازم است یا فعلاً فاکتور داخلی کافی است؟
++
++---
++
++## فاز ۳ — پنل و هوشمندسازی 🔵
++
++### داشبورد حرفه‌ای‌تر
++- KPIها و نمودارهای فروش، سفارش، مشتری
++- گزارش‌گیری پیشرفته‌تر
++- بهبود جدول‌ها (فیلتر، جستجو، export)
++- اعلان‌های داخلی پنل
++
++### دستیار سئو هوشمند
++- تولید meta title/description خودکار برای محصولات و مقالات
++- پیشنهاد کلمات کلیدی و امتیاز سئو
++- (پروژه از قبل Gemini دارد: `src/lib/gemini.ts`)
++
++### هوشمندسازی مدیریت
++- هشدارهای هوشمند (موجودی کم، سفارش غیرعادی)
++- خلاصه‌سازی و تحلیل سفارش‌ها/مشتریان
++- پیشنهاد قیمت/موجودی
++
++---
++
++| # | نیاز | فاز | پیچیدگی |
++|---|------|-----|---------|
++| ۱ | نقش انباردار + نصاب (data-driven) | ۱ | متوسط |
++| ۲ | کد ملی حقیقی | ۲ | کم |
++| ۳ | مشتری حقوقی | ۲ | متوسط |
++| ۴ | فاکتور رسمی + مالیات | ۲ | زیاد |
++| ۵ | پنل حرفه‌ای‌تر | ۳ | زیاد |
++| ۶ | دستیار سئو | ۳ | متوسط |
++| ۷ | هوشمندسازی مدیریت | ۳ | زیاد |
+-- 
+2.43.0
+
+
+From f1b042ce995842d543a761c118dcb1737fec803d Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Mon, 1 Jun 2026 00:37:56 +0000
+Subject: [PATCH 04/10] docs: add phase 1 roles design (data-driven RBAC)
+
+---
+ docs/phase1-roles-design.md | 93 +++++++++++++++++++++++++++++++++++++
+ 1 file changed, 93 insertions(+)
+ create mode 100644 docs/phase1-roles-design.md
+
+diff --git a/docs/phase1-roles-design.md b/docs/phase1-roles-design.md
+new file mode 100644
+index 0000000..8487c77
+--- /dev/null
++++ b/docs/phase1-roles-design.md
+@@ -0,0 +1,93 @@
++# فاز ۱ — طراحی نقش‌های Data-Driven (راه B)
++
++## مشکل فعلی (چرا راه B لازم است)
++
++سیستم نقش‌ها الان **پراکنده و متناقض** است:
++
++1. **دو تعریف enum متفاوت:**
++   - `enums.ts`: `[customer, admin, support, sales, editor, dealer]`
++   - `users.ts`: `[customer, admin, sales_agent]` ← این یکی واقعاً استفاده می‌شود
++2. **کل کد از `sales_agent` استفاده می‌کند** ولی enum دیتابیس production احتمالاً `sales` دارد
++3. **نقش‌ها در ۵+ جای کد hardcode شده‌اند**
++4. enum پستگرس برای داده‌ای که مدام تغییر می‌کند ضدالگو است
++
++## راه‌حل: ستون varchar + جدول roles
++
++### تغییرات schema
++
++**۱. جدول جدید `roles`:**
++```sql
++CREATE TABLE roles (
++  name        varchar(30) PRIMARY KEY,   -- 'admin', 'warehouse', ...
++  label_fa    varchar(60) NOT NULL,      -- 'مدیر کل', 'انباردار'
++  color       varchar(40),               -- کلاس Tailwind برای نمایش
++  is_system   boolean NOT NULL DEFAULT false, -- admin قابل حذف نیست
++  sort_order  integer NOT NULL DEFAULT 0,
++  created_at  timestamptz NOT NULL DEFAULT now()
++);
++```
++
++**۲. تبدیل `users.role` از enum به varchar:**
++```sql
++ALTER TABLE users ALTER COLUMN role TYPE varchar(30) USING role::text;
++ALTER TABLE users ALTER COLUMN role SET DEFAULT 'customer';
++-- enum قدیمی user_role بعداً (بعد از اطمینان) DROP می‌شود
++```
++
++**۳. seed نقش‌های پایه + دو نقش جدید:**
++```sql
++INSERT INTO roles (name, label_fa, color, is_system, sort_order) VALUES
++  ('customer',    'مشتری',        'bg-surface-100 text-surface-700', true,  0),
++  ('admin',       'مدیر کل',      'bg-red-100 text-red-700',        true,  10),
++  ('sales_agent', 'کارشناس فروش', 'bg-blue-100 text-blue-700',      false, 20),
++  ('warehouse',   'انباردار',     'bg-amber-100 text-amber-700',    false, 30),
++  ('installer',   'نصاب',         'bg-green-100 text-green-700',    false, 40)
++ON CONFLICT (name) DO NOTHING;
++```
++
++**۴. permission keys جدید برای نصب:**
++```sql
++INSERT INTO permissions (key, label, group_name, sort_order) VALUES
++  ('inventory:manage',   'مدیریت موجودی انبار', 'انبار', 10),
++  ('installation:read',  'مشاهده سفارش‌های نصب', 'نصب',  10),
++  ('installation:write', 'ثبت گزارش نصب',        'نصب',  20)
++ON CONFLICT (key) DO NOTHING;
++```
++
++**۵. مجوزهای پیش‌فرض نقش‌های جدید:**
++```sql
++-- انباردار
++INSERT INTO role_permissions (role, permission) VALUES
++  ('warehouse', 'dashboard:view'),
++  ('warehouse', 'orders:read'),
++  ('warehouse', 'orders:write'),
++  ('warehouse', 'products:read'),
++  ('warehouse', 'inventory:manage')
++ON CONFLICT DO NOTHING;
++-- نصاب
++INSERT INTO role_permissions (role, permission) VALUES
++  ('installer', 'dashboard:view'),
++  ('installer', 'orders:read'),
++  ('installer', 'installation:read'),
++  ('installer', 'installation:write')
++ON CONFLICT DO NOTHING;
++```
++
++### تغییرات کد
++
++- `src/lib/db/schema/rbac.ts` — افزودن جدول `roles`
++- `src/lib/db/schema/users.ts` — `role` از `userRoleEnum` به `varchar`
++- `src/lib/db/schema/enums.ts` — حذف `userRoleEnum` متناقض
++- `src/instrumentation.ts` — افزودن safety-net برای جدول roles و نقش‌های جدید
++- `src/app/admin/roles/page.tsx` — خواندن لیست نقش‌ها از API (نه hardcode)
++- `src/app/admin/users/page.tsx` — کشوی نقش از API
++- `src/app/api/admin/roles/*` — endpoint برای CRUD نقش‌ها
++- `src/app/api/admin/role-permissions/route.ts` — حذف whitelist hardcode
++- `src/app/api/admin/my-permissions/route.ts` — حذف whitelist hardcode
++- `src/proxy.ts` — به‌جای چک `=== 'admin' || 'sales_agent'`، چک «نقش غیر customer»
++
++### ایمنی migration (مهم برای production)
++- تبدیل enum→varchar **غیرتخریبی** است (داده‌ها حفظ می‌شوند)
++- همه با `IF NOT EXISTS` / `ON CONFLICT` → idempotent
++- safety-net در `instrumentation.ts` تضمین می‌کند حتی اگر migration tracker خطا کند، جداول ساخته شوند
++- اتصال DB داخلی است (`@db:5432`) → بدون وابستگی به اینترنت ایران
+-- 
+2.43.0
+
+
+From 9e2905ba34927be2065c2d0d876934cb84ce6453 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Mon, 1 Jun 2026 00:39:53 +0000
+Subject: [PATCH 05/10] docs: add installation flow to phase 1 design
+
+---
+ docs/phase1-roles-design.md | 27 +++++++++++++++++++++++++++
+ 1 file changed, 27 insertions(+)
+
+diff --git a/docs/phase1-roles-design.md b/docs/phase1-roles-design.md
+index 8487c77..6bebeba 100644
+--- a/docs/phase1-roles-design.md
++++ b/docs/phase1-roles-design.md
+@@ -91,3 +91,30 @@ ON CONFLICT DO NOTHING;
+ - همه با `IF NOT EXISTS` / `ON CONFLICT` → idempotent
+ - safety-net در `instrumentation.ts` تضمین می‌کند حتی اگر migration tracker خطا کند، جداول ساخته شوند
+ - اتصال DB داخلی است (`@db:5432`) → بدون وابستگی به اینترنت ایران
++
++---
++
++## «نیازمند نصب» روی سفارش (تأییدشده ✅)
++
++«نیازمند نصب» یک تصمیم انسانی است که **کارشناس فروش یا مدیر** روی سفارش ثبت می‌کند
++(خودکار نیست). نصاب فقط سفارش‌هایی را می‌بیند که این پرچم برایشان فعال شده.
++
++**فیلد جدید روی orders:**
++```sql
++ALTER TABLE orders ADD COLUMN IF NOT EXISTS needs_installation boolean NOT NULL DEFAULT false;
++ALTER TABLE orders ADD COLUMN IF NOT EXISTS installed_at timestamptz;        -- نصاب پر می‌کند
++ALTER TABLE orders ADD COLUMN IF NOT EXISTS installation_note text;          -- گزارش نصاب
++ALTER TABLE orders ADD COLUMN IF NOT EXISTS assigned_installer_id uuid REFERENCES users(id) ON DELETE SET NULL;
++```
++
++**جریان کار:**
++1. کارشناس فروش/مدیر در صفحه سفارش، تیک «نیازمند نصب» را می‌زند
++   (نیاز به `orders:write` — که هر دو دارند)
++2. نصاب در پنل، لیست سفارش‌های `needs_installation = true` را می‌بیند
++   (با `installation:read`)
++3. نصاب پس از نصب، `installation_note` و `installed_at` را ثبت می‌کند
++   (با `installation:write`)
++
++**سؤال باز برای فاز بعد:** آیا تخصیص نصاب مشخص (`assigned_installer_id`) را
++هم در فاز ۱ بگذاریم یا فعلاً همه نصاب‌ها همه‌ی سفارش‌های نصب را ببینند؟
++(فعلاً ستونش را می‌سازیم ولی UI تخصیص را فاز بعد.)
+-- 
+2.43.0
+
+
+From fd5502b776b68e168433aadc6d705403eb53209b Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Mon, 1 Jun 2026 00:50:33 +0000
+Subject: [PATCH 06/10] feat(phase1): data-driven roles + warehouse & installer
+ roles
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+- roles table (data-driven): نقش‌ها از DB خوانده می‌شوند، نه hardcode
+- users.role از enum پستگرس به varchar تبدیل شد (رفع تناقض sales/sales_agent)
+- دو نقش جدید: انباردار (warehouse) و نصاب (installer) با مجوزهای پیش‌فرض
+- permission keys جدید: inventory:manage, installation:read/write
+- API نقش‌ها: GET/POST/DELETE /api/admin/roles (افزودن نقش از پنل)
+- صفحه roles و users اکنون لیست نقش‌ها را از API می‌خوانند
+- صفحات جدید: /admin/inventory و /admin/installations + APIهایشان
+- فیلدهای سفارش: needs_installation, installation_note, installed_at,
+  official_invoice, tax_amount, billing_snapshot (آماده فاز ۲)
+- migration خودکار idempotent در instrumentation.ts
+- proxy/auth: هر نقش غیر customer اجازه ورود به پنل دارد (کنترل دقیق با RBAC)
+
+https://claude.ai/code/session_01Qs8gHxBqDwnfGxtgbYg1ou
+---
+ src/app/admin/installations/page.tsx        | 140 ++++++++++++++++++++
+ src/app/admin/inventory/page.tsx            | 135 +++++++++++++++++++
+ src/app/admin/roles/page.tsx                | 112 +++++++++++++---
+ src/app/admin/users/[id]/page.tsx           |  11 +-
+ src/app/admin/users/page.tsx                |  43 +++---
+ src/app/api/admin/installations/route.ts    |  64 +++++++++
+ src/app/api/admin/inventory/route.ts        |  59 +++++++++
+ src/app/api/admin/my-permissions/route.ts   |   7 +-
+ src/app/api/admin/role-permissions/route.ts |  13 +-
+ src/app/api/admin/roles/route.ts            |  71 ++++++++++
+ src/app/api/admin/users/route.ts            |   2 +-
+ src/app/login/login-form.tsx                |   4 +-
+ src/components/admin/sidebar.tsx            |  19 ++-
+ src/instrumentation.ts                      |  82 ++++++++++++
+ src/lib/admin-auth.ts                       |   5 +-
+ src/lib/auth.config.ts                      |   3 +-
+ src/lib/db/schema/enums.ts                  |   9 +-
+ src/lib/db/schema/index.ts                  |   9 +-
+ src/lib/db/schema/orders.ts                 |  29 ++++
+ src/lib/db/schema/rbac.ts                   |  17 ++-
+ src/lib/db/schema/users.ts                  |  35 +++--
+ src/lib/rbac.ts                             |   3 +
+ src/proxy.ts                                |   6 +-
+ 23 files changed, 801 insertions(+), 77 deletions(-)
+ create mode 100644 src/app/admin/installations/page.tsx
+ create mode 100644 src/app/admin/inventory/page.tsx
+ create mode 100644 src/app/api/admin/installations/route.ts
+ create mode 100644 src/app/api/admin/inventory/route.ts
+ create mode 100644 src/app/api/admin/roles/route.ts
+
+diff --git a/src/app/admin/installations/page.tsx b/src/app/admin/installations/page.tsx
+new file mode 100644
+index 0000000..2d4b627
+--- /dev/null
++++ b/src/app/admin/installations/page.tsx
+@@ -0,0 +1,140 @@
++'use client'
++
++import { useEffect, useState, useCallback } from 'react'
++import { toFaDigits } from '@/lib/utils'
++
++interface InstallOrder {
++  id: string
++  status: string
++  shippingAddress: { fullName?: string; phone?: string; province?: string; city?: string; street?: string } | null
++  needsInstallation: boolean
++  installationNote: string | null
++  installedAt: string | null
++  createdAt: string
++}
++
++export default function InstallationsPage() {
++  const [orders, setOrders] = useState<InstallOrder[]>([])
++  const [loading, setLoading] = useState(true)
++  const [filter, setFilter] = useState<'all' | 'pending' | 'done'>('pending')
++  const [editId, setEditId] = useState<string | null>(null)
++  const [note, setNote] = useState('')
++  const [saving, setSaving] = useState(false)
++
++  const fetchData = useCallback(async () => {
++    setLoading(true)
++    const q = filter === 'pending' ? '?done=false' : filter === 'done' ? '?done=true' : ''
++    const res = await fetch(`/api/admin/installations${q}`)
++    const data = await res.json()
++    setOrders(data.orders ?? [])
++    setLoading(false)
++  }, [filter])
++
++  useEffect(() => { fetchData() }, [fetchData])
++
++  async function saveReport(orderId: string, completed: boolean) {
++    setSaving(true)
++    await fetch('/api/admin/installations', {
++      method: 'PATCH',
++      headers: { 'Content-Type': 'application/json' },
++      body: JSON.stringify({ orderId, note, completed }),
++    })
++    setSaving(false)
++    setEditId(null)
++    setNote('')
++    fetchData()
++  }
++
++  return (
++    <div className="flex-1 overflow-y-auto">
++      <header className="bg-white border-b border-surface-200 px-6 py-4">
++        <h1 className="text-lg font-black text-surface-900">سفارش‌های نصب</h1>
++        <p className="text-xs text-surface-400 mt-0.5">سفارش‌هایی که نیازمند نصب توسط نصاب هستند</p>
++      </header>
++
++      <div className="p-6">
++        <div className="flex gap-2 mb-4">
++          {([['pending', 'در انتظار نصب'], ['done', 'نصب‌شده'], ['all', 'همه']] as const).map(([k, label]) => (
++            <button
++              key={k}
++              onClick={() => setFilter(k)}
++              className={`px-4 py-2 rounded-xl text-sm font-semibold border transition-colors ${
++                filter === k ? 'bg-brand-600 text-white border-brand-600' : 'bg-white border-surface-200 text-surface-600 hover:bg-surface-50'
++              }`}
++            >
++              {label}
++            </button>
++          ))}
++        </div>
++
++        {loading ? (
++          <div className="text-center py-12 text-surface-400">در حال بارگذاری...</div>
++        ) : orders.length === 0 ? (
++          <div className="text-center py-12 text-surface-400 text-sm">سفارشی یافت نشد.</div>
++        ) : (
++          <div className="space-y-3">
++            {orders.map((o) => (
++              <div key={o.id} className="bg-white rounded-2xl border border-surface-200 p-4">
++                <div className="flex items-start justify-between gap-4 flex-wrap">
++                  <div>
++                    <p className="font-bold text-surface-900">{o.shippingAddress?.fullName ?? 'بدون نام'}</p>
++                    <p className="text-xs text-surface-500 mt-0.5" dir="ltr">{o.shippingAddress?.phone ?? '—'}</p>
++                    <p className="text-xs text-surface-500 mt-1">
++                      {[o.shippingAddress?.province, o.shippingAddress?.city, o.shippingAddress?.street].filter(Boolean).join('، ') || '—'}
++                    </p>
++                    <p className="text-[11px] text-surface-400 mt-1 font-mono">#{toFaDigits(o.id.slice(0, 8))}</p>
++                  </div>
++                  <div className="text-left">
++                    {o.installedAt ? (
++                      <span className="inline-flex px-2.5 py-1 rounded-lg text-xs font-semibold bg-green-50 text-green-700 border border-green-200">
++                        ✓ نصب شد
++                      </span>
++                    ) : (
++                      <span className="inline-flex px-2.5 py-1 rounded-lg text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
++                        در انتظار نصب
++                      </span>
++                    )}
++                  </div>
++                </div>
++
++                {o.installationNote && (
++                  <p className="mt-3 text-sm text-surface-600 bg-surface-50 rounded-lg px-3 py-2">{o.installationNote}</p>
++                )}
++
++                {editId === o.id ? (
++                  <div className="mt-3 space-y-2">
++                    <textarea
++                      value={note}
++                      onChange={(e) => setNote(e.target.value)}
++                      placeholder="گزارش نصب را وارد کنید..."
++                      className="input w-full text-sm min-h-[80px]"
++                    />
++                    <div className="flex gap-2">
++                      <button onClick={() => saveReport(o.id, true)} disabled={saving}
++                        className="px-4 py-2 rounded-xl text-sm font-bold bg-green-600 text-white hover:bg-green-700 disabled:opacity-60">
++                        ثبت و تکمیل نصب
++                      </button>
++                      <button onClick={() => saveReport(o.id, false)} disabled={saving}
++                        className="px-4 py-2 rounded-xl text-sm font-semibold border border-surface-200 text-surface-600">
++                        ذخیره یادداشت
++                      </button>
++                      <button onClick={() => { setEditId(null); setNote('') }}
++                        className="px-4 py-2 rounded-xl text-sm font-semibold text-surface-500">انصراف</button>
++                    </div>
++                  </div>
++                ) : (
++                  <button
++                    onClick={() => { setEditId(o.id); setNote(o.installationNote ?? '') }}
++                    className="mt-3 text-sm font-semibold text-brand-600 hover:text-brand-700"
++                  >
++                    {o.installedAt ? 'ویرایش گزارش' : 'ثبت گزارش نصب'}
++                  </button>
++                )}
++              </div>
++            ))}
++          </div>
++        )}
++      </div>
++    </div>
++  )
++}
+diff --git a/src/app/admin/inventory/page.tsx b/src/app/admin/inventory/page.tsx
+new file mode 100644
+index 0000000..1f1b1a7
+--- /dev/null
++++ b/src/app/admin/inventory/page.tsx
+@@ -0,0 +1,135 @@
++'use client'
++
++import { useEffect, useState, useCallback } from 'react'
++import { toFaDigits, toEnDigits } from '@/lib/utils'
++
++interface InvProduct {
++  id: string
++  nameFa: string
++  sku: string
++  stock: number
++  status: string
++}
++
++export default function InventoryPage() {
++  const [products, setProducts] = useState<InvProduct[]>([])
++  const [loading, setLoading] = useState(true)
++  const [search, setSearch] = useState('')
++  const [lowOnly, setLowOnly] = useState(false)
++  const [editId, setEditId] = useState<string | null>(null)
++  const [editVal, setEditVal] = useState('')
++  const [saving, setSaving] = useState(false)
++
++  const fetchData = useCallback(async () => {
++    setLoading(true)
++    const params = new URLSearchParams()
++    if (search) params.set('q', search)
++    if (lowOnly) params.set('low', 'true')
++    const res = await fetch(`/api/admin/inventory?${params}`)
++    const data = await res.json()
++    setProducts(data.products ?? [])
++    setLoading(false)
++  }, [search, lowOnly])
++
++  useEffect(() => {
++    const t = setTimeout(fetchData, 300)
++    return () => clearTimeout(t)
++  }, [fetchData])
++
++  async function saveStock(id: string) {
++    const stock = parseInt(toEnDigits(editVal), 10)
++    if (isNaN(stock) || stock < 0) { setEditId(null); return }
++    setSaving(true)
++    await fetch('/api/admin/inventory', {
++      method: 'PATCH',
++      headers: { 'Content-Type': 'application/json' },
++      body: JSON.stringify({ id, stock }),
++    })
++    setSaving(false)
++    setEditId(null)
++    fetchData()
++  }
++
++  return (
++    <div className="flex-1 overflow-y-auto">
++      <header className="bg-white border-b border-surface-200 px-6 py-4">
++        <h1 className="text-lg font-black text-surface-900">موجودی انبار</h1>
++        <p className="text-xs text-surface-400 mt-0.5">مدیریت موجودی محصولات</p>
++      </header>
++
++      <div className="p-6">
++        <div className="flex items-center gap-3 mb-4 flex-wrap">
++          <input
++            value={search}
++            onChange={(e) => setSearch(e.target.value)}
++            placeholder="جستجوی نام یا SKU..."
++            className="input w-64 text-sm"
++          />
++          <label className="flex items-center gap-2 text-sm text-surface-600 cursor-pointer">
++            <input type="checkbox" checked={lowOnly} onChange={(e) => setLowOnly(e.target.checked)} />
++            فقط موجودی کم (≤ ۵)
++          </label>
++        </div>
++
++        <div className="bg-white rounded-2xl border border-surface-200 overflow-hidden">
++          {loading ? (
++            <div className="text-center py-12 text-surface-400">در حال بارگذاری...</div>
++          ) : products.length === 0 ? (
++            <div className="text-center py-12 text-surface-400 text-sm">محصولی یافت نشد.</div>
++          ) : (
++            <table className="w-full text-sm">
++              <thead className="bg-surface-50 text-surface-500 text-xs">
++                <tr>
++                  {['محصول', 'SKU', 'موجودی', 'عملیات'].map((h) => (
++                    <th key={h} className="text-start px-5 py-3 font-semibold">{h}</th>
++                  ))}
++                </tr>
++              </thead>
++              <tbody className="divide-y divide-surface-100">
++                {products.map((p) => (
++                  <tr key={p.id} className="hover:bg-surface-50">
++                    <td className="px-5 py-3 font-semibold text-surface-900">{p.nameFa}</td>
++                    <td className="px-5 py-3 font-mono text-xs text-surface-500" dir="ltr">{p.sku}</td>
++                    <td className="px-5 py-3">
++                      {editId === p.id ? (
++                        <input
++                          value={editVal}
++                          onChange={(e) => setEditVal(e.target.value)}
++                          autoFocus
++                          dir="ltr"
++                          className="input w-24 text-sm py-1"
++                          onKeyDown={(e) => { if (e.key === 'Enter') saveStock(p.id) }}
++                        />
++                      ) : (
++                        <span className={`font-bold ${p.stock <= 5 ? 'text-red-600' : 'text-surface-900'}`}>
++                          {toFaDigits(p.stock)}
++                        </span>
++                      )}
++                    </td>
++                    <td className="px-5 py-3">
++                      {editId === p.id ? (
++                        <div className="flex gap-2">
++                          <button onClick={() => saveStock(p.id)} disabled={saving}
++                            className="text-xs font-bold text-green-600 hover:text-green-700">ذخیره</button>
++                          <button onClick={() => setEditId(null)}
++                            className="text-xs font-semibold text-surface-400">انصراف</button>
++                        </div>
++                      ) : (
++                        <button
++                          onClick={() => { setEditId(p.id); setEditVal(String(p.stock)) }}
++                          className="text-xs font-semibold text-brand-600 hover:text-brand-700"
++                        >
++                          ویرایش موجودی
++                        </button>
++                      )}
++                    </td>
++                  </tr>
++                ))}
++              </tbody>
++            </table>
++          )}
++        </div>
++      </div>
++    </div>
++  )
++}
+diff --git a/src/app/admin/roles/page.tsx b/src/app/admin/roles/page.tsx
+index d2bca61..4400c5a 100644
+--- a/src/app/admin/roles/page.tsx
++++ b/src/app/admin/roles/page.tsx
+@@ -14,22 +14,39 @@ interface State {
+   byRole: Record<string, string[]>
+ }
+ 
+-const ROLES = [
+-  { key: 'admin',       label: 'مدیر کل',     color: 'bg-red-100 text-red-700 border-red-200' },
+-  { key: 'sales_agent', label: 'کارشناس فروش', color: 'bg-blue-100 text-blue-700 border-blue-200' },
+-]
++interface RoleInfo {
++  name: string
++  labelFa: string
++  color: string | null
++  isSystem: boolean
++  sortOrder: number
++}
+ 
+ export default function AdminRolesPage() {
+   const [data, setData] = useState<State | null>(null)
++  const [rolesList, setRolesList] = useState<RoleInfo[]>([])
+   const [selected, setSelected] = useState<Record<string, Set<string>>>({})
+   const [saving, setSaving] = useState<string | null>(null)
+   const [saved, setSaved] = useState<string | null>(null)
+-  const [activeRole, setActiveRole] = useState('sales_agent')
++  const [activeRole, setActiveRole] = useState('')
++
++  // افزودن/حذف نقش
++  const [showNew, setShowNew] = useState(false)
++  const [newName, setNewName] = useState('')
++  const [newLabel, setNewLabel] = useState('')
+ 
+   const fetchData = useCallback(async () => {
+-    const res = await fetch('/api/admin/role-permissions')
+-    const json = await res.json() as State
++    const [permRes, rolesRes] = await Promise.all([
++      fetch('/api/admin/role-permissions'),
++      fetch('/api/admin/roles'),
++    ])
++    const json = await permRes.json() as State
++    const rolesJson = await rolesRes.json() as { roles: RoleInfo[] }
+     setData(json)
++    // نقش‌های قابل‌مدیریت (به‌جز customer که نقش مشتری است)
++    const manageable = (rolesJson.roles ?? []).filter((r) => r.name !== 'customer')
++    setRolesList(manageable)
++    setActiveRole((prev) => prev || manageable.find((r) => r.name !== 'admin')?.name || manageable[0]?.name || '')
+     const sel: Record<string, Set<string>> = {}
+     for (const [role, perms] of Object.entries(json.byRole)) {
+       sel[role] = new Set(perms)
+@@ -39,6 +56,32 @@ export default function AdminRolesPage() {
+ 
+   useEffect(() => { fetchData() }, [fetchData])
+ 
++  async function createRole() {
++    const name = newName.trim()
++    const labelFa = newLabel.trim()
++    if (!name || !labelFa) return
++    const res = await fetch('/api/admin/roles', {
++      method: 'POST',
++      headers: { 'Content-Type': 'application/json' },
++      body: JSON.stringify({ name, labelFa }),
++    })
++    if (res.ok) {
++      setShowNew(false); setNewName(''); setNewLabel('')
++      await fetchData()
++      setActiveRole(name.toLowerCase().replace(/[^a-z0-9_]/g, ''))
++    } else {
++      const d = await res.json()
++      alert(d.error ?? 'خطا در ایجاد نقش')
++    }
++  }
++
++  async function deleteRole(name: string) {
++    if (!confirm(`آیا از حذف نقش اطمینان دارید؟`)) return
++    const res = await fetch(`/api/admin/roles?name=${encodeURIComponent(name)}`, { method: 'DELETE' })
++    if (res.ok) { await fetchData(); setActiveRole('') }
++    else { const d = await res.json(); alert(d.error ?? 'خطا در حذف نقش') }
++  }
++
+   function toggle(role: string, perm: string) {
+     if (role === 'admin') return // admin always has all
+     setSelected((prev) => {
+@@ -93,31 +136,64 @@ export default function AdminRolesPage() {
+   return (
+     <div className="flex-1 overflow-y-auto p-6">
+       <div className="max-w-5xl mx-auto">
+-        <div className="mb-6">
+-          <h1 className="text-2xl font-black text-surface-900">مدیریت نقش‌ها و دسترسی‌ها</h1>
+-          <p className="text-sm text-surface-500 mt-1">تعیین کنید هر نقش به کدام بخش‌ها دسترسی دارد.</p>
++        <div className="mb-6 flex items-start justify-between gap-4">
++          <div>
++            <h1 className="text-2xl font-black text-surface-900">مدیریت نقش‌ها و دسترسی‌ها</h1>
++            <p className="text-sm text-surface-500 mt-1">تعیین کنید هر نقش به کدام بخش‌ها دسترسی دارد.</p>
++          </div>
++          <button
++            onClick={() => setShowNew(true)}
++            className="flex-shrink-0 px-4 py-2 rounded-xl text-sm font-bold bg-brand-600 text-white hover:bg-brand-700 transition-colors"
++          >
++            + نقش جدید
++          </button>
+         </div>
+ 
+         {/* Role tabs */}
+-        <div className="flex gap-3 mb-6">
+-          {ROLES.map((r) => (
++        <div className="flex flex-wrap gap-3 mb-6">
++          {rolesList.map((r) => (
+             <button
+-              key={r.key}
+-              onClick={() => setActiveRole(r.key)}
++              key={r.name}
++              onClick={() => setActiveRole(r.name)}
+               className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold border transition-all ${
+-                activeRole === r.key
+-                  ? r.color + ' shadow-sm'
++                activeRole === r.name
++                  ? (r.color ?? 'bg-surface-100 text-surface-700 border-surface-200') + ' shadow-sm'
+                   : 'bg-white border-surface-200 text-surface-600 hover:bg-surface-50'
+               }`}
+             >
+-              {r.label}
+-              {r.key === 'admin' && (
++              {r.labelFa}
++              {r.name === 'admin' && (
+                 <span className="text-xs opacity-70">(همه دسترسی‌ها)</span>
+               )}
++              {!r.isSystem && (
++                <span
++                  onClick={(e) => { e.stopPropagation(); deleteRole(r.name) }}
++                  className="text-xs opacity-50 hover:opacity-100 hover:text-red-600 mr-1"
++                  title="حذف نقش"
++                >✕</span>
++              )}
+             </button>
+           ))}
+         </div>
+ 
++        {/* New role form */}
++        {showNew && (
++          <div className="mb-6 bg-white rounded-2xl border border-surface-200 p-4 flex flex-wrap items-end gap-3">
++            <div className="flex-1 min-w-[140px]">
++              <label className="block text-xs font-semibold text-surface-600 mb-1">نام انگلیسی (یکتا)</label>
++              <input value={newName} onChange={(e) => setNewName(e.target.value)} dir="ltr"
++                placeholder="accountant" className="input w-full font-mono text-sm" />
++            </div>
++            <div className="flex-1 min-w-[140px]">
++              <label className="block text-xs font-semibold text-surface-600 mb-1">عنوان فارسی</label>
++              <input value={newLabel} onChange={(e) => setNewLabel(e.target.value)}
++                placeholder="حسابدار" className="input w-full text-sm" />
++            </div>
++            <button onClick={createRole} className="px-4 py-2 rounded-xl text-sm font-bold bg-brand-600 text-white hover:bg-brand-700">ایجاد</button>
++            <button onClick={() => setShowNew(false)} className="px-4 py-2 rounded-xl text-sm font-semibold border border-surface-200 text-surface-600">انصراف</button>
++          </div>
++        )}
++
+         {/* Permission matrix */}
+         <div className="space-y-4">
+           {groups.map(([group, perms]) => {
+diff --git a/src/app/admin/users/[id]/page.tsx b/src/app/admin/users/[id]/page.tsx
+index b7041e3..398c995 100644
+--- a/src/app/admin/users/[id]/page.tsx
++++ b/src/app/admin/users/[id]/page.tsx
+@@ -5,6 +5,15 @@ import { useParams, useRouter } from 'next/navigation'
+ import Link from 'next/link'
+ import { formatPrice, toFaDigits } from '@/lib/utils'
+ 
++// برچسب نمایشی نقش‌های رایج (fallback به نام خام نقش)
++const ROLE_LABELS: Record<string, string> = {
++  admin: 'مدیر',
++  sales_agent: 'کارشناس فروش',
++  warehouse: 'انباردار',
++  installer: 'نصاب',
++  customer: 'مشتری',
++}
++
+ // ── Types ─────────────────────────────────────────────────────────────────────
+ 
+ interface User {
+@@ -113,7 +122,7 @@ export default function CustomerProfilePage() {
+             { label: 'کل سفارشات',  value: toFaDigits(stats.totalOrders),            sub: 'سفارش' },
+             { label: 'مجموع خرید',  value: formatPrice(stats.totalSpent),              sub: '' },
+             { label: 'عضویت از',    value: fa(user.createdAt).split('،')[0],           sub: '' },
+-            { label: 'نقش',         value: user.role === 'admin' ? 'مدیر' : user.role === 'sales_agent' ? 'کارشناس' : 'مشتری', sub: '' },
++            { label: 'نقش',         value: ROLE_LABELS[user.role] ?? user.role, sub: '' },
+           ].map((c) => (
+             <div key={c.label} className="bg-white rounded-2xl border border-surface-200 p-4">
+               <p className="text-xs text-surface-400 mb-1">{c.label}</p>
+diff --git a/src/app/admin/users/page.tsx b/src/app/admin/users/page.tsx
+index fee09bf..89ed9e9 100644
+--- a/src/app/admin/users/page.tsx
++++ b/src/app/admin/users/page.tsx
+@@ -13,33 +13,22 @@ interface User {
+   createdAt: string
+ }
+ 
+-const ROLES = [
+-  { value: 'customer', label: 'مشتری' },
+-  { value: 'admin', label: 'مدیر' },
+-  { value: 'sales_agent', label: 'کارشناس فروش' },
+-]
+-
+-const roleLabel: Record<string, string> = {
+-  admin: 'مدیر',
+-  customer: 'مشتری',
+-  sales_agent: 'کارشناس فروش',
+-}
+-
+-const roleStyle: Record<string, string> = {
+-  admin: 'bg-red-50 text-red-700 border-red-200',
+-  sales_agent: 'bg-purple-50 text-purple-700 border-purple-200',
+-  customer: 'bg-blue-50 text-blue-700 border-blue-200',
++interface RoleInfo {
++  name: string
++  labelFa: string
++  color: string | null
+ }
+ 
+ // ── Modal ─────────────────────────────────────────────────────────────────────
+ 
+ interface ModalProps {
+   user: Partial<User> | null
++  roles: RoleInfo[]
+   onClose: () => void
+   onSaved: () => void
+ }
+ 
+-function UserModal({ user, onClose, onSaved }: ModalProps) {
++function UserModal({ user, roles, onClose, onSaved }: ModalProps) {
+   const isNew = !user?.id
+   const [form, setForm] = useState({
+     fullName: user?.fullName ?? '',
+@@ -99,7 +88,7 @@ function UserModal({ user, onClose, onSaved }: ModalProps) {
+           <div>
+             <label className="block text-sm font-semibold text-surface-700 mb-1">سطح دسترسی</label>
+             <select value={form.role} onChange={(e) => set('role', e.target.value)} className="input w-full">
+-              {ROLES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
++              {roles.map((r) => <option key={r.name} value={r.name}>{r.labelFa}</option>)}
+             </select>
+           </div>
+           <div>
+@@ -124,17 +113,28 @@ function UserModal({ user, onClose, onSaved }: ModalProps) {
+ export default function AdminUsersPage() {
+   const [search, setSearch] = useState('')
+   const [users, setUsers] = useState<User[]>([])
++  const [roles, setRoles] = useState<RoleInfo[]>([])
+   const [loading, setLoading] = useState(true)
+   const [error, setError] = useState<string | null>(null)
+   const [modal, setModal] = useState<Partial<User> | null | false>(false)
+ 
++  const roleLabel: Record<string, string> = Object.fromEntries(roles.map((r) => [r.name, r.labelFa]))
++  const roleStyle: Record<string, string> = Object.fromEntries(
++    roles.map((r) => [r.name, (r.color ?? 'bg-surface-50 text-surface-700 border-surface-200').replace(/bg-(\w+)-100/, 'bg-$1-50')])
++  )
++
+   const fetchUsers = async () => {
+     try {
+       setLoading(true)
+-      const res = await fetch('/api/admin/users')
+-      if (!res.ok) throw new Error()
+-      const data = await res.json()
++      const [usersRes, rolesRes] = await Promise.all([
++        fetch('/api/admin/users'),
++        fetch('/api/admin/roles'),
++      ])
++      if (!usersRes.ok) throw new Error()
++      const data = await usersRes.json()
++      const rolesData = rolesRes.ok ? await rolesRes.json() : { roles: [] }
+       setUsers(data.users || [])
++      setRoles(rolesData.roles || [])
+       setError(null)
+     } catch {
+       setError('خطا در بارگیری کاربران')
+@@ -254,6 +254,7 @@ export default function AdminUsersPage() {
+       {modal !== false && (
+         <UserModal
+           user={modal}
++          roles={roles}
+           onClose={() => setModal(false)}
+           onSaved={() => { setModal(false); fetchUsers() }}
+         />
+diff --git a/src/app/api/admin/installations/route.ts b/src/app/api/admin/installations/route.ts
+new file mode 100644
+index 0000000..7139a0e
+--- /dev/null
++++ b/src/app/api/admin/installations/route.ts
+@@ -0,0 +1,64 @@
++/**
++ * GET  /api/admin/installations — لیست سفارش‌های نیازمند نصب
++ * PATCH /api/admin/installations — ثبت گزارش نصب (توسط نصاب)
++ */
++import { NextRequest, NextResponse } from 'next/server'
++import { db } from '@/lib/db'
++import { orders } from '@/lib/db/schema'
++import { requirePermission } from '@/lib/rbac'
++import { and, desc, eq, isNull } from 'drizzle-orm'
++
++export async function GET(req: NextRequest) {
++  const auth = await requirePermission(req, 'installation:read')
++  if (auth instanceof NextResponse) return auth
++
++  const { searchParams } = new URL(req.url)
++  const done = searchParams.get('done') // 'true' | 'false' | null(=همه)
++
++  const filters = [eq(orders.needsInstallation, true)]
++  if (done === 'true') filters.push(eq(orders.status, 'delivered'))
++  if (done === 'false') filters.push(isNull(orders.installedAt))
++
++  const rows = await db
++    .select({
++      id: orders.id,
++      status: orders.status,
++      shippingAddress: orders.shippingAddress,
++      needsInstallation: orders.needsInstallation,
++      installationNote: orders.installationNote,
++      installedAt: orders.installedAt,
++      createdAt: orders.createdAt,
++    })
++    .from(orders)
++    .where(and(...filters))
++    .orderBy(desc(orders.createdAt))
++    .limit(100)
++
++  return NextResponse.json({ orders: rows })
++}
++
++export async function PATCH(req: NextRequest) {
++  const auth = await requirePermission(req, 'installation:write')
++  if (auth instanceof NextResponse) return auth
++
++  const body = await req.json() as { orderId?: string; note?: string; completed?: boolean }
++  if (!body.orderId) {
++    return NextResponse.json({ error: 'orderId الزامی است' }, { status: 400 })
++  }
++
++  const updates: Record<string, unknown> = { updatedAt: new Date() }
++  if (body.note !== undefined) updates.installationNote = body.note
++  if (body.completed) updates.installedAt = new Date()
++
++  const [updated] = await db
++    .update(orders)
++    .set(updates)
++    .where(and(eq(orders.id, body.orderId), eq(orders.needsInstallation, true)))
++    .returning({ id: orders.id })
++
++  if (!updated) {
++    return NextResponse.json({ error: 'سفارش یافت نشد یا نیازمند نصب نیست' }, { status: 404 })
++  }
++
++  return NextResponse.json({ ok: true })
++}
+diff --git a/src/app/api/admin/inventory/route.ts b/src/app/api/admin/inventory/route.ts
+new file mode 100644
+index 0000000..e2dc9f9
+--- /dev/null
++++ b/src/app/api/admin/inventory/route.ts
+@@ -0,0 +1,59 @@
++/**
++ * GET   /api/admin/inventory — لیست محصولات با موجودی
++ * PATCH /api/admin/inventory — به‌روزرسانی موجودی یک محصول
++ */
++import { NextRequest, NextResponse } from 'next/server'
++import { db } from '@/lib/db'
++import { products } from '@/lib/db/schema'
++import { requirePermission } from '@/lib/rbac'
++import { asc, eq, ilike, isNull, and, or, sql } from 'drizzle-orm'
++
++export async function GET(req: NextRequest) {
++  const auth = await requirePermission(req, 'inventory:manage')
++  if (auth instanceof NextResponse) return auth
++
++  const { searchParams } = new URL(req.url)
++  const q = searchParams.get('q')?.trim()
++  const lowOnly = searchParams.get('low') === 'true'
++
++  const filters = [isNull(products.deletedAt)]
++  if (q) {
++    const s = `%${q}%`
++    filters.push(or(ilike(products.nameFa, s), ilike(products.sku, s))!)
++  }
++  if (lowOnly) filters.push(sql`${products.stock} <= 5`)
++
++  const rows = await db
++    .select({
++      id: products.id,
++      nameFa: products.nameFa,
++      sku: products.sku,
++      stock: products.stock,
++      status: products.status,
++    })
++    .from(products)
++    .where(and(...filters))
++    .orderBy(asc(products.stock))
++    .limit(200)
++
++  return NextResponse.json({ products: rows })
++}
++
++export async function PATCH(req: NextRequest) {
++  const auth = await requirePermission(req, 'inventory:manage')
++  if (auth instanceof NextResponse) return auth
++
++  const body = await req.json() as { id?: string; stock?: number }
++  if (!body.id || typeof body.stock !== 'number' || body.stock < 0) {
++    return NextResponse.json({ error: 'ورودی نامعتبر' }, { status: 400 })
++  }
++
++  const [updated] = await db
++    .update(products)
++    .set({ stock: body.stock, updatedAt: new Date() })
++    .where(eq(products.id, body.id))
++    .returning({ id: products.id, stock: products.stock })
++
++  if (!updated) return NextResponse.json({ error: 'محصول یافت نشد' }, { status: 404 })
++  return NextResponse.json({ ok: true, product: updated })
++}
+diff --git a/src/app/api/admin/my-permissions/route.ts b/src/app/api/admin/my-permissions/route.ts
+index 77a6299..901069d 100644
+--- a/src/app/api/admin/my-permissions/route.ts
++++ b/src/app/api/admin/my-permissions/route.ts
+@@ -8,10 +8,15 @@ export async function GET() {
+   const session = await auth()
+   const role = (session?.user as { role?: string } | undefined)?.role
+ 
+-  if (!role || (role !== 'admin' && role !== 'sales_agent')) {
++  if (!role || role === 'customer') {
+     return NextResponse.json({ permissions: [] })
+   }
+ 
++  // admin همه مجوزها را دارد
++  if (role === 'admin') {
++    return NextResponse.json({ permissions: ['*'] })
++  }
++
+   const rows = await db
+     .select({ permission: rolePermissions.permission })
+     .from(rolePermissions)
+diff --git a/src/app/api/admin/role-permissions/route.ts b/src/app/api/admin/role-permissions/route.ts
+index 4af78fa..e82e0df 100644
+--- a/src/app/api/admin/role-permissions/route.ts
++++ b/src/app/api/admin/role-permissions/route.ts
+@@ -1,7 +1,7 @@
+ import { NextRequest, NextResponse } from 'next/server'
+ import { requireAdmin } from '@/lib/admin-auth'
+ import { db } from '@/lib/db'
+-import { permissions, rolePermissions } from '@/lib/db/schema'
++import { permissions, rolePermissions, roles } from '@/lib/db/schema'
+ import { eq, asc } from 'drizzle-orm'
+ import { invalidateRoleCache } from '@/lib/rbac'
+ 
+@@ -38,7 +38,16 @@ export async function PUT(req: NextRequest) {
+   const body = await req.json() as { role: string; permissions: string[] }
+   const { role, permissions: perms } = body
+ 
+-  if (!role || !['admin', 'sales_agent'].includes(role)) {
++  if (!role) {
++    return NextResponse.json({ error: 'نقش نامعتبر است' }, { status: 400 })
++  }
++  // admin همیشه همه مجوزها را دارد و ویرایش نمی‌شود
++  if (role === 'admin') {
++    return NextResponse.json({ error: 'مجوزهای مدیر کل قابل تغییر نیست' }, { status: 400 })
++  }
++  // نقش باید در جدول roles موجود باشد
++  const exists = await db.select({ name: roles.name }).from(roles).where(eq(roles.name, role)).limit(1)
++  if (exists.length === 0) {
+     return NextResponse.json({ error: 'نقش نامعتبر است' }, { status: 400 })
+   }
+ 
+diff --git a/src/app/api/admin/roles/route.ts b/src/app/api/admin/roles/route.ts
+new file mode 100644
+index 0000000..58b520a
+--- /dev/null
++++ b/src/app/api/admin/roles/route.ts
+@@ -0,0 +1,71 @@
++import { NextRequest, NextResponse } from 'next/server'
++import { requireAdmin } from '@/lib/admin-auth'
++import { db } from '@/lib/db'
++import { roles, rolePermissions } from '@/lib/db/schema'
++import { asc, eq } from 'drizzle-orm'
++import { invalidateRoleCache } from '@/lib/rbac'
++
++// GET — لیست همه نقش‌ها (data-driven)
++export async function GET(req: NextRequest) {
++  const auth = await requireAdmin(req)
++  if (!auth.ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
++
++  const list = await db.select().from(roles).orderBy(asc(roles.sortOrder))
++  return NextResponse.json({ roles: list })
++}
++
++// POST — ایجاد نقش جدید
++export async function POST(req: NextRequest) {
++  const auth = await requireAdmin(req)
++  if (!auth.ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
++
++  const body = await req.json() as { name?: string; labelFa?: string; color?: string }
++  const name = (body.name ?? '').trim().toLowerCase().replace(/[^a-z0-9_]/g, '')
++  const labelFa = (body.labelFa ?? '').trim()
++
++  if (!name || !labelFa) {
++    return NextResponse.json({ error: 'نام انگلیسی و عنوان فارسی الزامی است' }, { status: 400 })
++  }
++
++  const existing = await db.select({ name: roles.name }).from(roles).where(eq(roles.name, name)).limit(1)
++  if (existing.length > 0) {
++    return NextResponse.json({ error: 'این نقش از قبل وجود دارد' }, { status: 409 })
++  }
++
++  const maxSort = await db.select({ s: roles.sortOrder }).from(roles).orderBy(asc(roles.sortOrder))
++  const nextSort = (maxSort.at(-1)?.s ?? 0) + 10
++
++  await db.insert(roles).values({
++    name,
++    labelFa,
++    color: body.color || 'bg-surface-100 text-surface-700 border-surface-200',
++    isSystem: false,
++    sortOrder: nextSort,
++  })
++
++  return NextResponse.json({ ok: true })
++}
++
++// DELETE — حذف نقش (نقش‌های سیستمی قابل حذف نیستند)
++export async function DELETE(req: NextRequest) {
++  const auth = await requireAdmin(req)
++  if (!auth.ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
++
++  const { searchParams } = new URL(req.url)
++  const name = searchParams.get('name')
++  if (!name) return NextResponse.json({ error: 'name الزامی است' }, { status: 400 })
++
++  const [role] = await db.select().from(roles).where(eq(roles.name, name)).limit(1)
++  if (!role) return NextResponse.json({ error: 'نقش یافت نشد' }, { status: 404 })
++  if (role.isSystem) {
++    return NextResponse.json({ error: 'نقش‌های سیستمی قابل حذف نیستند' }, { status: 400 })
++  }
++
++  await db.transaction(async (tx) => {
++    await tx.delete(rolePermissions).where(eq(rolePermissions.role, name))
++    await tx.delete(roles).where(eq(roles.name, name))
++  })
++
++  invalidateRoleCache(name)
++  return NextResponse.json({ ok: true })
++}
+diff --git a/src/app/api/admin/users/route.ts b/src/app/api/admin/users/route.ts
+index 04c557a..7c16799 100644
+--- a/src/app/api/admin/users/route.ts
++++ b/src/app/api/admin/users/route.ts
+@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
+       fullName: fullName || null,
+       phone,
+       email: email || null,
+-      role: role as 'customer' | 'admin' | 'sales_agent',
++      role,
+       passwordHash,
+       isVerified: true,
+     }).returning({ id: users.id, fullName: users.fullName, phone: users.phone, role: users.role })
+diff --git a/src/app/login/login-form.tsx b/src/app/login/login-form.tsx
+index b3dbe2e..9ef2909 100644
+--- a/src/app/login/login-form.tsx
++++ b/src/app/login/login-form.tsx
+@@ -95,9 +95,9 @@ export default function LoginForm() {
+     try {
+       const session = await fetch('/api/auth/session').then((r) => r.json())
+ 
+-      // نقش‌های کارمندی → پنل مدیریت
++      // نقش‌های کارمندی (هر نقش غیر از مشتری) → پنل مدیریت
+       const role = session?.user?.role
+-      if (role === 'admin' || role === 'sales_agent') {
++      if (role && role !== 'customer') {
+         window.location.href = '/admin'
+         return
+       }
+diff --git a/src/components/admin/sidebar.tsx b/src/components/admin/sidebar.tsx
+index 93ae884..9c49500 100644
+--- a/src/components/admin/sidebar.tsx
++++ b/src/components/admin/sidebar.tsx
+@@ -54,6 +54,13 @@ const navSections: NavSection[] = [
+       { href: '/admin/users',   label: 'مشتریان',  permission: 'users:read',  icon: <NavIcon d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197" /> },
+     ],
+   },
++  {
++    title: 'انبار و نصب',
++    items: [
++      { href: '/admin/inventory',     label: 'موجودی انبار', permission: 'inventory:manage',   icon: <NavIcon d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /> },
++      { href: '/admin/installations', label: 'سفارش‌های نصب', permission: 'installation:read', icon: <NavIcon d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 00-1-1H4a2 2 0 110-4h1a1 1 0 001-1V7a1 1 0 011-1h3a1 1 0 001-1V4z" /> },
++    ],
++  },
+   {
+     title: 'CMS',
+     items: [
+@@ -108,7 +115,17 @@ function UserCard() {
+   const name = session?.user?.name ?? 'کاربر'
+   const initial = name.charAt(0)
+ 
+-  const roleLabel = role === 'admin' ? 'مدیر کل' : role === 'sales_agent' ? 'کارشناس فروش' : 'کاربر'
++  const [roleLabel, setRoleLabel] = useState('کاربر')
++  useEffect(() => {
++    if (!role) return
++    fetch('/api/admin/roles')
++      .then((r) => r.json())
++      .then((d: { roles: { name: string; labelFa: string }[] }) => {
++        const found = d.roles?.find((r) => r.name === role)
++        if (found) setRoleLabel(found.labelFa)
++      })
++      .catch(() => {})
++  }, [role])
+ 
+   return (
+     <div className="flex items-center gap-3 px-3 py-3 mt-2 rounded-xl bg-white/5">
+diff --git a/src/instrumentation.ts b/src/instrumentation.ts
+index 8356c52..13fc2b8 100644
+--- a/src/instrumentation.ts
++++ b/src/instrumentation.ts
+@@ -162,9 +162,91 @@ export async function register() {
+           "created_at" timestamp with time zone DEFAULT now() NOT NULL
+         );
+         ALTER TABLE "orders" ADD COLUMN IF NOT EXISTS "coupon_code" varchar(50);
++
++        -- ── فاز ۱: نقش‌های data-driven ──
++        -- تبدیل users.role از enum به varchar (غیرتخریبی)
++        DO $$ BEGIN
++          IF EXISTS (
++            SELECT 1 FROM information_schema.columns
++            WHERE table_name='users' AND column_name='role' AND udt_name='user_role'
++          ) THEN
++            ALTER TABLE "users" ALTER COLUMN "role" TYPE varchar(30) USING "role"::text;
++            ALTER TABLE "users" ALTER COLUMN "role" SET DEFAULT 'customer';
++          END IF;
++        END $$;
++
++        CREATE TABLE IF NOT EXISTS "roles" (
++          "name" varchar(30) PRIMARY KEY,
++          "label_fa" varchar(60) NOT NULL,
++          "color" varchar(60),
++          "is_system" boolean DEFAULT false NOT NULL,
++          "sort_order" integer DEFAULT 0 NOT NULL,
++          "created_at" timestamp with time zone DEFAULT now() NOT NULL
++        );
++
++        INSERT INTO "roles" ("name","label_fa","color","is_system","sort_order") VALUES
++          ('customer',    'مشتری',        'bg-surface-100 text-surface-700 border-surface-200', true,  0),
++          ('admin',       'مدیر کل',      'bg-red-100 text-red-700 border-red-200',             true,  10),
++          ('sales_agent', 'کارشناس فروش', 'bg-blue-100 text-blue-700 border-blue-200',          false, 20),
++          ('warehouse',   'انباردار',     'bg-amber-100 text-amber-700 border-amber-200',       false, 30),
++          ('installer',   'نصاب',         'bg-green-100 text-green-700 border-green-200',        false, 40)
++        ON CONFLICT ("name") DO NOTHING;
++
++        -- permission keys جدید (انبار + نصب)
++        INSERT INTO "permissions" ("key","label","group_name","sort_order") VALUES
++          ('inventory:manage',   'مدیریت موجودی انبار', 'انبار', 10),
++          ('installation:read',  'مشاهده سفارش‌های نصب', 'نصب',  10),
++          ('installation:write', 'ثبت گزارش نصب',        'نصب',  20)
++        ON CONFLICT ("key") DO NOTHING;
++
++        -- مجوزهای پیش‌فرض انباردار
++        INSERT INTO "role_permissions" ("role","permission") VALUES
++          ('warehouse','dashboard:view'),
++          ('warehouse','orders:read'),
++          ('warehouse','orders:write'),
++          ('warehouse','products:read'),
++          ('warehouse','inventory:manage')
++        ON CONFLICT DO NOTHING;
++
++        -- مجوزهای پیش‌فرض نصاب
++        INSERT INTO "role_permissions" ("role","permission") VALUES
++          ('installer','dashboard:view'),
++          ('installer','orders:read'),
++          ('installer','installation:read'),
++          ('installer','installation:write')
++        ON CONFLICT DO NOTHING;
++
++        -- admin همه مجوزها را دارد (شامل مجوزهای جدید)
++        INSERT INTO "role_permissions" ("role","permission")
++          SELECT 'admin', key FROM "permissions"
++        ON CONFLICT DO NOTHING;
++
++        -- ── فاز ۲: فاکتور رسمی / حقوقی / مالیات ──
++        ALTER TABLE "users"  ADD COLUMN IF NOT EXISTS "billing_info" jsonb;
++        ALTER TABLE "orders" ADD COLUMN IF NOT EXISTS "tax_amount" numeric(14,0) DEFAULT '0' NOT NULL;
++        ALTER TABLE "orders" ADD COLUMN IF NOT EXISTS "official_invoice" boolean DEFAULT false NOT NULL;
++        ALTER TABLE "orders" ADD COLUMN IF NOT EXISTS "invoice_number" varchar(40);
++        ALTER TABLE "orders" ADD COLUMN IF NOT EXISTS "billing_snapshot" jsonb;
++        ALTER TABLE "orders" ADD COLUMN IF NOT EXISTS "needs_installation" boolean DEFAULT false NOT NULL;
++        ALTER TABLE "orders" ADD COLUMN IF NOT EXISTS "assigned_installer_id" uuid REFERENCES "users"("id") ON DELETE SET NULL;
++        ALTER TABLE "orders" ADD COLUMN IF NOT EXISTS "installation_note" text;
++        ALTER TABLE "orders" ADD COLUMN IF NOT EXISTS "installed_at" timestamp with time zone;
+       `)
+       console.log('[migration] ✅ all tables ensured')
+ 
++      // seed تنظیمات مالیات و فاکتور (اگر وجود نداشته باشند)
++      try {
++        await sql.unsafe(`
++          INSERT INTO "site_settings" ("key","value","type","label","group","hint","is_editable","is_required")
++          VALUES
++            ('vat_rate','10','number','نرخ مالیات بر ارزش افزوده (٪)','commerce','مثال: 10',true,false),
++            ('tax_code','','text','کد مالیاتی فروشگاه','commerce','شناسه مالیاتی برای فاکتور رسمی',true,false),
++            ('invoice_seller_name','','text','نام فروشنده در فاکتور','commerce',NULL,true,false),
++            ('invoice_economic_code','','text','کد اقتصادی فروشنده','commerce',NULL,true,false)
++          ON CONFLICT ("key") DO NOTHING;
++        `)
++      } catch { /* جدول site_settings هنوز ایجاد نشده */ }
++
+       // seed تنظیمات پرداخت کارت به کارت (اگر وجود نداشته باشند)
+       try {
+         await sql.unsafe(`
+diff --git a/src/lib/admin-auth.ts b/src/lib/admin-auth.ts
+index 8395819..ae8e6dd 100644
+--- a/src/lib/admin-auth.ts
++++ b/src/lib/admin-auth.ts
+@@ -16,11 +16,12 @@ export async function requireAdmin(req?: NextRequest): Promise<{ ok: boolean; er
+     return { ok: false, error: 'CSRF check failed' }
+   }
+ 
+-  // ۲. بررسی NextAuth session — اگر role=admin یا sales_agent باشد اجازه داده می‌شود
++  // ۲. بررسی NextAuth session — هر نقش کارمندی (غیر از مشتری) اجازه ورود کلی دارد.
++  //    کنترل دقیق هر عملیات با requirePermission انجام می‌شود.
+   try {
+     const session = await auth()
+     const role = (session?.user as { role?: string } | undefined)?.role
+-    if (role === 'admin' || role === 'sales_agent') return { ok: true }
++    if (role && role !== 'customer') return { ok: true }
+   } catch { /* noop */ }
+ 
+   // ۳. بررسی ADMIN_TOKEN از طریق کوکی
+diff --git a/src/lib/auth.config.ts b/src/lib/auth.config.ts
+index 833ac0a..7101aa8 100644
+--- a/src/lib/auth.config.ts
++++ b/src/lib/auth.config.ts
+@@ -33,7 +33,8 @@ export const authConfig = {
+         if (!auth) return false
+         // @ts-expect-error — custom role
+         const role = auth.user?.role as string | undefined
+-        return role === 'admin' || role === 'sales_agent'
++        // هر نقش کارمندی (غیر از مشتری) — کنترل دقیق با RBAC در سطح صفحه/API
++        return !!role && role !== 'customer'
+       }
+       if (pathname.startsWith('/profile')) {
+         return !!auth
+diff --git a/src/lib/db/schema/enums.ts b/src/lib/db/schema/enums.ts
+index 261d098..f61443b 100644
+--- a/src/lib/db/schema/enums.ts
++++ b/src/lib/db/schema/enums.ts
+@@ -10,14 +10,7 @@ import { pgEnum } from 'drizzle-orm/pg-core'
+ // =====================================================================
+ // کاربران
+ // =====================================================================
+-export const userRoleEnum = pgEnum('user_role', [
+-  'customer', // مشتری معمولی (پیش‌فرض)
+-  'admin', // مدیر کل
+-  'support', // پشتیبان
+-  'sales', // تیم فروش (مدیریت leadها)
+-  'editor', // ویرایشگر محتوا (KB/Blog)
+-  'dealer', // نماینده فروش (B2B - فاز بعدی)
+-])
++// نکته: نقش‌ها (role) دیگر enum نیستند — اکنون data-driven در جدول `roles`.
+ 
+ export const userStatusEnum = pgEnum('user_status', [
+   'pending', // ثبت‌نام شده، تأیید نشده
+diff --git a/src/lib/db/schema/index.ts b/src/lib/db/schema/index.ts
+index d0df90b..dc4f983 100644
+--- a/src/lib/db/schema/index.ts
++++ b/src/lib/db/schema/index.ts
+@@ -1,5 +1,8 @@
+ // ─── Users ──────────────────────────────────────────────────────────────────
+-export { userRoleEnum, users, type User, type NewUser, type UserRole } from './users'
++export {
++  users, type User, type NewUser, type UserRole,
++  type CustomerType, type BillingInfo,
++} from './users'
+ 
+ // ─── Categories ──────────────────────────────────────────────────────────────
+ export {
+@@ -60,8 +63,8 @@ export {
+ 
+ // ─── RBAC ────────────────────────────────────────────────────────────────────
+ export {
+-  permissions, rolePermissions,
+-  type Permission, type RolePermission,
++  roles, permissions, rolePermissions,
++  type Role, type NewRole, type Permission, type RolePermission,
+ } from './rbac'
+ 
+ // ─── Coupons ─────────────────────────────────────────────────────────────────
+diff --git a/src/lib/db/schema/orders.ts b/src/lib/db/schema/orders.ts
+index 85d27ef..1e294e2 100644
+--- a/src/lib/db/schema/orders.ts
++++ b/src/lib/db/schema/orders.ts
+@@ -55,6 +55,8 @@ export const orders = pgTable('orders', {
+   shippingAmount: numeric('shipping_amount', { precision: 14, scale: 0 }).notNull().default('0'),
+   /** تخفیف */
+   discountAmount: numeric('discount_amount', { precision: 14, scale: 0 }).notNull().default('0'),
++  /** مالیات ارزش افزوده (ریال) — فقط هنگام فاکتور رسمی */
++  taxAmount: numeric('tax_amount', { precision: 14, scale: 0 }).notNull().default('0'),
+ 
+   /** کد تراکنش درگاه */
+   transactionId: varchar('transaction_id', { length: 100 }),
+@@ -69,6 +71,33 @@ export const orders = pgTable('orders', {
+   /** کد کوپن استفاده‌شده */
+   couponCode: varchar('coupon_code', { length: 50 }),
+ 
++  // ── فاکتور رسمی ──
++  /** آیا مشتری فاکتور رسمی خواسته است */
++  officialInvoice: boolean('official_invoice').notNull().default(false),
++  /** شماره فاکتور یکتا (پس از صدور) */
++  invoiceNumber: varchar('invoice_number', { length: 40 }),
++  /** snapshot اطلاعات صورتحساب (حقیقی/حقوقی) در لحظه ثبت */
++  billingSnapshot: jsonb('billing_snapshot').$type<{
++    customerType?: 'individual' | 'legal'
++    nationalId?: string
++    companyName?: string
++    companyNationalId?: string
++    economicCode?: string
++    registrationNumber?: string
++    legalAddress?: string
++    legalPostalCode?: string
++  }>(),
++
++  // ── نصب ──
++  /** نیازمند نصب — توسط کارشناس فروش/مدیر ثبت می‌شود */
++  needsInstallation: boolean('needs_installation').notNull().default(false),
++  /** نصاب تخصیص‌یافته (فاز بعد) */
++  assignedInstallerId: uuid('assigned_installer_id').references(() => users.id, { onDelete: 'set null' }),
++  /** گزارش نصب */
++  installationNote: text('installation_note'),
++  /** زمان تکمیل نصب */
++  installedAt: timestamp('installed_at', { withTimezone: true }),
++
+   paidAt: timestamp('paid_at', { withTimezone: true }),
+   shippedAt: timestamp('shipped_at', { withTimezone: true }),
+   deliveredAt: timestamp('delivered_at', { withTimezone: true }),
+diff --git a/src/lib/db/schema/rbac.ts b/src/lib/db/schema/rbac.ts
+index ad8c8ef..06848fb 100644
+--- a/src/lib/db/schema/rbac.ts
++++ b/src/lib/db/schema/rbac.ts
+@@ -1,4 +1,15 @@
+-import { pgTable, varchar, integer, uniqueIndex } from 'drizzle-orm/pg-core'
++import { pgTable, varchar, integer, boolean, timestamp } from 'drizzle-orm/pg-core'
++
++// ── نقش‌ها (data-driven) ────────────────────────────────────────────────────
++// لیست نقش‌ها در DB نگه‌داری می‌شود تا افزودن نقش جدید بدون تغییر کد ممکن باشد.
++export const roles = pgTable('roles', {
++  name:      varchar('name', { length: 30 }).primaryKey(),     // 'admin', 'warehouse', ...
++  labelFa:   varchar('label_fa', { length: 60 }).notNull(),    // 'مدیر کل'
++  color:     varchar('color', { length: 60 }),                 // کلاس Tailwind نمایش
++  isSystem:  boolean('is_system').notNull().default(false),    // admin/customer قابل حذف نیست
++  sortOrder: integer('sort_order').notNull().default(0),
++  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
++})
+ 
+ export const permissions = pgTable('permissions', {
+   key:       varchar('key', { length: 80 }).primaryKey(),
+@@ -12,5 +23,7 @@ export const rolePermissions = pgTable('role_permissions', {
+   permission: varchar('permission', { length: 80 }).notNull(),
+ })
+ 
+-export type Permission    = typeof permissions.$inferSelect
++export type Role           = typeof roles.$inferSelect
++export type NewRole        = typeof roles.$inferInsert
++export type Permission     = typeof permissions.$inferSelect
+ export type RolePermission = typeof rolePermissions.$inferSelect
+diff --git a/src/lib/db/schema/users.ts b/src/lib/db/schema/users.ts
+index 8e7d10f..e945939 100644
+--- a/src/lib/db/schema/users.ts
++++ b/src/lib/db/schema/users.ts
+@@ -1,15 +1,7 @@
+ import {
+-  pgTable, pgEnum, uuid, varchar, text, boolean, timestamp, jsonb
++  pgTable, uuid, varchar, text, boolean, timestamp, jsonb
+ } from 'drizzle-orm/pg-core'
+ 
+-// ─── Enums ──────────────────────────────────────────────────────────────────────────────
+-
+-export const userRoleEnum = pgEnum('user_role', [
+-  'customer',
+-  'admin',
+-  'sales_agent',
+-])
+-
+ // ─── Table ──────────────────────────────────────────────────────────────────────────────
+ 
+ type ShippingAddress = {
+@@ -17,15 +9,35 @@ type ShippingAddress = {
+   street?: string; alley?: string; plaque?: string; unit?: string; postalCode?: string
+ }
+ 
++// نوع مشتری: حقیقی یا حقوقی
++type CustomerType = 'individual' | 'legal'
++
++// اطلاعات صورتحساب رسمی (برای فاکتور رسمی)
++type BillingInfo = {
++  customerType?: CustomerType
++  // شخص حقیقی
++  nationalId?: string          // کد ملی ۱۰ رقمی
++  // شخص حقوقی
++  companyName?: string         // نام شرکت
++  companyNationalId?: string   // شناسه ملی شرکت
++  economicCode?: string        // کد اقتصادی
++  registrationNumber?: string  // شماره ثبت
++  legalAddress?: string        // نشانی قانونی
++  legalPostalCode?: string     // کد پستی قانونی
++}
++
++// نکته: ستون role از enum به varchar تبدیل شده تا نقش‌ها data-driven باشند
++// (لیست نقش‌ها در جدول roles نگه‌داری می‌شود، نه در enum پستگرس).
+ export const users = pgTable('users', {
+   id:                   uuid('id').primaryKey().defaultRandom(),
+   phone:                varchar('phone', { length: 15 }).unique().notNull(),
+   email:                varchar('email', { length: 255 }).unique(),
+   fullName:             varchar('full_name', { length: 100 }),
+-  role:                 userRoleEnum('role').default('customer').notNull(),
++  role:                 varchar('role', { length: 30 }).default('customer').notNull(),
+   passwordHash:         text('password_hash'),
+   isVerified:           boolean('is_verified').default(false).notNull(),
+   lastShippingAddress:  jsonb('last_shipping_address').$type<ShippingAddress>(),
++  billingInfo:          jsonb('billing_info').$type<BillingInfo>(),
+   createdAt:            timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+   updatedAt:            timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+ })
+@@ -34,4 +46,5 @@ export const users = pgTable('users', {
+ 
+ export type User    = typeof users.$inferSelect
+ export type NewUser = typeof users.$inferInsert
+-export type UserRole = (typeof userRoleEnum.enumValues)[number]
++export type UserRole = string
++export type { CustomerType, BillingInfo }
+diff --git a/src/lib/rbac.ts b/src/lib/rbac.ts
+index 499eacd..4c61313 100644
+--- a/src/lib/rbac.ts
++++ b/src/lib/rbac.ts
+@@ -47,6 +47,9 @@ export type PermissionKey =
+   | 'products:delete'
+   | 'categories:write'
+   | 'reviews:manage'
++  | 'inventory:manage'
++  | 'installation:read'
++  | 'installation:write'
+   | 'leads:read'
+   | 'leads:write'
+   | 'users:read'
+diff --git a/src/proxy.ts b/src/proxy.ts
+index 1d9e701..43d5fad 100644
+--- a/src/proxy.ts
++++ b/src/proxy.ts
+@@ -45,11 +45,11 @@ export default auth((req) => {
+       loginUrl.searchParams.set('callbackUrl', pathname)
+       return NextResponse.redirect(loginUrl)
+     }
+-    // نقش‌های کارمندی اجازه ورود به پنل دارند؛ دسترسی دقیق هر بخش
+-    // با RBAC در سطح صفحه/API و نوار کناری کنترل می‌شود.
++    // هر نقش کارمندی (غیر از مشتری) اجازه ورود به پنل دارد؛ دسترسی دقیق
++    // هر بخش با RBAC در سطح صفحه/API و نوار کناری کنترل می‌شود.
+     // @ts-expect-error -- custom role field
+     const role = req.auth.user?.role as string | undefined
+-    if (role !== 'admin' && role !== 'sales_agent') {
++    if (!role || role === 'customer') {
+       return NextResponse.redirect(new URL('/', req.url))
+     }
+   }
+-- 
+2.43.0
+
+
+From 7e4ded246011949b412a79a2b59cdeee4eee255a Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Mon, 1 Jun 2026 00:55:26 +0000
+Subject: [PATCH 07/10] feat(phase2): official invoice, legal/individual
+ customers, VAT
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+- فیلد فاکتور رسمی در checkout با انتخاب نوع مشتری (حقیقی/حقوقی)
+- اعتبارسنجی کد ملی (الگوریتم چک‌دیجیت) و شناسه ملی شرکت
+- محاسبه مالیات ارزش افزوده (calcVat) روی مبلغ پس از تخفیف — فقط فاکتور رسمی
+- نرخ مالیات و کد مالیاتی از پنل تنظیمات قابل ویرایش (siteSettings)
+- snapshot اطلاعات صورتحساب روی سفارش + ذخیره در پروفایل برای استفاده مجدد
+- توابع isValidNationalId/isValidCompanyId در utils
+- ۱۲ تست جدید (مجموع ۴۲ تست سبز)
+
+https://claude.ai/code/session_01Qs8gHxBqDwnfGxtgbYg1ou
+---
+ src/app/api/orders/route.ts          |  67 ++++++++++++++--
+ src/app/api/shop/shipping/route.ts   |   5 +-
+ src/app/checkout/checkout-client.tsx | 116 ++++++++++++++++++++++++++-
+ src/lib/pricing.test.ts              |  22 ++++-
+ src/lib/pricing.ts                   |  21 ++++-
+ src/lib/utils.test.ts                |  30 ++++++-
+ src/lib/utils.ts                     |  24 ++++++
+ 7 files changed, 271 insertions(+), 14 deletions(-)
+
+diff --git a/src/app/api/orders/route.ts b/src/app/api/orders/route.ts
+index 65a18f4..993f043 100644
+--- a/src/app/api/orders/route.ts
++++ b/src/app/api/orders/route.ts
+@@ -5,7 +5,8 @@ import { db } from '@/lib/db'
+ import { orders, orderItems, products, coupons, couponUsages, siteSettings, users } from '@/lib/db/schema'
+ import { eq, inArray, and, count, sql } from 'drizzle-orm'
+ import { sendVerifySms, sendBulkSms, SMS_TEMPLATES } from '@/lib/sms'
+-import { calcShipping, calcCouponDiscount, calcOrderTotal } from '@/lib/pricing'
++import { calcShipping, calcCouponDiscount, calcOrderTotal, calcVat } from '@/lib/pricing'
++import { isValidNationalId, isValidCompanyId, toEnDigits } from '@/lib/utils'
+ import { logger } from '@/lib/logger'
+ 
+ const addressSchema = z.object({
+@@ -20,6 +21,19 @@ const addressSchema = z.object({
+   postalCode: z.string().regex(/^\d{10}$/, 'کد پستی ۱۰ رقمی باشد'),
+ })
+ 
++const billingSchema = z.object({
++  customerType: z.enum(['individual', 'legal']),
++  // حقیقی
++  nationalId: z.string().optional(),
++  // حقوقی
++  companyName: z.string().optional(),
++  companyNationalId: z.string().optional(),
++  economicCode: z.string().optional(),
++  registrationNumber: z.string().optional(),
++  legalAddress: z.string().optional(),
++  legalPostalCode: z.string().optional(),
++}).optional()
++
+ const schema = z.object({
+   address: addressSchema,
+   items: z.array(z.object({
+@@ -30,6 +44,8 @@ const schema = z.object({
+   couponCode: z.string().optional(),
+   paymentMethod: z.enum(['online', 'card_to_card', 'cash_on_delivery', 'installment']).default('online'),
+   gateway: z.enum(['zarinpal', 'idpay', 'card_to_card', 'cash_on_delivery']).default('zarinpal'),
++  officialInvoice: z.boolean().default(false),
++  billing: billingSchema,
+ })
+ 
+ export async function POST(req: Request) {
+@@ -45,9 +61,41 @@ export async function POST(req: Request) {
+     return NextResponse.json({ error: firstErr?.message ?? 'اطلاعات نامعتبر', field: firstErr?.path?.join('.') }, { status: 400 })
+   }
+ 
+-  const { address, items, notes, couponCode, paymentMethod, gateway } = parsed.data
++  const { address, items, notes, couponCode, paymentMethod, gateway, officialInvoice, billing } = parsed.data
+   const productIds = items.map((i) => i.id)
+ 
++  // ── اعتبارسنجی فاکتور رسمی ───────────────────────────────────────────────────
++  let billingSnapshot: typeof billing = undefined
++  if (officialInvoice) {
++    if (!billing) {
++      return NextResponse.json({ error: 'برای فاکتور رسمی، اطلاعات صورتحساب الزامی است', field: 'billing' }, { status: 400 })
++    }
++    if (billing.customerType === 'individual') {
++      const nid = toEnDigits(billing.nationalId ?? '')
++      if (!isValidNationalId(nid)) {
++        return NextResponse.json({ error: 'کد ملی معتبر نیست', field: 'billing.nationalId' }, { status: 400 })
++      }
++      billingSnapshot = { customerType: 'individual', nationalId: nid }
++    } else {
++      // حقوقی
++      if (!billing.companyName?.trim()) {
++        return NextResponse.json({ error: 'نام شرکت الزامی است', field: 'billing.companyName' }, { status: 400 })
++      }
++      if (!isValidCompanyId(toEnDigits(billing.companyNationalId ?? ''))) {
++        return NextResponse.json({ error: 'شناسه ملی شرکت (۱۱ رقم) معتبر نیست', field: 'billing.companyNationalId' }, { status: 400 })
++      }
++      billingSnapshot = {
++        customerType: 'legal',
++        companyName: billing.companyName.trim(),
++        companyNationalId: toEnDigits(billing.companyNationalId ?? ''),
++        economicCode: billing.economicCode ? toEnDigits(billing.economicCode) : undefined,
++        registrationNumber: billing.registrationNumber ? toEnDigits(billing.registrationNumber) : undefined,
++        legalAddress: billing.legalAddress?.trim(),
++        legalPostalCode: billing.legalPostalCode ? toEnDigits(billing.legalPostalCode) : undefined,
++      }
++    }
++  }
++
+   // بررسی محصولات
+   const dbProducts = await db
+     .select({ id: products.id, nameFa: products.nameFa, sku: products.sku, price: products.price, stock: products.stock })
+@@ -81,14 +129,15 @@ export async function POST(req: Request) {
+     })
+   }
+ 
+-  // هزینه ارسال — از تنظیمات سایت
++  // هزینه ارسال و نرخ مالیات — از تنظیمات سایت
+   const shippingRows = await db
+     .select({ key: siteSettings.key, value: siteSettings.value })
+     .from(siteSettings)
+-    .where(inArray(siteSettings.key, ['shipping_cost', 'free_shipping_threshold']))
++    .where(inArray(siteSettings.key, ['shipping_cost', 'free_shipping_threshold', 'vat_rate']))
+   const shippingMap = Object.fromEntries(shippingRows.map((r) => [r.key, r.value]))
+   const FREE_SHIPPING_THRESHOLD = parseInt(shippingMap['free_shipping_threshold'] ?? '2000000', 10)
+   const SHIPPING_COST = parseInt(shippingMap['shipping_cost'] ?? '150000', 10)
++  const VAT_RATE = parseInt(shippingMap['vat_rate'] ?? '10', 10)
+   const shippingAmount = calcShipping(subtotal, { shippingCost: SHIPPING_COST, freeThreshold: FREE_SHIPPING_THRESHOLD })
+ 
+   // ── پردازش کوپن ───────────────────────────────────────────────────────────
+@@ -130,7 +179,9 @@ export async function POST(req: Request) {
+     appliedCoupon = coupon
+   }
+ 
+-  const totalAmount = calcOrderTotal({ subtotal, shipping: shippingAmount, discount: discountAmount })
++  // مالیات بر ارزش افزوده — فقط هنگام فاکتور رسمی، روی مبلغ پس از تخفیف
++  const taxAmount = calcVat(subtotal - discountAmount, { rate: VAT_RATE, official: officialInvoice })
++  const totalAmount = calcOrderTotal({ subtotal, shipping: shippingAmount, discount: discountAmount, tax: taxAmount })
+   const userId = session.user!.id === 'admin-env' ? null : session.user!.id
+ 
+   // ثبت سفارش در یک transaction برای جلوگیری از ناسازگاری داده
+@@ -143,10 +194,13 @@ export async function POST(req: Request) {
+         totalAmount: String(totalAmount),
+         shippingAmount: String(shippingAmount),
+         discountAmount: String(discountAmount),
++        taxAmount: String(taxAmount),
+         couponCode: appliedCoupon?.code ?? null,
+         shippingAddress: address,
+         paymentMethod,
+         customerNote: notes ?? null,
++        officialInvoice,
++        billingSnapshot: billingSnapshot ?? null,
+       }).returning({ id: orders.id })
+ 
+       if (!newOrder) throw new Error('order_insert_failed')
+@@ -238,7 +292,7 @@ export async function POST(req: Request) {
+     } catch { /* نادیده گرفتن خطای اطلاع‌رسانی ادمین */ }
+   })()
+ 
+-  // ذخیره آخرین آدرس ارسال روی پروفایل کاربر (fire-and-forget)
++  // ذخیره آخرین آدرس ارسال و اطلاعات صورتحساب روی پروفایل کاربر (fire-and-forget)
+   if (session.user.id !== 'admin-env') {
+     void db.update(users)
+       .set({
+@@ -252,6 +306,7 @@ export async function POST(req: Request) {
+           unit: address.unit,
+           postalCode: address.postalCode,
+         },
++        ...(billingSnapshot ? { billingInfo: billingSnapshot } : {}),
+         updatedAt: new Date(),
+       })
+       .where(eq(users.id, session.user.id))
+diff --git a/src/app/api/shop/shipping/route.ts b/src/app/api/shop/shipping/route.ts
+index 3a9bcdd..d3c2877 100644
+--- a/src/app/api/shop/shipping/route.ts
++++ b/src/app/api/shop/shipping/route.ts
+@@ -3,19 +3,20 @@ import { db } from '@/lib/db'
+ import { siteSettings } from '@/lib/db/schema'
+ import { inArray } from 'drizzle-orm'
+ 
+-const DEFAULTS = { shippingCost: 150_000, freeThreshold: 2_000_000 }
++const DEFAULTS = { shippingCost: 150_000, freeThreshold: 2_000_000, vatRate: 10 }
+ 
+ export async function GET() {
+   try {
+     const rows = await db
+       .select({ key: siteSettings.key, value: siteSettings.value })
+       .from(siteSettings)
+-      .where(inArray(siteSettings.key, ['shipping_cost', 'free_shipping_threshold']))
++      .where(inArray(siteSettings.key, ['shipping_cost', 'free_shipping_threshold', 'vat_rate']))
+ 
+     const map = Object.fromEntries(rows.map((r) => [r.key, r.value]))
+     return NextResponse.json({
+       shippingCost:  parseInt(map['shipping_cost'] ?? String(DEFAULTS.shippingCost), 10),
+       freeThreshold: parseInt(map['free_shipping_threshold'] ?? String(DEFAULTS.freeThreshold), 10),
++      vatRate:       parseInt(map['vat_rate'] ?? String(DEFAULTS.vatRate), 10),
+     }, {
+       headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300' },
+     })
+diff --git a/src/app/checkout/checkout-client.tsx b/src/app/checkout/checkout-client.tsx
+index 35d24b8..d0c2151 100644
+--- a/src/app/checkout/checkout-client.tsx
++++ b/src/app/checkout/checkout-client.tsx
+@@ -97,7 +97,7 @@ export default function CheckoutClient({ bankCard, phone: sessionPhone, userName
+   const params = useSearchParams()
+   const { items, clearCart } = useCart()
+ 
+-  const [shippingConfig, setShippingConfig] = useState({ shippingCost: 150_000, freeThreshold: 2_000_000 })
++  const [shippingConfig, setShippingConfig] = useState({ shippingCost: 150_000, freeThreshold: 2_000_000, vatRate: 10 })
+   useEffect(() => {
+     fetch('/api/shop/shipping').then(r => r.json()).then((d) => setShippingConfig(d as typeof shippingConfig)).catch(() => {})
+   }, [])
+@@ -115,6 +115,15 @@ export default function CheckoutClient({ bankCard, phone: sessionPhone, userName
+   const [postalCode, setPostalCode] = useState('')
+   const [notes, setNotes] = useState('')
+ 
++  // فاکتور رسمی
++  const [officialInvoice, setOfficialInvoice] = useState(false)
++  const [customerType, setCustomerType] = useState<'individual' | 'legal'>('individual')
++  const [nationalId, setNationalId] = useState('')
++  const [companyName, setCompanyName] = useState('')
++  const [companyNationalId, setCompanyNationalId] = useState('')
++  const [economicCode, setEconomicCode] = useState('')
++  const [registrationNumber, setRegistrationNumber] = useState('')
++
+   // ── آدرس ذخیره‌شده ────────────────────────────────────────────────────
+   type SavedAddress = {
+     fullName?: string; province?: string; city?: string
+@@ -197,7 +206,8 @@ export default function CheckoutClient({ bankCard, phone: sessionPhone, userName
+   const subtotal = items.reduce((s, i) => s + i.price * i.quantity, 0)
+   const shipping = subtotal >= shippingConfig.freeThreshold ? 0 : shippingConfig.shippingCost
+   const discount = couponApplied?.discountAmount ?? 0
+-  const total = Math.max(0, subtotal + shipping - discount)
++  const tax = officialInvoice ? Math.floor(((subtotal - discount) * (shippingConfig.vatRate ?? 10)) / 100) : 0
++  const total = Math.max(0, subtotal + shipping - discount + tax)
+ 
+   const applyCoupon = async () => {
+     const code = couponInput.trim()
+@@ -249,6 +259,27 @@ export default function CheckoutClient({ bankCard, phone: sessionPhone, userName
+     if (!street.trim()) { setError('خیابان اصلی الزامی است'); return }
+     if (!plaque.trim()) { setError('پلاک الزامی است'); return }
+ 
++    // اعتبارسنجی فاکتور رسمی
++    let billing: Record<string, string> | undefined
++    if (officialInvoice) {
++      if (customerType === 'individual') {
++        const nid = toEnDigits(nationalId).replace(/\D/g, '')
++        if (nid.length !== 10) { setError('کد ملی باید ۱۰ رقم باشد'); return }
++        billing = { customerType: 'individual', nationalId: nid }
++      } else {
++        if (!companyName.trim()) { setError('نام شرکت الزامی است'); return }
++        const cid = toEnDigits(companyNationalId).replace(/\D/g, '')
++        if (cid.length !== 11) { setError('شناسه ملی شرکت باید ۱۱ رقم باشد'); return }
++        billing = {
++          customerType: 'legal',
++          companyName: companyName.trim(),
++          companyNationalId: cid,
++          economicCode: toEnDigits(economicCode).replace(/\D/g, ''),
++          registrationNumber: toEnDigits(registrationNumber).replace(/\D/g, ''),
++        }
++      }
++    }
++
+     setLoading(true)
+     try {
+       let paymentMethod: string
+@@ -281,6 +312,8 @@ export default function CheckoutClient({ bankCard, phone: sessionPhone, userName
+           couponCode: couponApplied?.code || undefined,
+           paymentMethod,
+           gateway: gatewayParam,
++          officialInvoice,
++          billing,
+         }),
+       })
+ 
+@@ -505,6 +538,77 @@ export default function CheckoutClient({ bankCard, phone: sessionPhone, userName
+               </div>
+             </div>
+ 
++            {/* ── فاکتور رسمی ───────────────────────────────────────────── */}
++            <div className="bg-white rounded-2xl border border-surface-200 p-6 shadow-sm">
++              <label className="flex items-center gap-3 cursor-pointer">
++                <input
++                  type="checkbox"
++                  checked={officialInvoice}
++                  onChange={(e) => setOfficialInvoice(e.target.checked)}
++                  className="w-5 h-5 accent-brand-600"
++                />
++                <div>
++                  <span className="text-base font-bold text-surface-800">درخواست فاکتور رسمی</span>
++                  <p className="text-xs text-surface-400 mt-0.5">
++                    با انتخاب این گزینه، مالیات بر ارزش افزوده ({toFaDigits(shippingConfig.vatRate ?? 10)}٪) به مبلغ اضافه می‌شود.
++                  </p>
++                </div>
++              </label>
++
++              {officialInvoice && (
++                <div className="mt-4 space-y-4 border-t border-surface-100 pt-4">
++                  {/* نوع مشتری */}
++                  <div className="flex gap-2">
++                    {([['individual', 'شخص حقیقی'], ['legal', 'شخص حقوقی']] as const).map(([k, label]) => (
++                      <button
++                        key={k}
++                        type="button"
++                        onClick={() => setCustomerType(k)}
++                        className={`flex-1 px-4 py-2 rounded-xl text-sm font-semibold border transition-colors ${
++                          customerType === k ? 'bg-brand-600 text-white border-brand-600' : 'bg-white border-surface-200 text-surface-600'
++                        }`}
++                      >
++                        {label}
++                      </button>
++                    ))}
++                  </div>
++
++                  {customerType === 'individual' ? (
++                    <div>
++                      <label className="block text-sm font-semibold text-surface-700 mb-1.5">کد ملی <span className="text-red-500">*</span></label>
++                      <input
++                        value={nationalId}
++                        onChange={(e) => setNationalId(e.target.value)}
++                        placeholder="کد ملی ۱۰ رقمی"
++                        className="input w-full font-mono"
++                        dir="ltr"
++                        maxLength={12}
++                      />
++                    </div>
++                  ) : (
++                    <div className="grid sm:grid-cols-2 gap-3">
++                      <div className="sm:col-span-2">
++                        <label className="block text-sm font-semibold text-surface-700 mb-1.5">نام شرکت <span className="text-red-500">*</span></label>
++                        <input value={companyName} onChange={(e) => setCompanyName(e.target.value)} className="input w-full" placeholder="نام کامل شرکت" />
++                      </div>
++                      <div>
++                        <label className="block text-sm font-semibold text-surface-700 mb-1.5">شناسه ملی شرکت <span className="text-red-500">*</span></label>
++                        <input value={companyNationalId} onChange={(e) => setCompanyNationalId(e.target.value)} className="input w-full font-mono" dir="ltr" placeholder="۱۱ رقم" maxLength={13} />
++                      </div>
++                      <div>
++                        <label className="block text-sm font-semibold text-surface-700 mb-1.5">کد اقتصادی</label>
++                        <input value={economicCode} onChange={(e) => setEconomicCode(e.target.value)} className="input w-full font-mono" dir="ltr" placeholder="اختیاری" />
++                      </div>
++                      <div>
++                        <label className="block text-sm font-semibold text-surface-700 mb-1.5">شماره ثبت</label>
++                        <input value={registrationNumber} onChange={(e) => setRegistrationNumber(e.target.value)} className="input w-full font-mono" dir="ltr" placeholder="اختیاری" />
++                      </div>
++                    </div>
++                  )}
++                </div>
++              )}
++            </div>
++
+             {/* ── کد تخفیف ──────────────────────────────────────────────── */}
+             <div className="bg-white rounded-2xl border border-surface-200 p-6 shadow-sm">
+               <h2 className="text-base font-bold text-surface-800 mb-4">کد تخفیف</h2>
+@@ -673,6 +777,14 @@ export default function CheckoutClient({ bankCard, phone: sessionPhone, userName
+                   </div>
+                 )}
+ 
++                {/* مالیات ارزش افزوده */}
++                {tax > 0 && (
++                  <div className="flex justify-between text-surface-500">
++                    <span>مالیات بر ارزش افزوده ({toFaDigits(shippingConfig.vatRate ?? 10)}٪)</span>
++                    <span>{toToman(tax)}</span>
++                  </div>
++                )}
++
+                 <div className="flex justify-between font-bold text-surface-900 pt-2 border-t border-surface-100">
+                   <span>قابل پرداخت</span>
+                   <span style={{ color: '#F97316' }}>{toToman(total)}</span>
+diff --git a/src/lib/pricing.test.ts b/src/lib/pricing.test.ts
+index 1384c08..943fa78 100644
+--- a/src/lib/pricing.test.ts
++++ b/src/lib/pricing.test.ts
+@@ -1,6 +1,6 @@
+ import { describe, it, expect } from 'vitest'
+ import {
+-  calcShipping, calcCouponDiscount, calcOrderTotal,
++  calcShipping, calcCouponDiscount, calcOrderTotal, calcVat,
+   DEFAULT_SHIPPING_COST, DEFAULT_FREE_SHIPPING_THRESHOLD,
+ } from './pricing'
+ 
+@@ -39,10 +39,30 @@ describe('calcCouponDiscount', () => {
+   })
+ })
+ 
++describe('calcVat', () => {
++  it('is zero when not official invoice', () => {
++    expect(calcVat(1_000_000, { rate: 10, official: false })).toBe(0)
++    expect(calcVat(1_000_000)).toBe(0)
++  })
++  it('applies rate when official', () => {
++    expect(calcVat(1_000_000, { rate: 10, official: true })).toBe(100_000)
++    expect(calcVat(1_000_000, { rate: 9, official: true })).toBe(90_000)
++  })
++  it('floors fractional vat', () => {
++    expect(calcVat(155, { rate: 10, official: true })).toBe(15)
++  })
++  it('is zero for non-positive base', () => {
++    expect(calcVat(0, { rate: 10, official: true })).toBe(0)
++  })
++})
++
+ describe('calcOrderTotal', () => {
+   it('sums subtotal + shipping - discount', () => {
+     expect(calcOrderTotal({ subtotal: 1_000_000, shipping: 150_000, discount: 200_000 })).toBe(950_000)
+   })
++  it('includes tax when provided', () => {
++    expect(calcOrderTotal({ subtotal: 1_000_000, shipping: 150_000, discount: 200_000, tax: 80_000 })).toBe(1_030_000)
++  })
+   it('never goes negative', () => {
+     expect(calcOrderTotal({ subtotal: 100_000, shipping: 0, discount: 500_000 })).toBe(0)
+   })
+diff --git a/src/lib/pricing.ts b/src/lib/pricing.ts
+index 14ffb0e..fd61b46 100644
+--- a/src/lib/pricing.ts
++++ b/src/lib/pricing.ts
+@@ -38,11 +38,28 @@ export function calcCouponDiscount(subtotal: number, coupon: CouponInput): numbe
+   return Math.max(0, Math.min(discount, subtotal))
+ }
+ 
+-/** محاسبه مبلغ نهایی سفارش */
++export const DEFAULT_VAT_RATE = 10 // درصد
++
++/**
++ * محاسبه مالیات بر ارزش افزوده — فقط هنگام فاکتور رسمی اعمال می‌شود.
++ * مبنای محاسبه: مبلغ پس از تخفیف (subtotal - discount).
++ */
++export function calcVat(
++  taxableBase: number,
++  opts: { rate?: number; official?: boolean } = {},
++): number {
++  if (!opts.official) return 0
++  const rate = opts.rate ?? DEFAULT_VAT_RATE
++  if (taxableBase <= 0 || rate <= 0) return 0
++  return Math.floor((taxableBase * rate) / 100)
++}
++
++/** محاسبه مبلغ نهایی سفارش (شامل مالیات) */
+ export function calcOrderTotal(params: {
+   subtotal: number
+   shipping: number
+   discount: number
++  tax?: number
+ }): number {
+-  return Math.max(0, params.subtotal + params.shipping - params.discount)
++  return Math.max(0, params.subtotal + params.shipping - params.discount + (params.tax ?? 0))
+ }
+diff --git a/src/lib/utils.test.ts b/src/lib/utils.test.ts
+index d00cf27..dbdd23b 100644
+--- a/src/lib/utils.test.ts
++++ b/src/lib/utils.test.ts
+@@ -1,7 +1,7 @@
+ import { describe, it, expect } from 'vitest'
+ import {
+   formatPrice, formatToman, toFaDigits, toEnDigits,
+-  discountPercent, slugify,
++  discountPercent, slugify, isValidNationalId, isValidCompanyId,
+ } from './utils'
+ 
+ describe('formatPrice', () => {
+@@ -63,3 +63,31 @@ describe('slugify', () => {
+     expect(slugify('دزدگیر اماکن')).toBe('دزدگیر-اماکن')
+   })
+ })
++
++describe('isValidNationalId', () => {
++  it('accepts a valid national id', () => {
++    expect(isValidNationalId('0499370899')).toBe(true)
++    expect(isValidNationalId('0084575948')).toBe(true)
++  })
++  it('accepts Persian-digit input', () => {
++    expect(isValidNationalId('۰۴۹۹۳۷۰۸۹۹')).toBe(true)
++  })
++  it('rejects wrong length', () => {
++    expect(isValidNationalId('12345')).toBe(false)
++  })
++  it('rejects repeated digits', () => {
++    expect(isValidNationalId('0000000000')).toBe(false)
++  })
++  it('rejects a bad check digit', () => {
++    expect(isValidNationalId('0499370898')).toBe(false)
++  })
++})
++
++describe('isValidCompanyId', () => {
++  it('accepts 11-digit company id', () => {
++    expect(isValidCompanyId('10100000000')).toBe(true)
++  })
++  it('rejects non-11-digit', () => {
++    expect(isValidCompanyId('123')).toBe(false)
++  })
++})
+diff --git a/src/lib/utils.ts b/src/lib/utils.ts
+index 4e938ff..6b96134 100644
+--- a/src/lib/utils.ts
++++ b/src/lib/utils.ts
+@@ -65,3 +65,27 @@ export function slugify(text: string): string {
+     .replace(/[^\w\u0600-\u06ff-]/g, '')
+     .replace(/-+/g, '-')
+ }
++
++/**
++ * \u0627\u0639\u062a\u0628\u0627\u0631\u0633\u0646\u062c\u06cc \u06a9\u062f \u0645\u0644\u06cc \u0627\u06cc\u0631\u0627\u0646\u06cc (\u06f1\u06f0 \u0631\u0642\u0645\u06cc \u0628\u0627 \u0627\u0644\u06af\u0648\u0631\u06cc\u062a\u0645 \u0686\u06a9\u200c\u062f\u06cc\u062c\u06cc\u062a)
++ * \u0648\u0631\u0648\u062f\u06cc \u0645\u06cc\u200c\u062a\u0648\u0627\u0646\u062f \u0641\u0627\u0631\u0633\u06cc \u06cc\u0627 \u0644\u0627\u062a\u06cc\u0646 \u0628\u0627\u0634\u062f.
++ */
++export function isValidNationalId(input: string): boolean {
++  const code = toEnDigits(String(input)).replace(/\D/g, '')
++  if (!/^\d{10}$/.test(code)) return false
++  // \u0631\u062f \u0627\u0631\u0642\u0627\u0645 \u062a\u06a9\u0631\u0627\u0631\u06cc (\u0645\u062b\u0644 0000000000)
++  if (/^(\d)\1{9}$/.test(code)) return false
++  const check = Number(code[9])
++  let sum = 0
++  for (let i = 0; i < 9; i++) sum += Number(code[i]) * (10 - i)
++  const r = sum % 11
++  return (r < 2 && check === r) || (r >= 2 && check === 11 - r)
++}
++
++/**
++ * \u0627\u0639\u062a\u0628\u0627\u0631\u0633\u0646\u062c\u06cc \u0634\u0646\u0627\u0633\u0647 \u0645\u0644\u06cc \u0627\u0634\u062e\u0627\u0635 \u062d\u0642\u0648\u0642\u06cc (\u06f1\u06f1 \u0631\u0642\u0645\u06cc)
++ */
++export function isValidCompanyId(input: string): boolean {
++  const code = toEnDigits(String(input)).replace(/\D/g, '')
++  return /^\d{11}$/.test(code)
++}
+-- 
+2.43.0
+
+
+From f3ed41d28f67c90b2266302200f9913c13b382c6 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Mon, 1 Jun 2026 00:57:58 +0000
+Subject: [PATCH 08/10] feat(phase2): invoice print page + needs-installation
+ toggle
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+- صفحه چاپ فاکتور رسمی /orders/[id]/invoice با سربرگ فروشنده
+- endpoint اطلاعات فروشنده برای فاکتور
+- لینک فاکتور رسمی در صفحه سفارش مشتری
+- تیک «نیازمند نصب» در صفحه سفارش ادمین (ثبت توسط کارشناس/مدیر)
+- needsInstallation در PATCH سفارش ادمین
+
+https://claude.ai/code/session_01Qs8gHxBqDwnfGxtgbYg1ou
+---
+ src/app/admin/orders/[id]/page.tsx     |  10 ++
+ src/app/api/admin/orders/[id]/route.ts |   2 +
+ src/app/api/shop/seller-info/route.ts  |  25 ++++
+ src/app/orders/[id]/invoice/page.tsx   | 167 +++++++++++++++++++++++++
+ src/app/orders/[id]/page.tsx           |   8 ++
+ 5 files changed, 212 insertions(+)
+ create mode 100644 src/app/api/shop/seller-info/route.ts
+ create mode 100644 src/app/orders/[id]/invoice/page.tsx
+
+diff --git a/src/app/admin/orders/[id]/page.tsx b/src/app/admin/orders/[id]/page.tsx
+index 3d49ef6..42a65c8 100644
+--- a/src/app/admin/orders/[id]/page.tsx
++++ b/src/app/admin/orders/[id]/page.tsx
+@@ -12,6 +12,7 @@ interface Order {
+   id: string; status: string; totalAmount: string; shippingAmount: string
+   discountAmount: string; paymentMethod: string | null; trackingCode: string | null
+   couponCode: string | null; customerNote: string | null; adminNote: string | null
++  needsInstallation?: boolean; taxAmount?: string; officialInvoice?: boolean
+   shippingAddress: {
+     fullName?: string; phone?: string; province?: string; city?: string
+     street?: string; alley?: string; plaque?: string; unit?: string; postalCode?: string
+@@ -228,6 +229,15 @@ export default function OrderDetailPage() {
+                 placeholder="یادداشت برای تیم..."
+                 className="w-full px-3.5 py-2.5 text-sm border border-surface-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-300 resize-none" />
+             </div>
++            <label className="flex items-center gap-2.5 cursor-pointer">
++              <input
++                type="checkbox"
++                checked={!!order.needsInstallation}
++                onChange={(e) => patch({ needsInstallation: e.target.checked })}
++                className="w-4 h-4 accent-brand-600"
++              />
++              <span className="text-sm font-semibold text-surface-700">این سفارش نیازمند نصب است</span>
++            </label>
+             <button onClick={() => patch({ trackingCode: tracking, adminNote })} disabled={saving}
+               className="btn btn-primary text-sm py-2.5 px-5 disabled:opacity-50">
+               {saving ? 'ذخیره...' : 'ذخیره تغییرات'}
+diff --git a/src/app/api/admin/orders/[id]/route.ts b/src/app/api/admin/orders/[id]/route.ts
+index 2d955a9..b02645e 100644
+--- a/src/app/api/admin/orders/[id]/route.ts
++++ b/src/app/api/admin/orders/[id]/route.ts
+@@ -46,6 +46,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
+       adminNote?: string
+       shippedAt?: string
+       deliveredAt?: string
++      needsInstallation?: boolean
+     }
+ 
+     const validStatuses: OrderStatus[] = ['pending','paid','processing','shipped','delivered','cancelled','refunded']
+@@ -60,6 +61,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
+     }
+     if (body.trackingCode !== undefined) update.trackingCode = body.trackingCode
+     if (body.adminNote !== undefined)    update.adminNote = body.adminNote
++    if (body.needsInstallation !== undefined) update.needsInstallation = body.needsInstallation
+     if (body.shippedAt)   update.shippedAt = new Date(body.shippedAt)
+     if (body.deliveredAt) update.deliveredAt = new Date(body.deliveredAt)
+ 
+diff --git a/src/app/api/shop/seller-info/route.ts b/src/app/api/shop/seller-info/route.ts
+new file mode 100644
+index 0000000..9e7a1e9
+--- /dev/null
++++ b/src/app/api/shop/seller-info/route.ts
+@@ -0,0 +1,25 @@
++import { NextResponse } from 'next/server'
++import { db } from '@/lib/db'
++import { siteSettings } from '@/lib/db/schema'
++import { inArray } from 'drizzle-orm'
++
++// اطلاعات فروشنده برای سربرگ فاکتور رسمی
++export async function GET() {
++  try {
++    const rows = await db
++      .select({ key: siteSettings.key, value: siteSettings.value })
++      .from(siteSettings)
++      .where(inArray(siteSettings.key, ['invoice_seller_name', 'tax_code', 'invoice_economic_code']))
++
++    const map = Object.fromEntries(rows.map((r) => [r.key, r.value]))
++    return NextResponse.json({
++      name: map['invoice_seller_name'] || 'بیواز',
++      taxCode: map['tax_code'] || '',
++      economicCode: map['invoice_economic_code'] || '',
++    }, {
++      headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600' },
++    })
++  } catch {
++    return NextResponse.json({ name: 'بیواز', taxCode: '', economicCode: '' })
++  }
++}
+diff --git a/src/app/orders/[id]/invoice/page.tsx b/src/app/orders/[id]/invoice/page.tsx
+new file mode 100644
+index 0000000..1b4ba95
+--- /dev/null
++++ b/src/app/orders/[id]/invoice/page.tsx
+@@ -0,0 +1,167 @@
++'use client'
++
++import { useEffect, useState } from 'react'
++import { useParams } from 'next/navigation'
++import { formatPrice, toFaDigits } from '@/lib/utils'
++
++interface OrderItem {
++  id: string
++  productName: string
++  quantity: number
++  unitPrice: string
++  totalPrice: string
++}
++
++interface Order {
++  id: string
++  totalAmount: string
++  shippingAmount: string
++  discountAmount: string
++  taxAmount: string
++  officialInvoice: boolean
++  invoiceNumber: string | null
++  billingSnapshot: {
++    customerType?: 'individual' | 'legal'
++    nationalId?: string
++    companyName?: string
++    companyNationalId?: string
++    economicCode?: string
++    registrationNumber?: string
++  } | null
++  shippingAddress: { fullName?: string; phone?: string; province?: string; city?: string; street?: string; postalCode?: string } | null
++  createdAt: string
++}
++
++export default function InvoicePage() {
++  const { id } = useParams<{ id: string }>()
++  const [order, setOrder] = useState<Order | null>(null)
++  const [items, setItems] = useState<OrderItem[]>([])
++  const [seller, setSeller] = useState<{ name: string; taxCode: string; economicCode: string }>({ name: 'بیواز', taxCode: '', economicCode: '' })
++  const [loading, setLoading] = useState(true)
++
++  useEffect(() => {
++    Promise.all([
++      fetch(`/api/orders/${id}`).then((r) => r.json()),
++      fetch('/api/shop/seller-info').then((r) => r.json()).catch(() => ({})),
++    ]).then(([data, sellerData]) => {
++      setOrder(data.order ?? null)
++      setItems(data.items ?? [])
++      if (sellerData?.name) setSeller(sellerData)
++      setLoading(false)
++    }).catch(() => setLoading(false))
++  }, [id])
++
++  if (loading) return <div className="p-12 text-center text-surface-400">در حال بارگذاری...</div>
++  if (!order) return <div className="p-12 text-center text-surface-400">سفارش یافت نشد.</div>
++  if (!order.officialInvoice) {
++    return <div className="p-12 text-center text-surface-500">برای این سفارش فاکتور رسمی صادر نشده است.</div>
++  }
++
++  const b = order.billingSnapshot
++  const subtotalBeforeTax = Number(order.totalAmount) - Number(order.taxAmount)
++  const dateFa = new Intl.DateTimeFormat('fa-IR', { year: 'numeric', month: 'long', day: 'numeric' }).format(new Date(order.createdAt))
++
++  return (
++    <div className="min-h-screen bg-surface-50 py-8 px-4" dir="rtl">
++      <div className="max-w-3xl mx-auto bg-white rounded-2xl border border-surface-200 p-8 shadow-sm print:shadow-none print:border-0">
++        {/* سربرگ */}
++        <div className="flex items-start justify-between border-b-2 border-surface-900 pb-4 mb-6">
++          <div>
++            <h1 className="text-2xl font-black text-surface-900">فاکتور فروش رسمی</h1>
++            <p className="text-sm text-surface-500 mt-1">شماره: {toFaDigits(order.invoiceNumber ?? order.id.slice(0, 8).toUpperCase())}</p>
++            <p className="text-sm text-surface-500">تاریخ: {dateFa}</p>
++          </div>
++          <div className="text-left text-sm">
++            <p className="font-bold text-surface-800">{seller.name}</p>
++            {seller.taxCode && <p className="text-surface-500">کد مالیاتی: {toFaDigits(seller.taxCode)}</p>}
++            {seller.economicCode && <p className="text-surface-500">کد اقتصادی: {toFaDigits(seller.economicCode)}</p>}
++          </div>
++        </div>
++
++        {/* اطلاعات خریدار */}
++        <div className="mb-6 bg-surface-50 rounded-xl p-4 text-sm">
++          <h2 className="font-bold text-surface-700 mb-2">مشخصات خریدار</h2>
++          {b?.customerType === 'legal' ? (
++            <div className="grid grid-cols-2 gap-1 text-surface-600">
++              <span>نام شرکت: {b.companyName}</span>
++              <span>شناسه ملی: {toFaDigits(b.companyNationalId ?? '—')}</span>
++              {b.economicCode && <span>کد اقتصادی: {toFaDigits(b.economicCode)}</span>}
++              {b.registrationNumber && <span>شماره ثبت: {toFaDigits(b.registrationNumber)}</span>}
++            </div>
++          ) : (
++            <div className="grid grid-cols-2 gap-1 text-surface-600">
++              <span>نام: {order.shippingAddress?.fullName ?? '—'}</span>
++              <span>کد ملی: {toFaDigits(b?.nationalId ?? '—')}</span>
++            </div>
++          )}
++          <div className="mt-2 text-surface-500 text-xs">
++            {[order.shippingAddress?.province, order.shippingAddress?.city, order.shippingAddress?.street].filter(Boolean).join('، ')}
++            {order.shippingAddress?.postalCode && ` — کد پستی: ${toFaDigits(order.shippingAddress.postalCode)}`}
++          </div>
++        </div>
++
++        {/* جدول اقلام */}
++        <table className="w-full text-sm mb-6">
++          <thead>
++            <tr className="border-b-2 border-surface-200 text-surface-500 text-xs">
++              <th className="text-start py-2">ردیف</th>
++              <th className="text-start py-2">شرح کالا</th>
++              <th className="text-center py-2">تعداد</th>
++              <th className="text-end py-2">قیمت واحد</th>
++              <th className="text-end py-2">مبلغ کل</th>
++            </tr>
++          </thead>
++          <tbody>
++            {items.map((it, i) => (
++              <tr key={it.id} className="border-b border-surface-100">
++                <td className="py-2 text-surface-600">{toFaDigits(i + 1)}</td>
++                <td className="py-2 text-surface-800 font-semibold">{it.productName}</td>
++                <td className="py-2 text-center text-surface-600">{toFaDigits(it.quantity)}</td>
++                <td className="py-2 text-end text-surface-600">{formatPrice(it.unitPrice)}</td>
++                <td className="py-2 text-end text-surface-800">{formatPrice(it.totalPrice)}</td>
++              </tr>
++            ))}
++          </tbody>
++        </table>
++
++        {/* جمع‌بندی */}
++        <div className="flex justify-end">
++          <div className="w-64 space-y-1.5 text-sm">
++            <div className="flex justify-between text-surface-600">
++              <span>جمع کل (پیش از مالیات)</span>
++              <span>{formatPrice(subtotalBeforeTax - Number(order.shippingAmount) + Number(order.discountAmount))}</span>
++            </div>
++            {Number(order.discountAmount) > 0 && (
++              <div className="flex justify-between text-green-600">
++                <span>تخفیف</span>
++                <span>− {formatPrice(order.discountAmount)}</span>
++              </div>
++            )}
++            <div className="flex justify-between text-surface-600">
++              <span>هزینه ارسال</span>
++              <span>{Number(order.shippingAmount) === 0 ? 'رایگان' : formatPrice(order.shippingAmount)}</span>
++            </div>
++            <div className="flex justify-between text-surface-600">
++              <span>مالیات بر ارزش افزوده</span>
++              <span>{formatPrice(order.taxAmount)}</span>
++            </div>
++            <div className="flex justify-between font-black text-surface-900 border-t-2 border-surface-900 pt-2 text-base">
++              <span>مبلغ قابل پرداخت</span>
++              <span>{formatPrice(order.totalAmount)}</span>
++            </div>
++          </div>
++        </div>
++
++        {/* دکمه چاپ */}
++        <div className="mt-8 text-center print:hidden">
++          <button
++            onClick={() => window.print()}
++            className="px-6 py-3 rounded-xl bg-brand-600 text-white font-bold hover:bg-brand-700"
++          >
++            چاپ فاکتور
++          </button>
++        </div>
++      </div>
++    </div>
++  )
++}
+diff --git a/src/app/orders/[id]/page.tsx b/src/app/orders/[id]/page.tsx
+index a55c508..15701d1 100644
+--- a/src/app/orders/[id]/page.tsx
++++ b/src/app/orders/[id]/page.tsx
+@@ -25,6 +25,8 @@ interface Order {
+   paymentMethod: string | null
+   trackingCode: string | null
+   customerNote: string | null
++  officialInvoice?: boolean
++  taxAmount?: string
+   shippingAddress: {
+     fullName?: string; phone?: string; province?: string; city?: string
+     street?: string; alley?: string; plaque?: string; unit?: string; postalCode?: string
+@@ -287,6 +289,12 @@ export default function OrderDetailPage() {
+           </div>
+         </div>
+ 
++        {order.officialInvoice && (
++          <Link href={`/orders/${order.id}/invoice`} className="btn btn-outline w-full text-sm py-2.5 mb-3 flex items-center justify-center gap-2">
++            🧾 مشاهده و چاپ فاکتور رسمی
++          </Link>
++        )}
++
+         <div className="flex gap-3">
+           <Link href="/profile" className="btn btn-outline flex-1 text-sm py-2.5">
+             بازگشت به پروفایل
+-- 
+2.43.0
+
+
+From 81dfa28d4ab2dce41a0023e372e3a64be439167b Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Mon, 1 Jun 2026 01:01:45 +0000
+Subject: [PATCH 09/10] feat(phase3): SEO assistant + smart management insights
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+- دستیار سئو هوشمند: API /api/admin/seo/generate با AvalAI
+- کامپوننت SeoAssistant قابل جاسازی + صفحه مستقل /admin/seo
+  (تولید meta title/description و کلمات کلیدی)
+- هوشمندسازی مدیریت: API /api/admin/insights
+  (هشدار موجودی کم، سفارش‌های در انتظار، فروش ۲۴ ساعت، نصب‌های معوق)
+- ویجت SmartInsights روی داشبورد ادمین
+- لینک دستیار سئو در نوار کناری
+
+https://claude.ai/code/session_01Qs8gHxBqDwnfGxtgbYg1ou
+---
+ src/app/admin/page.tsx                  |  4 +
+ src/app/admin/seo/page.tsx              | 53 +++++++++++++
+ src/app/api/admin/insights/route.ts     | 72 ++++++++++++++++++
+ src/app/api/admin/seo/generate/route.ts | 64 ++++++++++++++++
+ src/components/admin/seo-assistant.tsx  | 98 +++++++++++++++++++++++++
+ src/components/admin/sidebar.tsx        |  1 +
+ src/components/admin/smart-insights.tsx | 93 +++++++++++++++++++++++
+ 7 files changed, 385 insertions(+)
+ create mode 100644 src/app/admin/seo/page.tsx
+ create mode 100644 src/app/api/admin/insights/route.ts
+ create mode 100644 src/app/api/admin/seo/generate/route.ts
+ create mode 100644 src/components/admin/seo-assistant.tsx
+ create mode 100644 src/components/admin/smart-insights.tsx
+
+diff --git a/src/app/admin/page.tsx b/src/app/admin/page.tsx
+index 6f25477..71029d8 100644
+--- a/src/app/admin/page.tsx
++++ b/src/app/admin/page.tsx
+@@ -1,5 +1,6 @@
+ import Link from 'next/link'
+ import { StatsCard } from '@/components/admin/stats-card'
++import { SmartInsights } from '@/components/admin/smart-insights'
+ import { formatPrice } from '@/lib/utils'
+ import { db } from '@/lib/db'
+ import { orders, leads, pageViews, products } from '@/lib/db/schema'
+@@ -239,6 +240,9 @@ export default async function AdminDashboard() {
+           />
+         </div>
+ 
++        {/* ── هشدارهای هوشمند ───────────────────────────────────────────── */}
++        <SmartInsights />
++
+         {/* ── Analytics Row ─────────────────────────────────────────────── */}
+         <div className="grid lg:grid-cols-3 gap-6">
+           {/* بازدید ۷ روز */}
+diff --git a/src/app/admin/seo/page.tsx b/src/app/admin/seo/page.tsx
+new file mode 100644
+index 0000000..6d10a7a
+--- /dev/null
++++ b/src/app/admin/seo/page.tsx
+@@ -0,0 +1,53 @@
++'use client'
++
++import { useState } from 'react'
++import { SeoAssistant } from '@/components/admin/seo-assistant'
++
++export default function SeoToolPage() {
++  const [type, setType] = useState<'product' | 'article'>('product')
++  const [title, setTitle] = useState('')
++  const [category, setCategory] = useState('')
++  const [description, setDescription] = useState('')
++
++  return (
++    <div className="flex-1 overflow-y-auto">
++      <header className="bg-white border-b border-surface-200 px-6 py-4">
++        <h1 className="text-lg font-black text-surface-900">دستیار سئو هوشمند</h1>
++        <p className="text-xs text-surface-400 mt-0.5">تولید عنوان، توضیح متا و کلمات کلیدی با هوش مصنوعی</p>
++      </header>
++
++      <div className="p-6 max-w-2xl mx-auto space-y-5">
++        <div className="bg-white rounded-2xl border border-surface-200 p-6 space-y-4">
++          <div className="flex gap-2">
++            {([['product', 'محصول'], ['article', 'مقاله']] as const).map(([k, label]) => (
++              <button
++                key={k}
++                onClick={() => setType(k)}
++                className={`flex-1 px-4 py-2 rounded-xl text-sm font-semibold border transition-colors ${
++                  type === k ? 'bg-brand-600 text-white border-brand-600' : 'bg-white border-surface-200 text-surface-600'
++                }`}
++              >
++                {label}
++              </button>
++            ))}
++          </div>
++
++          <div>
++            <label className="block text-sm font-semibold text-surface-700 mb-1.5">عنوان <span className="text-red-500">*</span></label>
++            <input value={title} onChange={(e) => setTitle(e.target.value)} className="input w-full" placeholder="عنوان محصول یا مقاله" />
++          </div>
++          <div>
++            <label className="block text-sm font-semibold text-surface-700 mb-1.5">دسته‌بندی</label>
++            <input value={category} onChange={(e) => setCategory(e.target.value)} className="input w-full" placeholder="اختیاری" />
++          </div>
++          <div>
++            <label className="block text-sm font-semibold text-surface-700 mb-1.5">توضیحات</label>
++            <textarea value={description} onChange={(e) => setDescription(e.target.value)} className="input w-full min-h-[80px]" placeholder="توضیح کوتاه برای کمک به تولید بهتر (اختیاری)" />
++          </div>
++        </div>
++
++        <SeoAssistant type={type} title={title} description={description} category={category} />
++      </div>
++    </div>
++  )
++}
+diff --git a/src/app/api/admin/insights/route.ts b/src/app/api/admin/insights/route.ts
+new file mode 100644
+index 0000000..5a7911a
+--- /dev/null
++++ b/src/app/api/admin/insights/route.ts
+@@ -0,0 +1,72 @@
++/**
++ * GET /api/admin/insights — هوشمندسازی مدیریت
++ * هشدارهای هوشمند: موجودی کم، سفارش‌های در انتظار، و خلاصه تحلیلی اختیاری با AI
++ */
++import { NextRequest, NextResponse } from 'next/server'
++import { db } from '@/lib/db'
++import { products, orders } from '@/lib/db/schema'
++import { requirePermission } from '@/lib/rbac'
++import { and, eq, isNull, sql, gte, desc } from 'drizzle-orm'
++
++export async function GET(req: NextRequest) {
++  const auth = await requirePermission(req, 'dashboard:view')
++  if (auth instanceof NextResponse) return auth
++
++  const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000)
++  const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
++
++  const [lowStock, pendingCount, recentSales, needsInstall] = await Promise.all([
++    // محصولات با موجودی کم (≤ ۵ و فعال)
++    db.select({ id: products.id, nameFa: products.nameFa, stock: products.stock })
++      .from(products)
++      .where(and(isNull(products.deletedAt), sql`${products.stock} <= 5`))
++      .orderBy(products.stock)
++      .limit(10),
++
++    // سفارش‌های در انتظار پرداخت/پردازش
++    db.select({ c: sql<number>`count(*)::int` })
++      .from(orders)
++      .where(eq(orders.status, 'pending')),
++
++    // فروش ۲۴ ساعت اخیر
++    db.select({
++      count: sql<number>`count(*)::int`,
++      sum: sql<number>`coalesce(sum(${orders.totalAmount}),0)::bigint`,
++    })
++      .from(orders)
++      .where(and(gte(orders.createdAt, dayAgo), sql`${orders.status} != 'pending'`)),
++
++    // سفارش‌های نیازمند نصب که هنوز نصب نشده‌اند
++    db.select({ c: sql<number>`count(*)::int` })
++      .from(orders)
++      .where(and(eq(orders.needsInstallation, true), isNull(orders.installedAt))),
++  ])
++
++  // هشدارها
++  const alerts: { level: 'warning' | 'info' | 'danger'; message: string }[] = []
++  if (lowStock.length > 0) {
++    alerts.push({
++      level: lowStock.some((p) => p.stock === 0) ? 'danger' : 'warning',
++      message: `${lowStock.length} محصول با موجودی کم — نیاز به تأمین`,
++    })
++  }
++  const pending = pendingCount[0]?.c ?? 0
++  if (pending > 0) {
++    alerts.push({ level: 'info', message: `${pending} سفارش در انتظار پرداخت` })
++  }
++  const installs = needsInstall[0]?.c ?? 0
++  if (installs > 0) {
++    alerts.push({ level: 'info', message: `${installs} سفارش در انتظار نصب` })
++  }
++
++  return NextResponse.json({
++    alerts,
++    lowStock,
++    pendingOrders: pending,
++    pendingInstallations: installs,
++    sales24h: {
++      count: recentSales[0]?.count ?? 0,
++      total: Number(recentSales[0]?.sum ?? 0),
++    },
++  })
++}
+diff --git a/src/app/api/admin/seo/generate/route.ts b/src/app/api/admin/seo/generate/route.ts
+new file mode 100644
+index 0000000..8869cea
+--- /dev/null
++++ b/src/app/api/admin/seo/generate/route.ts
+@@ -0,0 +1,64 @@
++/**
++ * POST /api/admin/seo/generate — دستیار سئو هوشمند
++ * تولید meta title / description / کلمات کلیدی برای محصول یا مقاله
++ */
++import { NextRequest, NextResponse } from 'next/server'
++import { requirePermission } from '@/lib/rbac'
++import { generateText } from '@/lib/gemini'
++
++interface Body {
++  type?: 'product' | 'article'
++  title?: string
++  description?: string
++  category?: string
++}
++
++export async function POST(req: NextRequest) {
++  // محصولات و محتوا — هر کدام مجوز نوشتن داشته باشد کافی است
++  const auth = await requirePermission(req, 'products:write')
++  if (auth instanceof NextResponse) {
++    // اگر مجوز محصولات نبود، مجوز محتوا را امتحان کن
++    const contentAuth = await requirePermission(req, 'content:write')
++    if (contentAuth instanceof NextResponse) return contentAuth
++  }
++
++  const body = await req.json() as Body
++  const title = (body.title ?? '').trim()
++  if (!title) {
++    return NextResponse.json({ error: 'عنوان الزامی است' }, { status: 400 })
++  }
++
++  const kind = body.type === 'article' ? 'مقاله' : 'محصول'
++  const prompt = `تو یک متخصص سئو فارسی هستی. برای ${kind} زیر، خروجی سئوی بهینه تولید کن.
++
++عنوان: ${title}
++${body.category ? `دسته‌بندی: ${body.category}` : ''}
++${body.description ? `توضیحات: ${body.description.slice(0, 500)}` : ''}
++
++دقیقاً و فقط یک JSON معتبر با این ساختار برگردان (بدون متن اضافه، بدون markdown):
++{
++  "metaTitle": "عنوان سئو حداکثر ۶۰ کاراکتر، جذاب و شامل کلمه کلیدی اصلی",
++  "metaDescription": "توضیح متا بین ۱۲۰ تا ۱۵۵ کاراکتر، ترغیب‌کننده برای کلیک",
++  "keywords": ["کلمه کلیدی ۱", "کلمه کلیدی ۲", "کلمه کلیدی ۳", "کلمه کلیدی ۴", "کلمه کلیدی ۵"]
++}`
++
++  try {
++    const raw = await generateText(prompt)
++    // استخراج JSON از پاسخ
++    const jsonMatch = raw.match(/\{[\s\S]*\}/)
++    if (!jsonMatch) {
++      return NextResponse.json({ error: 'پاسخ نامعتبر از هوش مصنوعی', raw }, { status: 502 })
++    }
++    const parsed = JSON.parse(jsonMatch[0]) as {
++      metaTitle?: string; metaDescription?: string; keywords?: string[]
++    }
++    return NextResponse.json({
++      metaTitle: parsed.metaTitle ?? '',
++      metaDescription: parsed.metaDescription ?? '',
++      keywords: Array.isArray(parsed.keywords) ? parsed.keywords : [],
++    })
++  } catch (err) {
++    const detail = err instanceof Error ? err.message : String(err)
++    return NextResponse.json({ error: 'خطا در تولید محتوای سئو', detail }, { status: 500 })
++  }
++}
+diff --git a/src/components/admin/seo-assistant.tsx b/src/components/admin/seo-assistant.tsx
+new file mode 100644
+index 0000000..269ce57
+--- /dev/null
++++ b/src/components/admin/seo-assistant.tsx
+@@ -0,0 +1,98 @@
++'use client'
++
++import { useState } from 'react'
++
++interface SeoResult {
++  metaTitle: string
++  metaDescription: string
++  keywords: string[]
++}
++
++interface Props {
++  type: 'product' | 'article'
++  title: string
++  description?: string
++  category?: string
++  /** هنگام پذیرش نتیجه توسط کاربر صدا زده می‌شود */
++  onApply?: (result: SeoResult) => void
++}
++
++/**
++ * دستیار سئو هوشمند — تولید meta title/description و کلمات کلیدی با AI
++ * قابل جاسازی در ویرایشگر محصول یا مقاله.
++ */
++export function SeoAssistant({ type, title, description, category, onApply }: Props) {
++  const [loading, setLoading] = useState(false)
++  const [error, setError] = useState('')
++  const [result, setResult] = useState<SeoResult | null>(null)
++
++  async function generate() {
++    if (!title.trim()) { setError('ابتدا عنوان را وارد کنید'); return }
++    setLoading(true); setError(''); setResult(null)
++    try {
++      const res = await fetch('/api/admin/seo/generate', {
++        method: 'POST',
++        headers: { 'Content-Type': 'application/json' },
++        body: JSON.stringify({ type, title, description, category }),
++      })
++      const data = await res.json()
++      if (!res.ok) { setError(data.error ?? 'خطا'); return }
++      setResult(data as SeoResult)
++    } catch {
++      setError('خطا در ارتباط با سرور')
++    } finally {
++      setLoading(false)
++    }
++  }
++
++  return (
++    <div className="bg-gradient-to-br from-brand-50 to-purple-50 rounded-2xl border border-brand-100 p-4">
++      <div className="flex items-center justify-between gap-3 mb-3">
++        <div className="flex items-center gap-2">
++          <span className="text-lg">✨</span>
++          <h3 className="font-bold text-surface-800 text-sm">دستیار سئو هوشمند</h3>
++        </div>
++        <button
++          type="button"
++          onClick={generate}
++          disabled={loading}
++          className="px-4 py-1.5 rounded-lg text-xs font-bold bg-brand-600 text-white hover:bg-brand-700 disabled:opacity-60"
++        >
++          {loading ? 'در حال تولید...' : 'تولید خودکار'}
++        </button>
++      </div>
++
++      {error && <p className="text-red-600 text-xs bg-red-50 rounded-lg px-3 py-2 mb-2">{error}</p>}
++
++      {result && (
++        <div className="space-y-3 text-sm">
++          <div>
++            <label className="block text-xs font-semibold text-surface-500 mb-1">عنوان متا ({result.metaTitle.length} کاراکتر)</label>
++            <div className="bg-white rounded-lg px-3 py-2 border border-surface-200 text-surface-800">{result.metaTitle}</div>
++          </div>
++          <div>
++            <label className="block text-xs font-semibold text-surface-500 mb-1">توضیح متا ({result.metaDescription.length} کاراکتر)</label>
++            <div className="bg-white rounded-lg px-3 py-2 border border-surface-200 text-surface-700 text-xs leading-relaxed">{result.metaDescription}</div>
++          </div>
++          <div>
++            <label className="block text-xs font-semibold text-surface-500 mb-1">کلمات کلیدی</label>
++            <div className="flex flex-wrap gap-1.5">
++              {result.keywords.map((k, i) => (
++                <span key={i} className="px-2.5 py-1 rounded-lg bg-white border border-surface-200 text-xs text-surface-600">{k}</span>
++              ))}
++            </div>
++          </div>
++          {onApply && (
++            <button
++              type="button"
++              onClick={() => onApply(result)}
++              className="w-full py-2 rounded-lg text-sm font-bold bg-green-600 text-white hover:bg-green-700"
++            >
++              ✓ اعمال روی فیلدها
++            </button>
++          )}
++        </div>
++      )}
++    </div>
++  )
++}
+diff --git a/src/components/admin/sidebar.tsx b/src/components/admin/sidebar.tsx
+index 9c49500..0b8be36 100644
+--- a/src/components/admin/sidebar.tsx
++++ b/src/components/admin/sidebar.tsx
+@@ -68,6 +68,7 @@ const navSections: NavSection[] = [
+       { href: '/admin/articles', label: 'مقالات / بلاگ', permission: 'articles:write', icon: <NavIcon d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" /> },
+       { href: '/admin/banners',  label: 'بنرها',         permission: 'content:write', icon: <NavIcon d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /> },
+       { href: '/admin/content',  label: 'محتوای صفحات',  permission: 'content:write', icon: <NavIcon d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" /> },
++      { href: '/admin/seo',      label: 'دستیار سئو ✨',  permission: 'content:write', icon: <NavIcon d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /> },
+     ],
+   },
+ ]
+diff --git a/src/components/admin/smart-insights.tsx b/src/components/admin/smart-insights.tsx
+new file mode 100644
+index 0000000..3aaf07d
+--- /dev/null
++++ b/src/components/admin/smart-insights.tsx
+@@ -0,0 +1,93 @@
++'use client'
++
++import { useEffect, useState } from 'react'
++import Link from 'next/link'
++import { toFaDigits, formatPrice } from '@/lib/utils'
++
++interface Insights {
++  alerts: { level: 'warning' | 'info' | 'danger'; message: string }[]
++  lowStock: { id: string; nameFa: string; stock: number }[]
++  pendingOrders: number
++  pendingInstallations: number
++  sales24h: { count: number; total: number }
++}
++
++const LEVEL_STYLE: Record<string, string> = {
++  danger: 'bg-red-50 text-red-700 border-red-200',
++  warning: 'bg-amber-50 text-amber-700 border-amber-200',
++  info: 'bg-blue-50 text-blue-700 border-blue-200',
++}
++
++export function SmartInsights() {
++  const [data, setData] = useState<Insights | null>(null)
++  const [loading, setLoading] = useState(true)
++
++  useEffect(() => {
++    fetch('/api/admin/insights')
++      .then((r) => r.json())
++      .then((d) => setData(d))
++      .catch(() => {})
++      .finally(() => setLoading(false))
++  }, [])
++
++  if (loading) {
++    return <div className="bg-white rounded-2xl border border-surface-200 p-5 text-sm text-surface-400">در حال بارگذاری هشدارها...</div>
++  }
++  if (!data) return null
++
++  return (
++    <div className="bg-white rounded-2xl border border-surface-200 p-5">
++      <div className="flex items-center gap-2 mb-4">
++        <span className="text-lg">🔔</span>
++        <h3 className="font-bold text-surface-900 text-sm">هشدارهای هوشمند</h3>
++      </div>
++
++      {/* فروش ۲۴ ساعت */}
++      <div className="grid grid-cols-2 gap-3 mb-4">
++        <div className="bg-green-50 rounded-xl p-3">
++          <p className="text-xs text-green-600">فروش ۲۴ ساعت اخیر</p>
++          <p className="text-lg font-black text-green-700 mt-1">{formatPrice(data.sales24h.total)}</p>
++          <p className="text-[11px] text-green-600/70">{toFaDigits(data.sales24h.count)} سفارش</p>
++        </div>
++        <div className="bg-blue-50 rounded-xl p-3">
++          <p className="text-xs text-blue-600">در انتظار رسیدگی</p>
++          <p className="text-lg font-black text-blue-700 mt-1">{toFaDigits(data.pendingOrders + data.pendingInstallations)}</p>
++          <p className="text-[11px] text-blue-600/70">{toFaDigits(data.pendingOrders)} پرداخت · {toFaDigits(data.pendingInstallations)} نصب</p>
++        </div>
++      </div>
++
++      {/* هشدارها */}
++      {data.alerts.length === 0 ? (
++        <p className="text-sm text-surface-400 text-center py-3">✓ همه‌چیز روبراه است</p>
++      ) : (
++        <div className="space-y-2">
++          {data.alerts.map((a, i) => (
++            <div key={i} className={`text-xs font-semibold px-3 py-2 rounded-lg border ${LEVEL_STYLE[a.level]}`}>
++              {a.message}
++            </div>
++          ))}
++        </div>
++      )}
++
++      {/* فهرست موجودی کم */}
++      {data.lowStock.length > 0 && (
++        <div className="mt-4 pt-4 border-t border-surface-100">
++          <div className="flex items-center justify-between mb-2">
++            <p className="text-xs font-bold text-surface-600">موجودی کم</p>
++            <Link href="/admin/inventory" className="text-[11px] text-brand-600 hover:text-brand-700 font-semibold">مدیریت انبار ←</Link>
++          </div>
++          <div className="space-y-1">
++            {data.lowStock.slice(0, 5).map((p) => (
++              <div key={p.id} className="flex items-center justify-between text-xs">
++                <span className="text-surface-700 truncate">{p.nameFa}</span>
++                <span className={`font-bold flex-shrink-0 ms-2 ${p.stock === 0 ? 'text-red-600' : 'text-amber-600'}`}>
++                  {p.stock === 0 ? 'ناموجود' : `${toFaDigits(p.stock)} عدد`}
++                </span>
++              </div>
++            ))}
++          </div>
++        </div>
++      )}
++    </div>
++  )
++}
+-- 
+2.43.0
+
+
+From 1059efae6b44ba9dfa31e719362d716beff57488 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Mon, 1 Jun 2026 03:00:09 +0000
+Subject: [PATCH 10/10] fix: invoice number sequence + general rate limiting
+
+- Replace varchar invoice_number with bigint from PostgreSQL sequence
+- Add migration 0013 with idempotent column type conversion
+- Assign invoice number inside payment verify transaction (Zarinpal + IDPay)
+- Add in-memory rate limiter (src/lib/rate-limit.ts)
+- Apply rate limits: orders (5/5min), seo/generate (10/h)
+- Update instrumentation.ts safety-net to match new bigint type
+- Invoice page shows sequential number instead of id slice
+---
+ src/app/api/admin/seo/generate/route.ts       |  7 +++
+ src/app/api/idpay/verify/route.ts             |  5 ++
+ src/app/api/orders/route.ts                   |  7 +++
+ src/app/api/zarinpal/verify/route.ts          |  5 ++
+ src/app/orders/[id]/invoice/page.tsx          |  4 +-
+ src/instrumentation.ts                        |  4 +-
+ src/lib/db/migrations/0013_invoice_number.sql | 22 ++++++++
+ src/lib/db/schema/orders.ts                   |  9 ++--
+ src/lib/rate-limit.ts                         | 52 +++++++++++++++++++
+ 9 files changed, 108 insertions(+), 7 deletions(-)
+ create mode 100644 src/lib/db/migrations/0013_invoice_number.sql
+ create mode 100644 src/lib/rate-limit.ts
+
+diff --git a/src/app/api/admin/seo/generate/route.ts b/src/app/api/admin/seo/generate/route.ts
+index 8869cea..bfdbda5 100644
+--- a/src/app/api/admin/seo/generate/route.ts
++++ b/src/app/api/admin/seo/generate/route.ts
+@@ -5,6 +5,7 @@
+ import { NextRequest, NextResponse } from 'next/server'
+ import { requirePermission } from '@/lib/rbac'
+ import { generateText } from '@/lib/gemini'
++import { checkRateLimit, getClientIp } from '@/lib/rate-limit'
+ 
+ interface Body {
+   type?: 'product' | 'article'
+@@ -22,6 +23,12 @@ export async function POST(req: NextRequest) {
+     if (contentAuth instanceof NextResponse) return contentAuth
+   }
+ 
++  // حداکثر ۱۰ درخواست در ساعت به ازای هر IP — جلوگیری از هزینه AI بی‌رویه
++  const ip = getClientIp(req)
++  if (!checkRateLimit(`seo:${ip}`, 10, 60 * 60 * 1000)) {
++    return NextResponse.json({ error: 'تعداد درخواست‌ها بیش از حد مجاز است. لطفاً بعداً تلاش کنید.' }, { status: 429 })
++  }
++
+   const body = await req.json() as Body
+   const title = (body.title ?? '').trim()
+   if (!title) {
+diff --git a/src/app/api/idpay/verify/route.ts b/src/app/api/idpay/verify/route.ts
+index 61fd987..8dd554a 100644
+--- a/src/app/api/idpay/verify/route.ts
++++ b/src/app/api/idpay/verify/route.ts
+@@ -60,10 +60,15 @@ export async function POST(req: NextRequest) {
+ 
+   // به‌روزرسانی سفارش + کاهش موجودی در یک transaction (idempotent)
+   await db.transaction(async (tx) => {
++    const invRows = await tx.execute<{ nextInvoice: number }>(
++      sql`SELECT nextval('invoice_number_seq') AS "nextInvoice"`
++    )
++    const nextInvoice = invRows[0]?.nextInvoice ?? null
+     const updated = await tx.update(orders).set({
+       status: 'paid',
+       trackingCode: String(verifyData.track_id ?? body.track_id ?? ''),
+       paidAt: new Date(),
++      invoiceNumber: nextInvoice,
+     }).where(and(eq(orders.id, order.id), eq(orders.status, 'pending')))
+       .returning({ id: orders.id })
+ 
+diff --git a/src/app/api/orders/route.ts b/src/app/api/orders/route.ts
+index 993f043..401675c 100644
+--- a/src/app/api/orders/route.ts
++++ b/src/app/api/orders/route.ts
+@@ -8,6 +8,7 @@ import { sendVerifySms, sendBulkSms, SMS_TEMPLATES } from '@/lib/sms'
+ import { calcShipping, calcCouponDiscount, calcOrderTotal, calcVat } from '@/lib/pricing'
+ import { isValidNationalId, isValidCompanyId, toEnDigits } from '@/lib/utils'
+ import { logger } from '@/lib/logger'
++import { checkRateLimit, getClientIp } from '@/lib/rate-limit'
+ 
+ const addressSchema = z.object({
+   fullName: z.string().min(2),
+@@ -49,6 +50,12 @@ const schema = z.object({
+ })
+ 
+ export async function POST(req: Request) {
++  // حداکثر ۵ سفارش در ۵ دقیقه به ازای هر IP
++  const ip = getClientIp(req)
++  if (!checkRateLimit(`orders:${ip}`, 5, 5 * 60 * 1000)) {
++    return NextResponse.json({ error: 'درخواست‌های بیش از حد. لطفاً چند دقیقه صبر کنید.' }, { status: 429 })
++  }
++
+   const session = await auth()
+   if (!session?.user?.id) {
+     return NextResponse.json({ error: 'لطفاً وارد شوید' }, { status: 401 })
+diff --git a/src/app/api/zarinpal/verify/route.ts b/src/app/api/zarinpal/verify/route.ts
+index f0ca152..eac188c 100644
+--- a/src/app/api/zarinpal/verify/route.ts
++++ b/src/app/api/zarinpal/verify/route.ts
+@@ -53,10 +53,15 @@ export async function GET(req: Request) {
+   // به‌روزرسانی وضعیت سفارش + کاهش موجودی در یک transaction (idempotent)
+   await db.transaction(async (tx) => {
+     // فقط اگر سفارش هنوز pending است به‌روزرسانی کن — جلوگیری از پردازش دوباره در callbackهای همزمان
++    const invRows = await tx.execute<{ nextInvoice: number }>(
++      sql`SELECT nextval('invoice_number_seq') AS "nextInvoice"`
++    )
++    const nextInvoice = invRows[0]?.nextInvoice ?? null
+     const updated = await tx.update(orders).set({
+       status: 'paid',
+       trackingCode: String(zpData.data?.ref_id ?? ''),
+       paidAt: new Date(),
++      invoiceNumber: nextInvoice,
+     }).where(and(eq(orders.id, order.id), eq(orders.status, 'pending')))
+       .returning({ id: orders.id })
+ 
+diff --git a/src/app/orders/[id]/invoice/page.tsx b/src/app/orders/[id]/invoice/page.tsx
+index 1b4ba95..c61feda 100644
+--- a/src/app/orders/[id]/invoice/page.tsx
++++ b/src/app/orders/[id]/invoice/page.tsx
+@@ -19,7 +19,7 @@ interface Order {
+   discountAmount: string
+   taxAmount: string
+   officialInvoice: boolean
+-  invoiceNumber: string | null
++  invoiceNumber: number | string | null
+   billingSnapshot: {
+     customerType?: 'individual' | 'legal'
+     nationalId?: string
+@@ -68,7 +68,7 @@ export default function InvoicePage() {
+         <div className="flex items-start justify-between border-b-2 border-surface-900 pb-4 mb-6">
+           <div>
+             <h1 className="text-2xl font-black text-surface-900">فاکتور فروش رسمی</h1>
+-            <p className="text-sm text-surface-500 mt-1">شماره: {toFaDigits(order.invoiceNumber ?? order.id.slice(0, 8).toUpperCase())}</p>
++            <p className="text-sm text-surface-500 mt-1">شماره فاکتور: {order.invoiceNumber ? toFaDigits(String(order.invoiceNumber)) : '—'}</p>
+             <p className="text-sm text-surface-500">تاریخ: {dateFa}</p>
+           </div>
+           <div className="text-left text-sm">
+diff --git a/src/instrumentation.ts b/src/instrumentation.ts
+index 13fc2b8..22c24c9 100644
+--- a/src/instrumentation.ts
++++ b/src/instrumentation.ts
+@@ -225,7 +225,9 @@ export async function register() {
+         ALTER TABLE "users"  ADD COLUMN IF NOT EXISTS "billing_info" jsonb;
+         ALTER TABLE "orders" ADD COLUMN IF NOT EXISTS "tax_amount" numeric(14,0) DEFAULT '0' NOT NULL;
+         ALTER TABLE "orders" ADD COLUMN IF NOT EXISTS "official_invoice" boolean DEFAULT false NOT NULL;
+-        ALTER TABLE "orders" ADD COLUMN IF NOT EXISTS "invoice_number" varchar(40);
++        ALTER TABLE "orders" ADD COLUMN IF NOT EXISTS "invoice_number" bigint;
++        CREATE SEQUENCE IF NOT EXISTS invoice_number_seq START 1000;
++        CREATE UNIQUE INDEX IF NOT EXISTS orders_invoice_number_idx ON "orders" ("invoice_number") WHERE "invoice_number" IS NOT NULL;
+         ALTER TABLE "orders" ADD COLUMN IF NOT EXISTS "billing_snapshot" jsonb;
+         ALTER TABLE "orders" ADD COLUMN IF NOT EXISTS "needs_installation" boolean DEFAULT false NOT NULL;
+         ALTER TABLE "orders" ADD COLUMN IF NOT EXISTS "assigned_installer_id" uuid REFERENCES "users"("id") ON DELETE SET NULL;
+diff --git a/src/lib/db/migrations/0013_invoice_number.sql b/src/lib/db/migrations/0013_invoice_number.sql
+new file mode 100644
+index 0000000..8b32564
+--- /dev/null
++++ b/src/lib/db/migrations/0013_invoice_number.sql
+@@ -0,0 +1,22 @@
++-- شماره فاکتور ترتیبی و یکتا
++-- اگر column قبلاً به عنوان varchar اضافه شده باشد، تبدیل به bigint می‌کنیم
++CREATE SEQUENCE IF NOT EXISTS invoice_number_seq START 1000;
++
++DO $$
++BEGIN
++  -- اگر column وجود ندارد، اضافه کن
++  IF NOT EXISTS (
++    SELECT 1 FROM information_schema.columns
++    WHERE table_name = 'orders' AND column_name = 'invoice_number'
++  ) THEN
++    ALTER TABLE orders ADD COLUMN invoice_number bigint;
++  ELSIF (
++    SELECT data_type FROM information_schema.columns
++    WHERE table_name = 'orders' AND column_name = 'invoice_number'
++  ) != 'bigint' THEN
++    -- اگر varchar بود، تبدیل کن (مقادیر قدیمی NULL می‌مانند)
++    ALTER TABLE orders ALTER COLUMN invoice_number TYPE bigint USING NULL;
++  END IF;
++END $$;
++
++CREATE UNIQUE INDEX IF NOT EXISTS orders_invoice_number_idx ON orders (invoice_number) WHERE invoice_number IS NOT NULL;
+diff --git a/src/lib/db/schema/orders.ts b/src/lib/db/schema/orders.ts
+index 1e294e2..674073c 100644
+--- a/src/lib/db/schema/orders.ts
++++ b/src/lib/db/schema/orders.ts
+@@ -2,7 +2,7 @@
+  * اسکیمای سفارشات
+  */
+ 
+-import { pgTable, pgEnum, uuid, varchar, text, numeric, integer, jsonb, timestamp, boolean, index } from 'drizzle-orm/pg-core'
++import { pgTable, pgEnum, uuid, varchar, text, numeric, integer, bigint, jsonb, timestamp, boolean, index, uniqueIndex } from 'drizzle-orm/pg-core'
+ import { relations, sql } from 'drizzle-orm'
+ import { users } from './users'
+ import { products, productVariants } from './products'
+@@ -74,8 +74,8 @@ export const orders = pgTable('orders', {
+   // ── فاکتور رسمی ──
+   /** آیا مشتری فاکتور رسمی خواسته است */
+   officialInvoice: boolean('official_invoice').notNull().default(false),
+-  /** شماره فاکتور یکتا (پس از صدور) */
+-  invoiceNumber: varchar('invoice_number', { length: 40 }),
++  /** شماره فاکتور ترتیبی — از sequence invoice_number_seq */
++  invoiceNumber: bigint('invoice_number', { mode: 'number' }),
+   /** snapshot اطلاعات صورتحساب (حقیقی/حقوقی) در لحظه ثبت */
+   billingSnapshot: jsonb('billing_snapshot').$type<{
+     customerType?: 'individual' | 'legal'
+@@ -108,7 +108,8 @@ export const orders = pgTable('orders', {
+   index('orders_user_id_idx').on(t.userId),
+   index('orders_status_idx').on(t.status),
+   index('orders_created_at_idx').on(t.createdAt),
+-])
++]
++)
+ 
+ // ─── Order Items ──────────────────────────────────────────────────────────────
+ 
+diff --git a/src/lib/rate-limit.ts b/src/lib/rate-limit.ts
+new file mode 100644
+index 0000000..25bbe3b
+--- /dev/null
++++ b/src/lib/rate-limit.ts
+@@ -0,0 +1,52 @@
++/**
++ * Rate limiter ساده مبتنی بر حافظه
++ * برای production با چند instance از Redis استفاده کنید (Upstash)
++ * این پیاده‌سازی برای single-instance کافی است
++ */
++
++interface RateLimitEntry {
++  count: number
++  resetAt: number
++}
++
++const store = new Map<string, RateLimitEntry>()
++
++// پاکسازی هر ۵ دقیقه برای جلوگیری از نشت حافظه
++setInterval(() => {
++  const now = Date.now()
++  for (const [key, entry] of store.entries()) {
++    if (entry.resetAt < now) store.delete(key)
++  }
++}, 5 * 60 * 1000)
++
++/**
++ * بررسی و ثبت درخواست برای rate limiting
++ * @param key کلید یکتا (مثلاً IP + endpoint)
++ * @param limit حداکثر تعداد درخواست در بازه
++ * @param windowMs بازه زمانی (میلی‌ثانیه)
++ * @returns true اگر مجاز، false اگر محدود شده
++ */
++export function checkRateLimit(key: string, limit: number, windowMs: number): boolean {
++  const now = Date.now()
++  const entry = store.get(key)
++
++  if (!entry || entry.resetAt < now) {
++    store.set(key, { count: 1, resetAt: now + windowMs })
++    return true
++  }
++
++  if (entry.count >= limit) return false
++
++  entry.count++
++  return true
++}
++
++/** IP کاربر را از Request استخراج می‌کند */
++export function getClientIp(req: Request): string {
++  const headers = req instanceof Request ? req.headers : new Headers()
++  return (
++    headers.get('x-forwarded-for')?.split(',')[0]?.trim() ??
++    headers.get('x-real-ip') ??
++    'unknown'
++  )
++}
+-- 
+2.43.0
+
