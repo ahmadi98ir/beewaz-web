@@ -12,6 +12,7 @@ interface Order {
   id: string; status: string; totalAmount: string; shippingAmount: string
   discountAmount: string; paymentMethod: string | null; trackingCode: string | null
   couponCode: string | null; customerNote: string | null; adminNote: string | null
+  needsInstallation?: boolean; taxAmount?: string; officialInvoice?: boolean
   shippingAddress: {
     fullName?: string; phone?: string; province?: string; city?: string
     street?: string; alley?: string; plaque?: string; unit?: string; postalCode?: string
@@ -228,6 +229,15 @@ export default function OrderDetailPage() {
                 placeholder="یادداشت برای تیم..."
                 className="w-full px-3.5 py-2.5 text-sm border border-surface-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-300 resize-none" />
             </div>
+            <label className="flex items-center gap-2.5 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={!!order.needsInstallation}
+                onChange={(e) => patch({ needsInstallation: e.target.checked })}
+                className="w-4 h-4 accent-brand-600"
+              />
+              <span className="text-sm font-semibold text-surface-700">این سفارش نیازمند نصب است</span>
+            </label>
             <button onClick={() => patch({ trackingCode: tracking, adminNote })} disabled={saving}
               className="btn btn-primary text-sm py-2.5 px-5 disabled:opacity-50">
               {saving ? 'ذخیره...' : 'ذخیره تغییرات'}

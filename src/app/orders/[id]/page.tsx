@@ -25,6 +25,8 @@ interface Order {
   paymentMethod: string | null
   trackingCode: string | null
   customerNote: string | null
+  officialInvoice?: boolean
+  taxAmount?: string
   shippingAddress: {
     fullName?: string; phone?: string; province?: string; city?: string
     street?: string; alley?: string; plaque?: string; unit?: string; postalCode?: string
@@ -286,6 +288,12 @@ export default function OrderDetailPage() {
             )}
           </div>
         </div>
+
+        {order.officialInvoice && (
+          <Link href={`/orders/${order.id}/invoice`} className="btn btn-outline w-full text-sm py-2.5 mb-3 flex items-center justify-center gap-2">
+            🧾 مشاهده و چاپ فاکتور رسمی
+          </Link>
+        )}
 
         <div className="flex gap-3">
           <Link href="/profile" className="btn btn-outline flex-1 text-sm py-2.5">

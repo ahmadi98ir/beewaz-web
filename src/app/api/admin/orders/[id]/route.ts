@@ -46,6 +46,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       adminNote?: string
       shippedAt?: string
       deliveredAt?: string
+      needsInstallation?: boolean
     }
 
     const validStatuses: OrderStatus[] = ['pending','paid','processing','shipped','delivered','cancelled','refunded']
@@ -60,6 +61,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     }
     if (body.trackingCode !== undefined) update.trackingCode = body.trackingCode
     if (body.adminNote !== undefined)    update.adminNote = body.adminNote
+    if (body.needsInstallation !== undefined) update.needsInstallation = body.needsInstallation
     if (body.shippedAt)   update.shippedAt = new Date(body.shippedAt)
     if (body.deliveredAt) update.deliveredAt = new Date(body.deliveredAt)
 
