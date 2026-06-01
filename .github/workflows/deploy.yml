@@ -1,4 +1,4 @@
-name: Build & Upload Release
+name: Build & Deploy
 
 on:
   push:
@@ -6,11 +6,23 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  test:
     runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: test
     permissions:
       contents: write
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -30,26 +42,79 @@ jobs:
           NEXT_TELEMETRY_DISABLED: 1
         run: npm run build
 
-      - name: Package build
+      - name: Build Docker image
         run: |
-          mkdir -p /tmp/beewaz-pkg
-          cp -r .next/standalone/. /tmp/beewaz-pkg/
-          cp -r .next/static /tmp/beewaz-pkg/.next/static
-          cp -r public /tmp/beewaz-pkg/public
-          tar -czf /tmp/beewaz-build.tar.gz -C /tmp/beewaz-pkg .
-          echo "Build size: $(du -sh /tmp/beewaz-build.tar.gz | cut -f1)"
-          echo "SHA=$GITHUB_SHA" > /tmp/build-version.txt
+          docker build \
+            --build-arg NEXT_PUBLIC_APP_URL=https://bz360.ir \
+            -t beewaz-web:${{ github.sha }} \
+            -t beewaz-web:latest \
+            .
+          docker save beewaz-web:latest | gzip > /tmp/beewaz-image.tar.gz
+          echo "Image size: $(du -sh /tmp/beewaz-image.tar.gz | cut -f1)"
 
-      - name: Upload to GitHub Release
+      - name: Upload image to server (chunked)
+        env:
+          RECEIVER_URL: http://78.157.51.14:5001
+          RECEIVER_TOKEN: ${{ secrets.DEPLOY_RECEIVER_TOKEN }}
+        run: |
+          python3 - << 'PYEOF'
+          import os, base64, json, urllib.request, math
+
+          url   = os.environ['RECEIVER_URL']
+          token = os.environ['RECEIVER_TOKEN']
+          path  = '/tmp/beewaz-image.tar.gz'
+          chunk = 5 * 1024 * 1024  # 5MB chunks
+
+          with open(path, 'rb') as f:
+            data = f.read()
+
+          total = math.ceil(len(data) / chunk)
+          print(f"Uploading {len(data)//1024//1024}MB in {total} chunks...")
+
+          for i in range(total):
+            part = data[i*chunk:(i+1)*chunk]
+            payload = json.dumps({
+              'token': token,
+              'chunk': i,
+              'total': total,
+              'data': base64.b64encode(part).decode()
+            }).encode()
+            req = urllib.request.Request(url + '/upload', data=payload,
+              headers={'Content-Type': 'application/json'})
+            with urllib.request.urlopen(req, timeout=30) as r:
+              print(f"  chunk {i+1}/{total}: {r.status}")
+
+          print("Upload complete")
+          PYEOF
+
+      - name: Trigger deploy on server
+        env:
+          RECEIVER_URL: http://78.157.51.14:5001
+          RECEIVER_TOKEN: ${{ secrets.DEPLOY_RECEIVER_TOKEN }}
+        run: |
+          curl -sf -X POST "$RECEIVER_URL/deploy" \
+            -H "Content-Type: application/json" \
+            -d "{\"token\": \"$RECEIVER_TOKEN\", \"sha\": \"$GITHUB_SHA\"}" \
+            --max-time 30 || echo "Deploy triggered (timeout is normal)"
+
+      - name: Wait for health check
+        run: |
+          echo "Waiting 40s for container to restart..."
+          sleep 40
+          HTTP=$(curl -sf --max-time 15 -o /dev/null -w '%{http_code}' https://bz360.ir/ || echo "000")
+          echo "Site returned HTTP $HTTP"
+          if [ "$HTTP" = "200" ] || [ "$HTTP" = "301" ] || [ "$HTTP" = "302" ]; then
+            echo "✅ Deploy successful — commit ${GITHUB_SHA:0:8}" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ Site returned HTTP $HTTP — check server logs" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Save release artifact
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release delete deploy-cache --yes 2>/dev/null || true
           gh release create deploy-cache \
-            /tmp/beewaz-build.tar.gz \
-            /tmp/build-version.txt \
+            /tmp/beewaz-image.tar.gz \
             --title "Deploy Cache (${GITHUB_SHA:0:8})" \
-            --notes "Built from commit $GITHUB_SHA at $(date -u)"
-          echo "✅ Build ready for deploy" >> $GITHUB_STEP_SUMMARY
-          echo "Run deploy.ps1 on your Windows machine to deploy." >> $GITHUB_STEP_SUMMARY
-          echo "| Commit | \`${GITHUB_SHA:0:8}\` |" >> $GITHUB_STEP_SUMMARY
+            --notes "Auto-deployed from commit $GITHUB_SHA at $(date -u)"
