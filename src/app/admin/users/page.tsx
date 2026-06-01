@@ -13,33 +13,22 @@ interface User {
   createdAt: string
 }
 
-const ROLES = [
-  { value: 'customer', label: 'مشتری' },
-  { value: 'admin', label: 'مدیر' },
-  { value: 'sales_agent', label: 'کارشناس فروش' },
-]
-
-const roleLabel: Record<string, string> = {
-  admin: 'مدیر',
-  customer: 'مشتری',
-  sales_agent: 'کارشناس فروش',
-}
-
-const roleStyle: Record<string, string> = {
-  admin: 'bg-red-50 text-red-700 border-red-200',
-  sales_agent: 'bg-purple-50 text-purple-700 border-purple-200',
-  customer: 'bg-blue-50 text-blue-700 border-blue-200',
+interface RoleInfo {
+  name: string
+  labelFa: string
+  color: string | null
 }
 
 // ── Modal ─────────────────────────────────────────────────────────────────────
 
 interface ModalProps {
   user: Partial<User> | null
+  roles: RoleInfo[]
   onClose: () => void
   onSaved: () => void
 }
 
-function UserModal({ user, onClose, onSaved }: ModalProps) {
+function UserModal({ user, roles, onClose, onSaved }: ModalProps) {
   const isNew = !user?.id
   const [form, setForm] = useState({
     fullName: user?.fullName ?? '',
@@ -99,7 +88,7 @@ function UserModal({ user, onClose, onSaved }: ModalProps) {
           <div>
             <label className="block text-sm font-semibold text-surface-700 mb-1">سطح دسترسی</label>
             <select value={form.role} onChange={(e) => set('role', e.target.value)} className="input w-full">
-              {ROLES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+              {roles.map((r) => <option key={r.name} value={r.name}>{r.labelFa}</option>)}
             </select>
           </div>
           <div>
@@ -124,17 +113,28 @@ function UserModal({ user, onClose, onSaved }: ModalProps) {
 export default function AdminUsersPage() {
   const [search, setSearch] = useState('')
   const [users, setUsers] = useState<User[]>([])
+  const [roles, setRoles] = useState<RoleInfo[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [modal, setModal] = useState<Partial<User> | null | false>(false)
 
+  const roleLabel: Record<string, string> = Object.fromEntries(roles.map((r) => [r.name, r.labelFa]))
+  const roleStyle: Record<string, string> = Object.fromEntries(
+    roles.map((r) => [r.name, (r.color ?? 'bg-surface-50 text-surface-700 border-surface-200').replace(/bg-(\w+)-100/, 'bg-$1-50')])
+  )
+
   const fetchUsers = async () => {
     try {
       setLoading(true)
-      const res = await fetch('/api/admin/users')
-      if (!res.ok) throw new Error()
-      const data = await res.json()
+      const [usersRes, rolesRes] = await Promise.all([
+        fetch('/api/admin/users'),
+        fetch('/api/admin/roles'),
+      ])
+      if (!usersRes.ok) throw new Error()
+      const data = await usersRes.json()
+      const rolesData = rolesRes.ok ? await rolesRes.json() : { roles: [] }
       setUsers(data.users || [])
+      setRoles(rolesData.roles || [])
       setError(null)
     } catch {
       setError('خطا در بارگیری کاربران')
@@ -254,6 +254,7 @@ export default function AdminUsersPage() {
       {modal !== false && (
         <UserModal
           user={modal}
+          roles={roles}
           onClose={() => setModal(false)}
           onSaved={() => { setModal(false); fetchUsers() }}
         />

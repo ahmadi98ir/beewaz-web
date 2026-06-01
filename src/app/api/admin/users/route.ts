@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
       fullName: fullName || null,
       phone,
       email: email || null,
-      role: role as 'customer' | 'admin' | 'sales_agent',
+      role,
       passwordHash,
       isVerified: true,
     }).returning({ id: users.id, fullName: users.fullName, phone: users.phone, role: users.role })

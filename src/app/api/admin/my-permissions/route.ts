@@ -8,8 +8,13 @@ export async function GET() {
   const session = await auth()
   const role = (session?.user as { role?: string } | undefined)?.role
 
-  if (!role || (role !== 'admin' && role !== 'sales_agent')) {
+  if (!role || role === 'customer') {
     return NextResponse.json({ permissions: [] })
+  }
+
+  // admin همه مجوزها را دارد
+  if (role === 'admin') {
+    return NextResponse.json({ permissions: ['*'] })
   }
 
   const rows = await db

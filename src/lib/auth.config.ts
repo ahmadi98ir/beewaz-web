@@ -33,7 +33,8 @@ export const authConfig = {
         if (!auth) return false
         // @ts-expect-error — custom role
         const role = auth.user?.role as string | undefined
-        return role === 'admin' || role === 'sales_agent'
+        // هر نقش کارمندی (غیر از مشتری) — کنترل دقیق با RBAC در سطح صفحه/API
+        return !!role && role !== 'customer'
       }
       if (pathname.startsWith('/profile')) {
         return !!auth

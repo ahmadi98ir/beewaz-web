@@ -55,6 +55,13 @@ const navSections: NavSection[] = [
     ],
   },
   {
+    title: 'انبار و نصب',
+    items: [
+      { href: '/admin/inventory',     label: 'موجودی انبار', permission: 'inventory:manage',   icon: <NavIcon d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /> },
+      { href: '/admin/installations', label: 'سفارش‌های نصب', permission: 'installation:read', icon: <NavIcon d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 00-1-1H4a2 2 0 110-4h1a1 1 0 001-1V7a1 1 0 011-1h3a1 1 0 001-1V4z" /> },
+    ],
+  },
+  {
     title: 'CMS',
     items: [
       { href: '/admin/pages',    label: 'صفحات',         permission: 'content:write', icon: <NavIcon d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /> },
@@ -108,7 +115,17 @@ function UserCard() {
   const name = session?.user?.name ?? 'کاربر'
   const initial = name.charAt(0)
 
-  const roleLabel = role === 'admin' ? 'مدیر کل' : role === 'sales_agent' ? 'کارشناس فروش' : 'کاربر'
+  const [roleLabel, setRoleLabel] = useState('کاربر')
+  useEffect(() => {
+    if (!role) return
+    fetch('/api/admin/roles')
+      .then((r) => r.json())
+      .then((d: { roles: { name: string; labelFa: string }[] }) => {
+        const found = d.roles?.find((r) => r.name === role)
+        if (found) setRoleLabel(found.labelFa)
+      })
+      .catch(() => {})
+  }, [role])
 
   return (
     <div className="flex items-center gap-3 px-3 py-3 mt-2 rounded-xl bg-white/5">

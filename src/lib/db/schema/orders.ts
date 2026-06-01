@@ -55,6 +55,8 @@ export const orders = pgTable('orders', {
   shippingAmount: numeric('shipping_amount', { precision: 14, scale: 0 }).notNull().default('0'),
   /** تخفیف */
   discountAmount: numeric('discount_amount', { precision: 14, scale: 0 }).notNull().default('0'),
+  /** مالیات ارزش افزوده (ریال) — فقط هنگام فاکتور رسمی */
+  taxAmount: numeric('tax_amount', { precision: 14, scale: 0 }).notNull().default('0'),
 
   /** کد تراکنش درگاه */
   transactionId: varchar('transaction_id', { length: 100 }),
@@ -68,6 +70,33 @@ export const orders = pgTable('orders', {
 
   /** کد کوپن استفاده‌شده */
   couponCode: varchar('coupon_code', { length: 50 }),
+
+  // ── فاکتور رسمی ──
+  /** آیا مشتری فاکتور رسمی خواسته است */
+  officialInvoice: boolean('official_invoice').notNull().default(false),
+  /** شماره فاکتور یکتا (پس از صدور) */
+  invoiceNumber: varchar('invoice_number', { length: 40 }),
+  /** snapshot اطلاعات صورتحساب (حقیقی/حقوقی) در لحظه ثبت */
+  billingSnapshot: jsonb('billing_snapshot').$type<{
+    customerType?: 'individual' | 'legal'
+    nationalId?: string
+    companyName?: string
+    companyNationalId?: string
+    economicCode?: string
+    registrationNumber?: string
+    legalAddress?: string
+    legalPostalCode?: string
+  }>(),
+
+  // ── نصب ──
+  /** نیازمند نصب — توسط کارشناس فروش/مدیر ثبت می‌شود */
+  needsInstallation: boolean('needs_installation').notNull().default(false),
+  /** نصاب تخصیص‌یافته (فاز بعد) */
+  assignedInstallerId: uuid('assigned_installer_id').references(() => users.id, { onDelete: 'set null' }),
+  /** گزارش نصب */
+  installationNote: text('installation_note'),
+  /** زمان تکمیل نصب */
+  installedAt: timestamp('installed_at', { withTimezone: true }),
 
   paidAt: timestamp('paid_at', { withTimezone: true }),
   shippedAt: timestamp('shipped_at', { withTimezone: true }),

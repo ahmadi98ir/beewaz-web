@@ -16,11 +16,12 @@ export async function requireAdmin(req?: NextRequest): Promise<{ ok: boolean; er
     return { ok: false, error: 'CSRF check failed' }
   }
 
-  // ۲. بررسی NextAuth session — اگر role=admin یا sales_agent باشد اجازه داده می‌شود
+  // ۲. بررسی NextAuth session — هر نقش کارمندی (غیر از مشتری) اجازه ورود کلی دارد.
+  //    کنترل دقیق هر عملیات با requirePermission انجام می‌شود.
   try {
     const session = await auth()
     const role = (session?.user as { role?: string } | undefined)?.role
-    if (role === 'admin' || role === 'sales_agent') return { ok: true }
+    if (role && role !== 'customer') return { ok: true }
   } catch { /* noop */ }
 
   // ۳. بررسی ADMIN_TOKEN از طریق کوکی

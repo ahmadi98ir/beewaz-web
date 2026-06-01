@@ -10,14 +10,7 @@ import { pgEnum } from 'drizzle-orm/pg-core'
 // =====================================================================
 // کاربران
 // =====================================================================
-export const userRoleEnum = pgEnum('user_role', [
-  'customer', // مشتری معمولی (پیش‌فرض)
-  'admin', // مدیر کل
-  'support', // پشتیبان
-  'sales', // تیم فروش (مدیریت leadها)
-  'editor', // ویرایشگر محتوا (KB/Blog)
-  'dealer', // نماینده فروش (B2B - فاز بعدی)
-])
+// نکته: نقش‌ها (role) دیگر enum نیستند — اکنون data-driven در جدول `roles`.
 
 export const userStatusEnum = pgEnum('user_status', [
   'pending', // ثبت‌نام شده، تأیید نشده

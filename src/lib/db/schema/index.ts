@@ -1,5 +1,8 @@
 // ─── Users ──────────────────────────────────────────────────────────────────
-export { userRoleEnum, users, type User, type NewUser, type UserRole } from './users'
+export {
+  users, type User, type NewUser, type UserRole,
+  type CustomerType, type BillingInfo,
+} from './users'
 
 // ─── Categories ──────────────────────────────────────────────────────────────
 export {
@@ -60,8 +63,8 @@ export {
 
 // ─── RBAC ────────────────────────────────────────────────────────────────────
 export {
-  permissions, rolePermissions,
-  type Permission, type RolePermission,
+  roles, permissions, rolePermissions,
+  type Role, type NewRole, type Permission, type RolePermission,
 } from './rbac'
 
 // ─── Coupons ─────────────────────────────────────────────────────────────────

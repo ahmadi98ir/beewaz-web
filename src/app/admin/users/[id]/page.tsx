@@ -5,6 +5,15 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { formatPrice, toFaDigits } from '@/lib/utils'
 
+// برچسب نمایشی نقش‌های رایج (fallback به نام خام نقش)
+const ROLE_LABELS: Record<string, string> = {
+  admin: 'مدیر',
+  sales_agent: 'کارشناس فروش',
+  warehouse: 'انباردار',
+  installer: 'نصاب',
+  customer: 'مشتری',
+}
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface User {
@@ -113,7 +122,7 @@ export default function CustomerProfilePage() {
             { label: 'کل سفارشات',  value: toFaDigits(stats.totalOrders),            sub: 'سفارش' },
             { label: 'مجموع خرید',  value: formatPrice(stats.totalSpent),              sub: '' },
             { label: 'عضویت از',    value: fa(user.createdAt).split('،')[0],           sub: '' },
-            { label: 'نقش',         value: user.role === 'admin' ? 'مدیر' : user.role === 'sales_agent' ? 'کارشناس' : 'مشتری', sub: '' },
+            { label: 'نقش',         value: ROLE_LABELS[user.role] ?? user.role, sub: '' },
           ].map((c) => (
             <div key={c.label} className="bg-white rounded-2xl border border-surface-200 p-4">
               <p className="text-xs text-surface-400 mb-1">{c.label}</p>

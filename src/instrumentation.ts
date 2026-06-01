@@ -162,8 +162,90 @@ export async function register() {
           "created_at" timestamp with time zone DEFAULT now() NOT NULL
         );
         ALTER TABLE "orders" ADD COLUMN IF NOT EXISTS "coupon_code" varchar(50);
+
+        -- ── فاز ۱: نقش‌های data-driven ──
+        -- تبدیل users.role از enum به varchar (غیرتخریبی)
+        DO $$ BEGIN
+          IF EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_name='users' AND column_name='role' AND udt_name='user_role'
+          ) THEN
+            ALTER TABLE "users" ALTER COLUMN "role" TYPE varchar(30) USING "role"::text;
+            ALTER TABLE "users" ALTER COLUMN "role" SET DEFAULT 'customer';
+          END IF;
+        END $$;
+
+        CREATE TABLE IF NOT EXISTS "roles" (
+          "name" varchar(30) PRIMARY KEY,
+          "label_fa" varchar(60) NOT NULL,
+          "color" varchar(60),
+          "is_system" boolean DEFAULT false NOT NULL,
+          "sort_order" integer DEFAULT 0 NOT NULL,
+          "created_at" timestamp with time zone DEFAULT now() NOT NULL
+        );
+
+        INSERT INTO "roles" ("name","label_fa","color","is_system","sort_order") VALUES
+          ('customer',    'مشتری',        'bg-surface-100 text-surface-700 border-surface-200', true,  0),
+          ('admin',       'مدیر کل',      'bg-red-100 text-red-700 border-red-200',             true,  10),
+          ('sales_agent', 'کارشناس فروش', 'bg-blue-100 text-blue-700 border-blue-200',          false, 20),
+          ('warehouse',   'انباردار',     'bg-amber-100 text-amber-700 border-amber-200',       false, 30),
+          ('installer',   'نصاب',         'bg-green-100 text-green-700 border-green-200',        false, 40)
+        ON CONFLICT ("name") DO NOTHING;
+
+        -- permission keys جدید (انبار + نصب)
+        INSERT INTO "permissions" ("key","label","group_name","sort_order") VALUES
+          ('inventory:manage',   'مدیریت موجودی انبار', 'انبار', 10),
+          ('installation:read',  'مشاهده سفارش‌های نصب', 'نصب',  10),
+          ('installation:write', 'ثبت گزارش نصب',        'نصب',  20)
+        ON CONFLICT ("key") DO NOTHING;
+
+        -- مجوزهای پیش‌فرض انباردار
+        INSERT INTO "role_permissions" ("role","permission") VALUES
+          ('warehouse','dashboard:view'),
+          ('warehouse','orders:read'),
+          ('warehouse','orders:write'),
+          ('warehouse','products:read'),
+          ('warehouse','inventory:manage')
+        ON CONFLICT DO NOTHING;
+
+        -- مجوزهای پیش‌فرض نصاب
+        INSERT INTO "role_permissions" ("role","permission") VALUES
+          ('installer','dashboard:view'),
+          ('installer','orders:read'),
+          ('installer','installation:read'),
+          ('installer','installation:write')
+        ON CONFLICT DO NOTHING;
+
+        -- admin همه مجوزها را دارد (شامل مجوزهای جدید)
+        INSERT INTO "role_permissions" ("role","permission")
+          SELECT 'admin', key FROM "permissions"
+        ON CONFLICT DO NOTHING;
+
+        -- ── فاز ۲: فاکتور رسمی / حقوقی / مالیات ──
+        ALTER TABLE "users"  ADD COLUMN IF NOT EXISTS "billing_info" jsonb;
+        ALTER TABLE "orders" ADD COLUMN IF NOT EXISTS "tax_amount" numeric(14,0) DEFAULT '0' NOT NULL;
+        ALTER TABLE "orders" ADD COLUMN IF NOT EXISTS "official_invoice" boolean DEFAULT false NOT NULL;
+        ALTER TABLE "orders" ADD COLUMN IF NOT EXISTS "invoice_number" varchar(40);
+        ALTER TABLE "orders" ADD COLUMN IF NOT EXISTS "billing_snapshot" jsonb;
+        ALTER TABLE "orders" ADD COLUMN IF NOT EXISTS "needs_installation" boolean DEFAULT false NOT NULL;
+        ALTER TABLE "orders" ADD COLUMN IF NOT EXISTS "assigned_installer_id" uuid REFERENCES "users"("id") ON DELETE SET NULL;
+        ALTER TABLE "orders" ADD COLUMN IF NOT EXISTS "installation_note" text;
+        ALTER TABLE "orders" ADD COLUMN IF NOT EXISTS "installed_at" timestamp with time zone;
       `)
       console.log('[migration] ✅ all tables ensured')
+
+      // seed تنظیمات مالیات و فاکتور (اگر وجود نداشته باشند)
+      try {
+        await sql.unsafe(`
+          INSERT INTO "site_settings" ("key","value","type","label","group","hint","is_editable","is_required")
+          VALUES
+            ('vat_rate','10','number','نرخ مالیات بر ارزش افزوده (٪)','commerce','مثال: 10',true,false),
+            ('tax_code','','text','کد مالیاتی فروشگاه','commerce','شناسه مالیاتی برای فاکتور رسمی',true,false),
+            ('invoice_seller_name','','text','نام فروشنده در فاکتور','commerce',NULL,true,false),
+            ('invoice_economic_code','','text','کد اقتصادی فروشنده','commerce',NULL,true,false)
+          ON CONFLICT ("key") DO NOTHING;
+        `)
+      } catch { /* جدول site_settings هنوز ایجاد نشده */ }
 
       // seed تنظیمات پرداخت کارت به کارت (اگر وجود نداشته باشند)
       try {

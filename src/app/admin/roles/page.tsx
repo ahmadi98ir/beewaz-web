@@ -14,22 +14,39 @@ interface State {
   byRole: Record<string, string[]>
 }
 
-const ROLES = [
-  { key: 'admin',       label: 'مدیر کل',     color: 'bg-red-100 text-red-700 border-red-200' },
-  { key: 'sales_agent', label: 'کارشناس فروش', color: 'bg-blue-100 text-blue-700 border-blue-200' },
-]
+interface RoleInfo {
+  name: string
+  labelFa: string
+  color: string | null
+  isSystem: boolean
+  sortOrder: number
+}
 
 export default function AdminRolesPage() {
   const [data, setData] = useState<State | null>(null)
+  const [rolesList, setRolesList] = useState<RoleInfo[]>([])
   const [selected, setSelected] = useState<Record<string, Set<string>>>({})
   const [saving, setSaving] = useState<string | null>(null)
   const [saved, setSaved] = useState<string | null>(null)
-  const [activeRole, setActiveRole] = useState('sales_agent')
+  const [activeRole, setActiveRole] = useState('')
+
+  // افزودن/حذف نقش
+  const [showNew, setShowNew] = useState(false)
+  const [newName, setNewName] = useState('')
+  const [newLabel, setNewLabel] = useState('')
 
   const fetchData = useCallback(async () => {
-    const res = await fetch('/api/admin/role-permissions')
-    const json = await res.json() as State
+    const [permRes, rolesRes] = await Promise.all([
+      fetch('/api/admin/role-permissions'),
+      fetch('/api/admin/roles'),
+    ])
+    const json = await permRes.json() as State
+    const rolesJson = await rolesRes.json() as { roles: RoleInfo[] }
     setData(json)
+    // نقش‌های قابل‌مدیریت (به‌جز customer که نقش مشتری است)
+    const manageable = (rolesJson.roles ?? []).filter((r) => r.name !== 'customer')
+    setRolesList(manageable)
+    setActiveRole((prev) => prev || manageable.find((r) => r.name !== 'admin')?.name || manageable[0]?.name || '')
     const sel: Record<string, Set<string>> = {}
     for (const [role, perms] of Object.entries(json.byRole)) {
       sel[role] = new Set(perms)
@@ -38,6 +55,32 @@ export default function AdminRolesPage() {
   }, [])
 
   useEffect(() => { fetchData() }, [fetchData])
+
+  async function createRole() {
+    const name = newName.trim()
+    const labelFa = newLabel.trim()
+    if (!name || !labelFa) return
+    const res = await fetch('/api/admin/roles', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, labelFa }),
+    })
+    if (res.ok) {
+      setShowNew(false); setNewName(''); setNewLabel('')
+      await fetchData()
+      setActiveRole(name.toLowerCase().replace(/[^a-z0-9_]/g, ''))
+    } else {
+      const d = await res.json()
+      alert(d.error ?? 'خطا در ایجاد نقش')
+    }
+  }
+
+  async function deleteRole(name: string) {
+    if (!confirm(`آیا از حذف نقش اطمینان دارید؟`)) return
+    const res = await fetch(`/api/admin/roles?name=${encodeURIComponent(name)}`, { method: 'DELETE' })
+    if (res.ok) { await fetchData(); setActiveRole('') }
+    else { const d = await res.json(); alert(d.error ?? 'خطا در حذف نقش') }
+  }
 
   function toggle(role: string, perm: string) {
     if (role === 'admin') return // admin always has all
@@ -93,30 +136,63 @@ export default function AdminRolesPage() {
   return (
     <div className="flex-1 overflow-y-auto p-6">
       <div className="max-w-5xl mx-auto">
-        <div className="mb-6">
-          <h1 className="text-2xl font-black text-surface-900">مدیریت نقش‌ها و دسترسی‌ها</h1>
-          <p className="text-sm text-surface-500 mt-1">تعیین کنید هر نقش به کدام بخش‌ها دسترسی دارد.</p>
+        <div className="mb-6 flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-black text-surface-900">مدیریت نقش‌ها و دسترسی‌ها</h1>
+            <p className="text-sm text-surface-500 mt-1">تعیین کنید هر نقش به کدام بخش‌ها دسترسی دارد.</p>
+          </div>
+          <button
+            onClick={() => setShowNew(true)}
+            className="flex-shrink-0 px-4 py-2 rounded-xl text-sm font-bold bg-brand-600 text-white hover:bg-brand-700 transition-colors"
+          >
+            + نقش جدید
+          </button>
         </div>
 
         {/* Role tabs */}
-        <div className="flex gap-3 mb-6">
-          {ROLES.map((r) => (
+        <div className="flex flex-wrap gap-3 mb-6">
+          {rolesList.map((r) => (
             <button
-              key={r.key}
-              onClick={() => setActiveRole(r.key)}
+              key={r.name}
+              onClick={() => setActiveRole(r.name)}
               className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold border transition-all ${
-                activeRole === r.key
-                  ? r.color + ' shadow-sm'
+                activeRole === r.name
+                  ? (r.color ?? 'bg-surface-100 text-surface-700 border-surface-200') + ' shadow-sm'
                   : 'bg-white border-surface-200 text-surface-600 hover:bg-surface-50'
               }`}
             >
-              {r.label}
-              {r.key === 'admin' && (
+              {r.labelFa}
+              {r.name === 'admin' && (
                 <span className="text-xs opacity-70">(همه دسترسی‌ها)</span>
+              )}
+              {!r.isSystem && (
+                <span
+                  onClick={(e) => { e.stopPropagation(); deleteRole(r.name) }}
+                  className="text-xs opacity-50 hover:opacity-100 hover:text-red-600 mr-1"
+                  title="حذف نقش"
+                >✕</span>
               )}
             </button>
           ))}
         </div>
+
+        {/* New role form */}
+        {showNew && (
+          <div className="mb-6 bg-white rounded-2xl border border-surface-200 p-4 flex flex-wrap items-end gap-3">
+            <div className="flex-1 min-w-[140px]">
+              <label className="block text-xs font-semibold text-surface-600 mb-1">نام انگلیسی (یکتا)</label>
+              <input value={newName} onChange={(e) => setNewName(e.target.value)} dir="ltr"
+                placeholder="accountant" className="input w-full font-mono text-sm" />
+            </div>
+            <div className="flex-1 min-w-[140px]">
+              <label className="block text-xs font-semibold text-surface-600 mb-1">عنوان فارسی</label>
+              <input value={newLabel} onChange={(e) => setNewLabel(e.target.value)}
+                placeholder="حسابدار" className="input w-full text-sm" />
+            </div>
+            <button onClick={createRole} className="px-4 py-2 rounded-xl text-sm font-bold bg-brand-600 text-white hover:bg-brand-700">ایجاد</button>
+            <button onClick={() => setShowNew(false)} className="px-4 py-2 rounded-xl text-sm font-semibold border border-surface-200 text-surface-600">انصراف</button>
+          </div>
+        )}
 
         {/* Permission matrix */}
         <div className="space-y-4">
