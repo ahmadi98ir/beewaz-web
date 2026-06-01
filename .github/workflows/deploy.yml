@@ -52,26 +52,18 @@ jobs:
           echo "Docker image size: $SIZE"
           ls -lh beewaz-image.tar.gz
 
-      - name: Test SSH connectivity
+      - name: Upload image to server
         run: |
           sudo apt-get install -y sshpass > /dev/null 2>&1
-          echo "Testing SSH to ${{ secrets.SSH_HOST }}:${{ secrets.SSH_PORT }}..."
-          sshpass -p '${{ secrets.SSH_PASS }}' ssh \
+          echo "Uploading $(du -sh beewaz-image.tar.gz | cut -f1) to server..."
+          sshpass -p '${{ secrets.SSH_PASS }}' scp \
+            -P ${{ secrets.SSH_PORT }} \
             -o StrictHostKeyChecking=no \
-            -o ConnectTimeout=15 \
-            -p ${{ secrets.SSH_PORT }} \
-            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
-            "echo '✅ SSH_OK' && uname -a" || echo "❌ SSH_FAILED"
-
-      - name: Upload image to server
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          port: ${{ secrets.SSH_PORT }}
-          username: ${{ secrets.SSH_USER }}
-          password: ${{ secrets.SSH_PASS }}
-          source: "beewaz-image.tar.gz"
-          target: /tmp/
+            -o ConnectTimeout=30 \
+            -o ServerAliveInterval=30 \
+            beewaz-image.tar.gz \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/tmp/beewaz-image.tar.gz
+          echo "✅ Upload complete"
 
       - name: Load image & restart via Coolify
         uses: appleboy/ssh-action@v1.0.3
