@@ -91,3 +91,30 @@ ON CONFLICT DO NOTHING;
 - همه با `IF NOT EXISTS` / `ON CONFLICT` → idempotent
 - safety-net در `instrumentation.ts` تضمین می‌کند حتی اگر migration tracker خطا کند، جداول ساخته شوند
 - اتصال DB داخلی است (`@db:5432`) → بدون وابستگی به اینترنت ایران
+
+---
+
+## «نیازمند نصب» روی سفارش (تأییدشده ✅)
+
+«نیازمند نصب» یک تصمیم انسانی است که **کارشناس فروش یا مدیر** روی سفارش ثبت می‌کند
+(خودکار نیست). نصاب فقط سفارش‌هایی را می‌بیند که این پرچم برایشان فعال شده.
+
+**فیلد جدید روی orders:**
+```sql
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS needs_installation boolean NOT NULL DEFAULT false;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS installed_at timestamptz;        -- نصاب پر می‌کند
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS installation_note text;          -- گزارش نصاب
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS assigned_installer_id uuid REFERENCES users(id) ON DELETE SET NULL;
+```
+
+**جریان کار:**
+1. کارشناس فروش/مدیر در صفحه سفارش، تیک «نیازمند نصب» را می‌زند
+   (نیاز به `orders:write` — که هر دو دارند)
+2. نصاب در پنل، لیست سفارش‌های `needs_installation = true` را می‌بیند
+   (با `installation:read`)
+3. نصاب پس از نصب، `installation_note` و `installed_at` را ثبت می‌کند
+   (با `installation:write`)
+
+**سؤال باز برای فاز بعد:** آیا تخصیص نصاب مشخص (`assigned_installer_id`) را
+هم در فاز ۱ بگذاریم یا فعلاً همه نصاب‌ها همه‌ی سفارش‌های نصب را ببینند؟
+(فعلاً ستونش را می‌سازیم ولی UI تخصیص را فاز بعد.)
