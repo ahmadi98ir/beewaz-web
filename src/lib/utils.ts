@@ -65,3 +65,27 @@ export function slugify(text: string): string {
     .replace(/[^\w\u0600-\u06ff-]/g, '')
     .replace(/-+/g, '-')
 }
+
+/**
+ * \u0627\u0639\u062a\u0628\u0627\u0631\u0633\u0646\u062c\u06cc \u06a9\u062f \u0645\u0644\u06cc \u0627\u06cc\u0631\u0627\u0646\u06cc (\u06f1\u06f0 \u0631\u0642\u0645\u06cc \u0628\u0627 \u0627\u0644\u06af\u0648\u0631\u06cc\u062a\u0645 \u0686\u06a9\u200c\u062f\u06cc\u062c\u06cc\u062a)
+ * \u0648\u0631\u0648\u062f\u06cc \u0645\u06cc\u200c\u062a\u0648\u0627\u0646\u062f \u0641\u0627\u0631\u0633\u06cc \u06cc\u0627 \u0644\u0627\u062a\u06cc\u0646 \u0628\u0627\u0634\u062f.
+ */
+export function isValidNationalId(input: string): boolean {
+  const code = toEnDigits(String(input)).replace(/\D/g, '')
+  if (!/^\d{10}$/.test(code)) return false
+  // \u0631\u062f \u0627\u0631\u0642\u0627\u0645 \u062a\u06a9\u0631\u0627\u0631\u06cc (\u0645\u062b\u0644 0000000000)
+  if (/^(\d)\1{9}$/.test(code)) return false
+  const check = Number(code[9])
+  let sum = 0
+  for (let i = 0; i < 9; i++) sum += Number(code[i]) * (10 - i)
+  const r = sum % 11
+  return (r < 2 && check === r) || (r >= 2 && check === 11 - r)
+}
+
+/**
+ * \u0627\u0639\u062a\u0628\u0627\u0631\u0633\u0646\u062c\u06cc \u0634\u0646\u0627\u0633\u0647 \u0645\u0644\u06cc \u0627\u0634\u062e\u0627\u0635 \u062d\u0642\u0648\u0642\u06cc (\u06f1\u06f1 \u0631\u0642\u0645\u06cc)
+ */
+export function isValidCompanyId(input: string): boolean {
+  const code = toEnDigits(String(input)).replace(/\D/g, '')
+  return /^\d{11}$/.test(code)
+}

@@ -5,7 +5,8 @@ import { db } from '@/lib/db'
 import { orders, orderItems, products, coupons, couponUsages, siteSettings, users } from '@/lib/db/schema'
 import { eq, inArray, and, count, sql } from 'drizzle-orm'
 import { sendVerifySms, sendBulkSms, SMS_TEMPLATES } from '@/lib/sms'
-import { calcShipping, calcCouponDiscount, calcOrderTotal } from '@/lib/pricing'
+import { calcShipping, calcCouponDiscount, calcOrderTotal, calcVat } from '@/lib/pricing'
+import { isValidNationalId, isValidCompanyId, toEnDigits } from '@/lib/utils'
 import { logger } from '@/lib/logger'
 
 const addressSchema = z.object({
@@ -20,6 +21,19 @@ const addressSchema = z.object({
   postalCode: z.string().regex(/^\d{10}$/, 'کد پستی ۱۰ رقمی باشد'),
 })
 
+const billingSchema = z.object({
+  customerType: z.enum(['individual', 'legal']),
+  // حقیقی
+  nationalId: z.string().optional(),
+  // حقوقی
+  companyName: z.string().optional(),
+  companyNationalId: z.string().optional(),
+  economicCode: z.string().optional(),
+  registrationNumber: z.string().optional(),
+  legalAddress: z.string().optional(),
+  legalPostalCode: z.string().optional(),
+}).optional()
+
 const schema = z.object({
   address: addressSchema,
   items: z.array(z.object({
@@ -30,6 +44,8 @@ const schema = z.object({
   couponCode: z.string().optional(),
   paymentMethod: z.enum(['online', 'card_to_card', 'cash_on_delivery', 'installment']).default('online'),
   gateway: z.enum(['zarinpal', 'idpay', 'card_to_card', 'cash_on_delivery']).default('zarinpal'),
+  officialInvoice: z.boolean().default(false),
+  billing: billingSchema,
 })
 
 export async function POST(req: Request) {
@@ -45,8 +61,40 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: firstErr?.message ?? 'اطلاعات نامعتبر', field: firstErr?.path?.join('.') }, { status: 400 })
   }
 
-  const { address, items, notes, couponCode, paymentMethod, gateway } = parsed.data
+  const { address, items, notes, couponCode, paymentMethod, gateway, officialInvoice, billing } = parsed.data
   const productIds = items.map((i) => i.id)
+
+  // ── اعتبارسنجی فاکتور رسمی ───────────────────────────────────────────────────
+  let billingSnapshot: typeof billing = undefined
+  if (officialInvoice) {
+    if (!billing) {
+      return NextResponse.json({ error: 'برای فاکتور رسمی، اطلاعات صورتحساب الزامی است', field: 'billing' }, { status: 400 })
+    }
+    if (billing.customerType === 'individual') {
+      const nid = toEnDigits(billing.nationalId ?? '')
+      if (!isValidNationalId(nid)) {
+        return NextResponse.json({ error: 'کد ملی معتبر نیست', field: 'billing.nationalId' }, { status: 400 })
+      }
+      billingSnapshot = { customerType: 'individual', nationalId: nid }
+    } else {
+      // حقوقی
+      if (!billing.companyName?.trim()) {
+        return NextResponse.json({ error: 'نام شرکت الزامی است', field: 'billing.companyName' }, { status: 400 })
+      }
+      if (!isValidCompanyId(toEnDigits(billing.companyNationalId ?? ''))) {
+        return NextResponse.json({ error: 'شناسه ملی شرکت (۱۱ رقم) معتبر نیست', field: 'billing.companyNationalId' }, { status: 400 })
+      }
+      billingSnapshot = {
+        customerType: 'legal',
+        companyName: billing.companyName.trim(),
+        companyNationalId: toEnDigits(billing.companyNationalId ?? ''),
+        economicCode: billing.economicCode ? toEnDigits(billing.economicCode) : undefined,
+        registrationNumber: billing.registrationNumber ? toEnDigits(billing.registrationNumber) : undefined,
+        legalAddress: billing.legalAddress?.trim(),
+        legalPostalCode: billing.legalPostalCode ? toEnDigits(billing.legalPostalCode) : undefined,
+      }
+    }
+  }
 
   // بررسی محصولات
   const dbProducts = await db
@@ -81,14 +129,15 @@ export async function POST(req: Request) {
     })
   }
 
-  // هزینه ارسال — از تنظیمات سایت
+  // هزینه ارسال و نرخ مالیات — از تنظیمات سایت
   const shippingRows = await db
     .select({ key: siteSettings.key, value: siteSettings.value })
     .from(siteSettings)
-    .where(inArray(siteSettings.key, ['shipping_cost', 'free_shipping_threshold']))
+    .where(inArray(siteSettings.key, ['shipping_cost', 'free_shipping_threshold', 'vat_rate']))
   const shippingMap = Object.fromEntries(shippingRows.map((r) => [r.key, r.value]))
   const FREE_SHIPPING_THRESHOLD = parseInt(shippingMap['free_shipping_threshold'] ?? '2000000', 10)
   const SHIPPING_COST = parseInt(shippingMap['shipping_cost'] ?? '150000', 10)
+  const VAT_RATE = parseInt(shippingMap['vat_rate'] ?? '10', 10)
   const shippingAmount = calcShipping(subtotal, { shippingCost: SHIPPING_COST, freeThreshold: FREE_SHIPPING_THRESHOLD })
 
   // ── پردازش کوپن ───────────────────────────────────────────────────────────
@@ -130,7 +179,9 @@ export async function POST(req: Request) {
     appliedCoupon = coupon
   }
 
-  const totalAmount = calcOrderTotal({ subtotal, shipping: shippingAmount, discount: discountAmount })
+  // مالیات بر ارزش افزوده — فقط هنگام فاکتور رسمی، روی مبلغ پس از تخفیف
+  const taxAmount = calcVat(subtotal - discountAmount, { rate: VAT_RATE, official: officialInvoice })
+  const totalAmount = calcOrderTotal({ subtotal, shipping: shippingAmount, discount: discountAmount, tax: taxAmount })
   const userId = session.user!.id === 'admin-env' ? null : session.user!.id
 
   // ثبت سفارش در یک transaction برای جلوگیری از ناسازگاری داده
@@ -143,10 +194,13 @@ export async function POST(req: Request) {
         totalAmount: String(totalAmount),
         shippingAmount: String(shippingAmount),
         discountAmount: String(discountAmount),
+        taxAmount: String(taxAmount),
         couponCode: appliedCoupon?.code ?? null,
         shippingAddress: address,
         paymentMethod,
         customerNote: notes ?? null,
+        officialInvoice,
+        billingSnapshot: billingSnapshot ?? null,
       }).returning({ id: orders.id })
 
       if (!newOrder) throw new Error('order_insert_failed')
@@ -238,7 +292,7 @@ export async function POST(req: Request) {
     } catch { /* نادیده گرفتن خطای اطلاع‌رسانی ادمین */ }
   })()
 
-  // ذخیره آخرین آدرس ارسال روی پروفایل کاربر (fire-and-forget)
+  // ذخیره آخرین آدرس ارسال و اطلاعات صورتحساب روی پروفایل کاربر (fire-and-forget)
   if (session.user.id !== 'admin-env') {
     void db.update(users)
       .set({
@@ -252,6 +306,7 @@ export async function POST(req: Request) {
           unit: address.unit,
           postalCode: address.postalCode,
         },
+        ...(billingSnapshot ? { billingInfo: billingSnapshot } : {}),
         updatedAt: new Date(),
       })
       .where(eq(users.id, session.user.id))

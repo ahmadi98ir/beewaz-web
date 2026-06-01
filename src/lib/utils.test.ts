@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   formatPrice, formatToman, toFaDigits, toEnDigits,
-  discountPercent, slugify,
+  discountPercent, slugify, isValidNationalId, isValidCompanyId,
 } from './utils'
 
 describe('formatPrice', () => {
@@ -61,5 +61,33 @@ describe('slugify', () => {
   })
   it('keeps Persian characters', () => {
     expect(slugify('دزدگیر اماکن')).toBe('دزدگیر-اماکن')
+  })
+})
+
+describe('isValidNationalId', () => {
+  it('accepts a valid national id', () => {
+    expect(isValidNationalId('0499370899')).toBe(true)
+    expect(isValidNationalId('0084575948')).toBe(true)
+  })
+  it('accepts Persian-digit input', () => {
+    expect(isValidNationalId('۰۴۹۹۳۷۰۸۹۹')).toBe(true)
+  })
+  it('rejects wrong length', () => {
+    expect(isValidNationalId('12345')).toBe(false)
+  })
+  it('rejects repeated digits', () => {
+    expect(isValidNationalId('0000000000')).toBe(false)
+  })
+  it('rejects a bad check digit', () => {
+    expect(isValidNationalId('0499370898')).toBe(false)
+  })
+})
+
+describe('isValidCompanyId', () => {
+  it('accepts 11-digit company id', () => {
+    expect(isValidCompanyId('10100000000')).toBe(true)
+  })
+  it('rejects non-11-digit', () => {
+    expect(isValidCompanyId('123')).toBe(false)
   })
 })

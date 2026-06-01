@@ -38,11 +38,28 @@ export function calcCouponDiscount(subtotal: number, coupon: CouponInput): numbe
   return Math.max(0, Math.min(discount, subtotal))
 }
 
-/** محاسبه مبلغ نهایی سفارش */
+export const DEFAULT_VAT_RATE = 10 // درصد
+
+/**
+ * محاسبه مالیات بر ارزش افزوده — فقط هنگام فاکتور رسمی اعمال می‌شود.
+ * مبنای محاسبه: مبلغ پس از تخفیف (subtotal - discount).
+ */
+export function calcVat(
+  taxableBase: number,
+  opts: { rate?: number; official?: boolean } = {},
+): number {
+  if (!opts.official) return 0
+  const rate = opts.rate ?? DEFAULT_VAT_RATE
+  if (taxableBase <= 0 || rate <= 0) return 0
+  return Math.floor((taxableBase * rate) / 100)
+}
+
+/** محاسبه مبلغ نهایی سفارش (شامل مالیات) */
 export function calcOrderTotal(params: {
   subtotal: number
   shipping: number
   discount: number
+  tax?: number
 }): number {
-  return Math.max(0, params.subtotal + params.shipping - params.discount)
+  return Math.max(0, params.subtotal + params.shipping - params.discount + (params.tax ?? 0))
 }

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
-  calcShipping, calcCouponDiscount, calcOrderTotal,
+  calcShipping, calcCouponDiscount, calcOrderTotal, calcVat,
   DEFAULT_SHIPPING_COST, DEFAULT_FREE_SHIPPING_THRESHOLD,
 } from './pricing'
 
@@ -39,9 +39,29 @@ describe('calcCouponDiscount', () => {
   })
 })
 
+describe('calcVat', () => {
+  it('is zero when not official invoice', () => {
+    expect(calcVat(1_000_000, { rate: 10, official: false })).toBe(0)
+    expect(calcVat(1_000_000)).toBe(0)
+  })
+  it('applies rate when official', () => {
+    expect(calcVat(1_000_000, { rate: 10, official: true })).toBe(100_000)
+    expect(calcVat(1_000_000, { rate: 9, official: true })).toBe(90_000)
+  })
+  it('floors fractional vat', () => {
+    expect(calcVat(155, { rate: 10, official: true })).toBe(15)
+  })
+  it('is zero for non-positive base', () => {
+    expect(calcVat(0, { rate: 10, official: true })).toBe(0)
+  })
+})
+
 describe('calcOrderTotal', () => {
   it('sums subtotal + shipping - discount', () => {
     expect(calcOrderTotal({ subtotal: 1_000_000, shipping: 150_000, discount: 200_000 })).toBe(950_000)
+  })
+  it('includes tax when provided', () => {
+    expect(calcOrderTotal({ subtotal: 1_000_000, shipping: 150_000, discount: 200_000, tax: 80_000 })).toBe(1_030_000)
   })
   it('never goes negative', () => {
     expect(calcOrderTotal({ subtotal: 100_000, shipping: 0, discount: 500_000 })).toBe(0)

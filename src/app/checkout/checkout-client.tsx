@@ -97,7 +97,7 @@ export default function CheckoutClient({ bankCard, phone: sessionPhone, userName
   const params = useSearchParams()
   const { items, clearCart } = useCart()
 
-  const [shippingConfig, setShippingConfig] = useState({ shippingCost: 150_000, freeThreshold: 2_000_000 })
+  const [shippingConfig, setShippingConfig] = useState({ shippingCost: 150_000, freeThreshold: 2_000_000, vatRate: 10 })
   useEffect(() => {
     fetch('/api/shop/shipping').then(r => r.json()).then((d) => setShippingConfig(d as typeof shippingConfig)).catch(() => {})
   }, [])
@@ -114,6 +114,15 @@ export default function CheckoutClient({ bankCard, phone: sessionPhone, userName
   const [unit, setUnit] = useState('')
   const [postalCode, setPostalCode] = useState('')
   const [notes, setNotes] = useState('')
+
+  // فاکتور رسمی
+  const [officialInvoice, setOfficialInvoice] = useState(false)
+  const [customerType, setCustomerType] = useState<'individual' | 'legal'>('individual')
+  const [nationalId, setNationalId] = useState('')
+  const [companyName, setCompanyName] = useState('')
+  const [companyNationalId, setCompanyNationalId] = useState('')
+  const [economicCode, setEconomicCode] = useState('')
+  const [registrationNumber, setRegistrationNumber] = useState('')
 
   // ── آدرس ذخیره‌شده ────────────────────────────────────────────────────
   type SavedAddress = {
@@ -197,7 +206,8 @@ export default function CheckoutClient({ bankCard, phone: sessionPhone, userName
   const subtotal = items.reduce((s, i) => s + i.price * i.quantity, 0)
   const shipping = subtotal >= shippingConfig.freeThreshold ? 0 : shippingConfig.shippingCost
   const discount = couponApplied?.discountAmount ?? 0
-  const total = Math.max(0, subtotal + shipping - discount)
+  const tax = officialInvoice ? Math.floor(((subtotal - discount) * (shippingConfig.vatRate ?? 10)) / 100) : 0
+  const total = Math.max(0, subtotal + shipping - discount + tax)
 
   const applyCoupon = async () => {
     const code = couponInput.trim()
@@ -249,6 +259,27 @@ export default function CheckoutClient({ bankCard, phone: sessionPhone, userName
     if (!street.trim()) { setError('خیابان اصلی الزامی است'); return }
     if (!plaque.trim()) { setError('پلاک الزامی است'); return }
 
+    // اعتبارسنجی فاکتور رسمی
+    let billing: Record<string, string> | undefined
+    if (officialInvoice) {
+      if (customerType === 'individual') {
+        const nid = toEnDigits(nationalId).replace(/\D/g, '')
+        if (nid.length !== 10) { setError('کد ملی باید ۱۰ رقم باشد'); return }
+        billing = { customerType: 'individual', nationalId: nid }
+      } else {
+        if (!companyName.trim()) { setError('نام شرکت الزامی است'); return }
+        const cid = toEnDigits(companyNationalId).replace(/\D/g, '')
+        if (cid.length !== 11) { setError('شناسه ملی شرکت باید ۱۱ رقم باشد'); return }
+        billing = {
+          customerType: 'legal',
+          companyName: companyName.trim(),
+          companyNationalId: cid,
+          economicCode: toEnDigits(economicCode).replace(/\D/g, ''),
+          registrationNumber: toEnDigits(registrationNumber).replace(/\D/g, ''),
+        }
+      }
+    }
+
     setLoading(true)
     try {
       let paymentMethod: string
@@ -281,6 +312,8 @@ export default function CheckoutClient({ bankCard, phone: sessionPhone, userName
           couponCode: couponApplied?.code || undefined,
           paymentMethod,
           gateway: gatewayParam,
+          officialInvoice,
+          billing,
         }),
       })
 
@@ -505,6 +538,77 @@ export default function CheckoutClient({ bankCard, phone: sessionPhone, userName
               </div>
             </div>
 
+            {/* ── فاکتور رسمی ───────────────────────────────────────────── */}
+            <div className="bg-white rounded-2xl border border-surface-200 p-6 shadow-sm">
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={officialInvoice}
+                  onChange={(e) => setOfficialInvoice(e.target.checked)}
+                  className="w-5 h-5 accent-brand-600"
+                />
+                <div>
+                  <span className="text-base font-bold text-surface-800">درخواست فاکتور رسمی</span>
+                  <p className="text-xs text-surface-400 mt-0.5">
+                    با انتخاب این گزینه، مالیات بر ارزش افزوده ({toFaDigits(shippingConfig.vatRate ?? 10)}٪) به مبلغ اضافه می‌شود.
+                  </p>
+                </div>
+              </label>
+
+              {officialInvoice && (
+                <div className="mt-4 space-y-4 border-t border-surface-100 pt-4">
+                  {/* نوع مشتری */}
+                  <div className="flex gap-2">
+                    {([['individual', 'شخص حقیقی'], ['legal', 'شخص حقوقی']] as const).map(([k, label]) => (
+                      <button
+                        key={k}
+                        type="button"
+                        onClick={() => setCustomerType(k)}
+                        className={`flex-1 px-4 py-2 rounded-xl text-sm font-semibold border transition-colors ${
+                          customerType === k ? 'bg-brand-600 text-white border-brand-600' : 'bg-white border-surface-200 text-surface-600'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {customerType === 'individual' ? (
+                    <div>
+                      <label className="block text-sm font-semibold text-surface-700 mb-1.5">کد ملی <span className="text-red-500">*</span></label>
+                      <input
+                        value={nationalId}
+                        onChange={(e) => setNationalId(e.target.value)}
+                        placeholder="کد ملی ۱۰ رقمی"
+                        className="input w-full font-mono"
+                        dir="ltr"
+                        maxLength={12}
+                      />
+                    </div>
+                  ) : (
+                    <div className="grid sm:grid-cols-2 gap-3">
+                      <div className="sm:col-span-2">
+                        <label className="block text-sm font-semibold text-surface-700 mb-1.5">نام شرکت <span className="text-red-500">*</span></label>
+                        <input value={companyName} onChange={(e) => setCompanyName(e.target.value)} className="input w-full" placeholder="نام کامل شرکت" />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-surface-700 mb-1.5">شناسه ملی شرکت <span className="text-red-500">*</span></label>
+                        <input value={companyNationalId} onChange={(e) => setCompanyNationalId(e.target.value)} className="input w-full font-mono" dir="ltr" placeholder="۱۱ رقم" maxLength={13} />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-surface-700 mb-1.5">کد اقتصادی</label>
+                        <input value={economicCode} onChange={(e) => setEconomicCode(e.target.value)} className="input w-full font-mono" dir="ltr" placeholder="اختیاری" />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-surface-700 mb-1.5">شماره ثبت</label>
+                        <input value={registrationNumber} onChange={(e) => setRegistrationNumber(e.target.value)} className="input w-full font-mono" dir="ltr" placeholder="اختیاری" />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
             {/* ── کد تخفیف ──────────────────────────────────────────────── */}
             <div className="bg-white rounded-2xl border border-surface-200 p-6 shadow-sm">
               <h2 className="text-base font-bold text-surface-800 mb-4">کد تخفیف</h2>
@@ -670,6 +774,14 @@ export default function CheckoutClient({ bankCard, phone: sessionPhone, userName
                   <div className="flex justify-between text-green-600 font-semibold">
                     <span>تخفیف کوپن</span>
                     <span>− {toToman(discount)}</span>
+                  </div>
+                )}
+
+                {/* مالیات ارزش افزوده */}
+                {tax > 0 && (
+                  <div className="flex justify-between text-surface-500">
+                    <span>مالیات بر ارزش افزوده ({toFaDigits(shippingConfig.vatRate ?? 10)}٪)</span>
+                    <span>{toToman(tax)}</span>
                   </div>
                 )}
 
