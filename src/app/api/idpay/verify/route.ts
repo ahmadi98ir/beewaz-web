@@ -60,10 +60,15 @@ export async function POST(req: NextRequest) {
 
   // به‌روزرسانی سفارش + کاهش موجودی در یک transaction (idempotent)
   await db.transaction(async (tx) => {
+    const invRows = await tx.execute<{ nextInvoice: number }>(
+      sql`SELECT nextval('invoice_number_seq') AS "nextInvoice"`
+    )
+    const nextInvoice = invRows[0]?.nextInvoice ?? null
     const updated = await tx.update(orders).set({
       status: 'paid',
       trackingCode: String(verifyData.track_id ?? body.track_id ?? ''),
       paidAt: new Date(),
+      invoiceNumber: nextInvoice,
     }).where(and(eq(orders.id, order.id), eq(orders.status, 'pending')))
       .returning({ id: orders.id })
 

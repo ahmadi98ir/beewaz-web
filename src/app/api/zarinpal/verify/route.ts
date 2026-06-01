@@ -53,10 +53,15 @@ export async function GET(req: Request) {
   // به‌روزرسانی وضعیت سفارش + کاهش موجودی در یک transaction (idempotent)
   await db.transaction(async (tx) => {
     // فقط اگر سفارش هنوز pending است به‌روزرسانی کن — جلوگیری از پردازش دوباره در callbackهای همزمان
+    const invRows = await tx.execute<{ nextInvoice: number }>(
+      sql`SELECT nextval('invoice_number_seq') AS "nextInvoice"`
+    )
+    const nextInvoice = invRows[0]?.nextInvoice ?? null
     const updated = await tx.update(orders).set({
       status: 'paid',
       trackingCode: String(zpData.data?.ref_id ?? ''),
       paidAt: new Date(),
+      invoiceNumber: nextInvoice,
     }).where(and(eq(orders.id, order.id), eq(orders.status, 'pending')))
       .returning({ id: orders.id })
 

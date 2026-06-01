@@ -1,22 +1,46 @@
-name: Build & Upload Release
+name: CI / CD
 
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 jobs:
-  build:
+  # ── مرحله ۱: تست ──────────────────────────────────────────────────────────
+  test:
+    name: Test
     runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm test
+
+  # ── مرحله ۲: Build + Deploy (فقط main) ───────────────────────────────────
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     permissions:
       contents: write
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: 'npm'
@@ -24,32 +48,93 @@ jobs:
       - name: Install dependencies
         run: npm ci --include=dev
 
-      - name: Build
+      - name: Build Next.js
         env:
           NEXT_PUBLIC_APP_URL: https://bz360.ir
           NEXT_TELEMETRY_DISABLED: 1
         run: npm run build
 
-      - name: Package build
+      - name: Build Docker image
         run: |
-          mkdir -p /tmp/beewaz-pkg
-          cp -r .next/standalone/. /tmp/beewaz-pkg/
-          cp -r .next/static /tmp/beewaz-pkg/.next/static
-          cp -r public /tmp/beewaz-pkg/public
-          tar -czf /tmp/beewaz-build.tar.gz -C /tmp/beewaz-pkg .
-          echo "Build size: $(du -sh /tmp/beewaz-build.tar.gz | cut -f1)"
-          echo "SHA=$GITHUB_SHA" > /tmp/build-version.txt
+          docker build \
+            --build-arg NEXT_PUBLIC_APP_URL=https://bz360.ir \
+            -t beewaz-web:${{ github.sha }} \
+            -t beewaz-web:latest \
+            .
+          docker save beewaz-web:latest | gzip > /tmp/beewaz-image.tar.gz
+          SIZE=$(du -sh /tmp/beewaz-image.tar.gz | cut -f1)
+          echo "IMAGE_SIZE=$SIZE" >> $GITHUB_ENV
+          echo "Docker image size: $SIZE"
 
-      - name: Upload to GitHub Release
+      - name: Upload image to server + deploy
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          port: ${{ secrets.SSH_PORT }}
+          username: ${{ secrets.SSH_USER }}
+          password: ${{ secrets.SSH_PASS }}
+          source: /tmp/beewaz-image.tar.gz
+          target: /tmp/
+          strip_components: 2
+
+      - name: Load image & restart via Coolify
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          port: ${{ secrets.SSH_PORT }}
+          username: ${{ secrets.SSH_USER }}
+          password: ${{ secrets.SSH_PASS }}
+          script: |
+            set -e
+            echo "Loading Docker image..."
+            docker load < /tmp/beewaz-image.tar.gz
+            echo "Image loaded."
+            rm -f /tmp/beewaz-image.tar.gz
+
+            echo "Triggering Coolify restart..."
+            HTTP=$(curl -sf -o /dev/null -w "%{http_code}" \
+              -X POST http://localhost:8000/api/v1/applications/${{ secrets.COOLIFY_APP_UUID }}/restart \
+              -H "Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}" \
+              -H "Content-Type: application/json" \
+              --max-time 15 || echo "000")
+
+            if [ "$HTTP" = "200" ] || [ "$HTTP" = "202" ]; then
+              echo "✅ Coolify restart triggered (HTTP $HTTP)"
+            else
+              echo "Coolify returned $HTTP — using docker restart as fallback"
+              CONTAINER=$(docker ps --format "{{.Names}}" | grep -i beewaz | head -1)
+              if [ -n "$CONTAINER" ]; then
+                docker restart "$CONTAINER"
+                echo "✅ Container $CONTAINER restarted"
+              else
+                echo "⚠️ No beewaz container found"
+                exit 1
+              fi
+            fi
+
+      - name: Health check
+        run: |
+          echo "Waiting 45s for container to start..."
+          sleep 45
+          HTTP=$(curl -sf --max-time 15 -o /dev/null -w '%{http_code}' https://bz360.ir/ || echo "000")
+          echo "Site returned HTTP $HTTP"
+          if [ "$HTTP" = "200" ] || [ "$HTTP" = "301" ] || [ "$HTTP" = "302" ]; then
+            echo "## ✅ Deploy موفق" >> $GITHUB_STEP_SUMMARY
+            echo "| Commit | \`${GITHUB_SHA:0:8}\` |" >> $GITHUB_STEP_SUMMARY
+            echo "| Image  | ${{ env.IMAGE_SIZE }} |" >> $GITHUB_STEP_SUMMARY
+            echo "| URL    | https://bz360.ir |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "## ⚠️ Health check failed (HTTP $HTTP)" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+
+      - name: Save release artifact
+        if: success()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release delete deploy-cache --yes 2>/dev/null || true
           gh release create deploy-cache \
-            /tmp/beewaz-build.tar.gz \
-            /tmp/build-version.txt \
-            --title "Deploy Cache (${GITHUB_SHA:0:8})" \
-            --notes "Built from commit $GITHUB_SHA at $(date -u)"
-          echo "✅ Build ready for deploy" >> $GITHUB_STEP_SUMMARY
-          echo "Run deploy.ps1 on your Windows machine to deploy." >> $GITHUB_STEP_SUMMARY
-          echo "| Commit | \`${GITHUB_SHA:0:8}\` |" >> $GITHUB_STEP_SUMMARY
+            /tmp/beewaz-image.tar.gz \
+            --title "Deploy (${GITHUB_SHA:0:8})" \
+            --notes "Auto-deployed at $(date -u '+%Y-%m-%d %H:%M UTC')"
