@@ -216,7 +216,7 @@ export default function PageEditorPage() {
             placeholder="عنوان صفحه..."
           />
           <div className="flex items-center gap-1 text-xs text-surface-400">
-            <span>bz360.ir/</span>
+            <span>beewaz.ir/</span>
             <input
               value={slug}
               onChange={(e) => setSlug(e.target.value)}

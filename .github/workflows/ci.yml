@@ -49,7 +49,7 @@ jobs:
 
       - name: Run E2E tests against production
         env:
-          E2E_BASE_URL: https://bz360.ir
+          E2E_BASE_URL: https://beewaz.ir
         run: npm run test:e2e
         continue-on-error: true
 

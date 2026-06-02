@@ -142,7 +142,7 @@ export default function PagesListPage() {
               <div>
                 <label className="block text-sm font-semibold text-surface-700 mb-1.5">آدرس (slug)</label>
                 <div className="flex items-center gap-1">
-                  <span className="text-surface-400 text-sm">bz360.ir/</span>
+                  <span className="text-surface-400 text-sm">beewaz.ir/</span>
                   <input
                     value={newSlug}
                     onChange={(e) => setNewSlug(slugify(e.target.value))}

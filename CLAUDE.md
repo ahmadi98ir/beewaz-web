@@ -22,7 +22,7 @@
 | پنل Coolify | `http://78.157.51.14:8000` |
 | Coolify Token | `5\|beewaz-deploy-fix-2026` |
 | App UUID | `jw4kpfn8utdybrmwkr80fm8f` |
-| FQDN سایت | `https://bz360.ir` |
+| FQDN سایت | `https://beewaz.ir` |
 | Image | `ghcr.io/ahmadi98ir/beewaz-web:latest` |
 
 ### فرآیند دیپلوی (اجباری — ghcr.io روی سرور ایران بلاک است)
@@ -46,7 +46,7 @@
 
 #### نکات مهم دیپلوی
 - وضعیت `running:unknown` در Coolify API **نرمال است** — سایت آنلاین است
-- برای چک سایت از `http://bz360.ir` استفاده کن (نه IP مستقیم روی 80)
+- برای چک سایت از `http://beewaz.ir` استفاده کن (نه IP مستقیم روی 80)
 - GitHub Actions بیلد ~5-7 دقیقه طول می‌کشد
 
 ---

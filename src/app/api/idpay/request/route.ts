@@ -7,7 +7,7 @@ import { eq, and } from 'drizzle-orm'
 const IDPAY_API_KEY = process.env.IDPAY_API_KEY ?? ''
 const IDPAY_SANDBOX = process.env.IDPAY_SANDBOX === 'true'
 const IDPAY_URL = 'https://api.idpay.ir/v1.1/payment'
-const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://bz360.ir'
+const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://beewaz.ir'
 
 export async function GET(req: NextRequest) {
   const session = await auth()

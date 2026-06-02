@@ -222,7 +222,7 @@ export default function ProductDetailPage() {
             <div className="border border-surface-200 rounded-xl p-4 bg-surface-50">
               <p className="text-xs font-semibold text-surface-400 mb-2">پیش‌نمایش گوگل</p>
               <p className="text-blue-600 text-sm font-medium truncate">{form.metaTitle || product.name}</p>
-              <p className="text-green-700 text-xs">bz360.ir/shop/products/{product.slug}</p>
+              <p className="text-green-700 text-xs">beewaz.ir/shop/products/{product.slug}</p>
               <p className="text-surface-600 text-xs mt-1 line-clamp-2">{form.metaDescription || product.shortDescription || 'بدون توضیح'}</p>
             </div>
           </div>

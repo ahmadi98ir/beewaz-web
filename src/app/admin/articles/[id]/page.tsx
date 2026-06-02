@@ -125,7 +125,7 @@ export default function ArticleEditorPage() {
             placeholder="عنوان مقاله..."
           />
           <div className="flex items-center gap-1 text-xs text-surface-400">
-            <span>bz360.ir/blog/</span>
+            <span>beewaz.ir/blog/</span>
             <input
               value={slug}
               onChange={(e) => setSlug(slugify(e.target.value))}

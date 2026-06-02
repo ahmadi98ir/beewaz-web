@@ -264,7 +264,7 @@ export default function ContentPage() {
                 className="btn btn-outline text-xs py-2 px-3 disabled:opacity-50">
                 {seeding ? 'بارگذاری...' : 'پیش‌فرض‌ها'}
               </button>
-              <a href="https://bz360.ir" target="_blank" className="btn btn-outline text-xs py-2 px-3">مشاهده سایت</a>
+              <a href="https://beewaz.ir" target="_blank" className="btn btn-outline text-xs py-2 px-3">مشاهده سایت</a>
               <button onClick={save} disabled={saving || !changed}
                 className={`btn text-sm py-2.5 px-5 ${changed ? 'btn-primary' : 'btn-outline opacity-50 cursor-not-allowed'}`}>
                 {saving ? 'ذخیره...' : '\u{1F4BE} ذخیره تغییرات'}

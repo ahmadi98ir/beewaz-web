@@ -3,7 +3,7 @@ import { db } from '@/lib/db'
 import { products, articles, categories } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 
-const BASE = process.env.NEXT_PUBLIC_APP_URL ?? 'https://bz360.ir'
+const BASE = process.env.NEXT_PUBLIC_APP_URL ?? 'https://beewaz.ir'
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticPages: MetadataRoute.Sitemap = [

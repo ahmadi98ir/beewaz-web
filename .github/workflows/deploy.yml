@@ -43,7 +43,7 @@ jobs:
       - name: Build Docker image
         run: |
           docker build \
-            --build-arg NEXT_PUBLIC_APP_URL=https://bz360.ir \
+            --build-arg NEXT_PUBLIC_APP_URL=https://beewaz.ir \
             -t beewaz-web:latest \
             .
           docker save beewaz-web:latest | gzip > beewaz-image.tar.gz

@@ -36,7 +36,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
     if (!product) return { title: 'محصول یافت نشد' }
 
-    const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://bz360.ir'
+    const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://beewaz.ir'
     const title = product.metaTitle ?? product.nameFa
     const description = product.metaDesc ?? product.descriptionFa ?? undefined
     const imageUrl = img?.url?.startsWith('http') ? img.url : img?.url ? `${BASE_URL}${img.url}` : undefined
@@ -157,7 +157,7 @@ export default async function ProductPage({ params }: Props) {
 
 
     // ── Schema.org Product JSON-LD ────────────────────────────────────────────
-    const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://bz360.ir'
+    const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://beewaz.ir'
     const productUrl = `${BASE_URL}/shop/${productRow.categorySlug ?? 'products'}/${productRow.slug}`
     const firstImage = imgs[0]?.url ?? null
 
