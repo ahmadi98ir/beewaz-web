@@ -100,7 +100,14 @@ export function Hero({ cms }: HeroProps) {
         .hero-cta-primary:hover { transform:translateY(-3px) scale(1.03) !important; box-shadow:0 0 50px rgba(249,115,22,0.8),0 8px 40px rgba(249,115,22,0.5) !important; }
         .hero-cta-secondary:hover { transform:translateY(-3px) !important; background:rgba(255,255,255,0.12) !important; border-color:rgba(255,255,255,0.35) !important; }
         .trust-pill:hover { background:rgba(249,115,22,0.15) !important; border-color:rgba(249,115,22,0.4) !important; transform:translateY(-2px) !important; }
-        @media(max-width:768px){.hero-headline{font-size:clamp(2rem,8vw,3rem)!important;}.hero-badges{flex-direction:column!important;gap:0.75rem!important;}.hero-trust{flex-wrap:wrap!important;gap:0.5rem!important;}}
+        @media(max-width:768px){
+          .hero-headline{font-size:clamp(2rem,8vw,3rem)!important;}
+          .hero-trust{flex-wrap:wrap!important;gap:0.5rem!important;}
+          .hero-grid{grid-template-columns:1fr!important;gap:2rem!important;padding-top:6rem!important;padding-bottom:4rem!important;}
+          .hero-shield-wrap{display:none!important;}
+          .hero-badges{position:static!important;transform:none!important;flex-direction:row!important;gap:0.75rem!important;flex-wrap:wrap!important;margin-top:1.5rem!important;}
+          .hero-badge-item{flex:1!important;min-width:120px!important;}
+        }
       `}</style>
 
       {/* Background */}
@@ -123,7 +130,7 @@ export function Hero({ cms }: HeroProps) {
       </div>
 
       {/* Main content */}
-      <div style={{ position:'relative', zIndex:10, maxWidth:1200, marginInline:'auto', padding:'clamp(6rem,12vw,9rem) clamp(1.25rem,4vw,3rem) clamp(5rem,10vw,8rem)', width:'100%', display:'grid', gridTemplateColumns:'1fr min(480px,45%)', gap:'clamp(3rem,6vw,6rem)', alignItems:'center' }}>
+      <div className="hero-grid" style={{ position:'relative', zIndex:10, maxWidth:1200, marginInline:'auto', padding:'clamp(6rem,12vw,9rem) clamp(1.25rem,4vw,3rem) clamp(5rem,10vw,8rem)', width:'100%', display:'grid', gridTemplateColumns:'1fr min(480px,45%)', gap:'clamp(3rem,6vw,6rem)', alignItems:'center' }}>
 
         {/* Text content */}
         <div style={{ animation:'heroFadeIn 0.8s ease both' }}>
@@ -177,7 +184,7 @@ export function Hero({ cms }: HeroProps) {
         </div>
 
         {/* Shield visual */}
-        <div style={{ display:'flex', alignItems:'center', justifyContent:'center', position:'relative', animation:'heroFadeIn 0.9s 0.3s ease both', opacity:0, animationFillMode:'forwards' }}>
+        <div className="hero-shield-wrap" style={{ display:'flex', alignItems:'center', justifyContent:'center', position:'relative', animation:'heroFadeIn 0.9s 0.3s ease both', opacity:0, animationFillMode:'forwards' }}>
           <div style={{ position:'absolute', width:420, height:420, borderRadius:'50%', background:'radial-gradient(circle, rgba(249,115,22,0.12) 0%, transparent 70%)', animation:'floatUp 6s ease-in-out infinite' }} />
           {[0,1,2,3].map(i => (
             <div key={i} style={{ position:'absolute', width:300-i*20, height:300-i*20, borderRadius:'50%', border:`1px solid rgba(249,115,22,${0.15-i*0.03})`, animation:`radarPulse ${3+i*0.8}s ease-out infinite`, animationDelay:`${i*0.75}s`, pointerEvents:'none' }} />
@@ -201,8 +208,8 @@ export function Hero({ cms }: HeroProps) {
               </defs>
             </svg>
           </div>
-          {/* Stat badges */}
-          <div className="hero-badges" style={{ position:'absolute', display:'flex', flexDirection:'column', gap:'0.75rem', left:-40, top:'50%', transform:'translateY(-50%)' }}>
+          {/* Stat badges — desktop only (hidden on mobile via CSS) */}
+          <div style={{ position:'absolute', display:'flex', flexDirection:'column', gap:'0.75rem', left:-40, top:'50%', transform:'translateY(-50%)' }}>
             {stats.map((s, i) => (
               <div key={i} style={{ background:'rgba(255,255,255,0.06)', backdropFilter:'blur(16px)', border:'1px solid rgba(255,255,255,0.1)', borderRadius:12, padding:'0.6rem 1rem', animation:`floatBadge ${4+i*0.5}s ease-in-out infinite`, animationDelay:`${s.delay}s`, whiteSpace:'nowrap', boxShadow:'0 8px 32px rgba(0,0,0,0.3)' }}>
                 <div style={{ fontSize:'1.1rem', fontWeight:800, color:s.color, lineHeight:1 }}>{s.val}</div>
@@ -210,6 +217,16 @@ export function Hero({ cms }: HeroProps) {
               </div>
             ))}
           </div>
+        </div>
+
+        {/* Stat badges — mobile only (shown below content) */}
+        <div className="hero-badges" style={{ display:'none' }}>
+          {stats.map((s, i) => (
+            <div key={i} className="hero-badge-item" style={{ background:'rgba(255,255,255,0.06)', backdropFilter:'blur(16px)', border:'1px solid rgba(255,255,255,0.1)', borderRadius:12, padding:'0.75rem 1rem', textAlign:'center', boxShadow:'0 8px 32px rgba(0,0,0,0.3)' }}>
+              <div style={{ fontSize:'1.2rem', fontWeight:800, color:s.color, lineHeight:1 }}>{s.val}</div>
+              <div style={{ fontSize:'0.75rem', color:'rgba(255,255,255,0.5)', marginTop:4 }}>{s.lbl}</div>
+            </div>
+          ))}
         </div>
       </div>
 
