@@ -38,6 +38,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Test port connectivity
+        run: |
+          SERVER=${{ secrets.SSH_HOST }}
+          for port in 80 443 8000 8443 9001; do
+            result=$(timeout 5 bash -c "echo > /dev/tcp/$SERVER/$port" 2>&1 && echo "OPEN" || echo "CLOSED/TIMEOUT")
+            echo "Port $port: $result"
+          done
+
       - name: Build Docker image
         run: |
           docker build \
