@@ -8,9 +8,8 @@ APP_UUID="jw4kpfn8utdybrmwkr80fm8f"
 GITHUB_REPO="ahmadi98ir/beewaz-web"
 STATE_FILE="/var/lib/beewaz-deploy/last-release-id"
 LOCK_FILE="/tmp/beewaz-deploy.lock"
-LOG_TAG="beewaz-deploy"
 
-log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"; }
+log() { logger -t beewaz-deploy "$*"; echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"; }
 
 # جلوگیری از اجرای همزمان
 if [ -f "$LOCK_FILE" ]; then
@@ -24,14 +23,20 @@ mkdir -p "$(dirname $STATE_FILE)"
 
 # دریافت آخرین release
 RELEASE_JSON=$(curl -sf --max-time 15 \
+  -H "Accept: application/vnd.github+json" \
   "https://api.github.com/repos/$GITHUB_REPO/releases/tags/deploy-latest")
 if [ -z "$RELEASE_JSON" ]; then
-  log "ERROR: could not fetch release info from GitHub"
-  exit 1
+  log "INFO: could not reach GitHub — will retry next cycle"
+  exit 0
 fi
 
-RELEASE_ID=$(echo "$RELEASE_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])")
-RELEASE_TITLE=$(echo "$RELEASE_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin)['name'])")
+RELEASE_ID=$(echo "$RELEASE_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])" 2>/dev/null)
+RELEASE_TITLE=$(echo "$RELEASE_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin)['name'])" 2>/dev/null)
+
+if [ -z "$RELEASE_ID" ]; then
+  log "ERROR: could not parse release JSON"
+  exit 1
+fi
 
 # بررسی اینکه آیا deploy جدیده
 CURRENT_ID=$(cat "$STATE_FILE" 2>/dev/null)
@@ -46,8 +51,9 @@ DOWNLOAD_URL="https://github.com/$GITHUB_REPO/releases/download/deploy-latest/be
 log "Downloading image from GitHub Releases..."
 curl -sfL --max-time 600 "$DOWNLOAD_URL" -o /tmp/beewaz-image.tar.gz
 if [ $? -ne 0 ] || [ ! -s /tmp/beewaz-image.tar.gz ]; then
-  log "ERROR: download failed or file is empty"
-  exit 1
+  log "ERROR: download failed or file is empty — will retry next cycle"
+  rm -f /tmp/beewaz-image.tar.gz
+  exit 0
 fi
 
 log "Loading Docker image..."
@@ -71,14 +77,14 @@ if [ "$HTTP" = "200" ] || [ "$HTTP" = "202" ]; then
   echo "$RELEASE_ID" > "$STATE_FILE"
   log "✅ Deploy successful: $RELEASE_TITLE"
 else
-  log "ERROR: Coolify restart returned HTTP $HTTP — trying docker restart fallback"
-  CONTAINER=$(docker ps --format "{{.Names}}" | grep -i "$APP_UUID" | head -1)
+  log "WARNING: Coolify restart returned HTTP $HTTP — trying docker restart fallback"
+  CONTAINER=$(docker ps --format "{{.Names}}" | grep -i beewaz | head -1)
   if [ -n "$CONTAINER" ]; then
     docker restart "$CONTAINER"
     echo "$RELEASE_ID" > "$STATE_FILE"
     log "✅ Container $CONTAINER restarted via docker"
   else
-    log "ERROR: no container found matching $APP_UUID"
+    log "ERROR: no beewaz container found"
     exit 1
   fi
 fi

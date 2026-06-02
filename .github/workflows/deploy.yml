@@ -28,23 +28,17 @@ jobs:
       - name: Unit tests
         run: npm test
 
-  # ── مرحله ۲: Build + Deploy (فقط main) ───────────────────────────────────
+  # ── مرحله ۲: Build + Upload to Release (فقط main) ────────────────────────
   deploy:
     name: Deploy
     runs-on: ubuntu-latest
     needs: test
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    permissions:
+      contents: write
 
     steps:
       - uses: actions/checkout@v4
-
-      - name: Test port connectivity
-        run: |
-          SERVER=${{ secrets.SSH_HOST }}
-          for port in 80 443 8000 8443 9001; do
-            result=$(timeout 5 bash -c "echo > /dev/tcp/$SERVER/$port" 2>&1 && echo "OPEN" || echo "CLOSED/TIMEOUT")
-            echo "Port $port: $result"
-          done
 
       - name: Build Docker image
         run: |
@@ -57,29 +51,16 @@ jobs:
           echo "IMAGE_SIZE=$SIZE" >> $GITHUB_ENV
           echo "Docker image size: $SIZE"
 
-      - name: Deploy via webhook
+      - name: Upload image to GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "Uploading ${{ env.IMAGE_SIZE }} image to deploy webhook..."
-          HTTP=$(curl -sf -o /dev/null -w "%{http_code}" \
-            --max-time 300 \
-            -X POST http://${{ secrets.SSH_HOST }}:9001 \
-            -H "Authorization: Bearer ${{ secrets.DEPLOY_RECEIVER_TOKEN }}" \
-            -H "Content-Type: application/octet-stream" \
-            --data-binary @beewaz-image.tar.gz)
-          echo "Webhook returned HTTP $HTTP"
-          if [ "$HTTP" = "200" ]; then
-            echo "## ✅ Deploy موفق — commit \`${GITHUB_SHA:0:8}\` | image ${{ env.IMAGE_SIZE }}" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "## ❌ Deploy failed (HTTP $HTTP)" >> $GITHUB_STEP_SUMMARY
-            exit 1
-          fi
-
-      - name: Health check
-        run: |
-          sleep 30
-          HTTP=$(curl -sf --max-time 15 -o /dev/null -w '%{http_code}' https://bz360.ir/ || echo "000")
-          echo "Site returned HTTP $HTTP"
-          if [ "$HTTP" != "200" ] && [ "$HTTP" != "301" ] && [ "$HTTP" != "302" ]; then
-            echo "⚠️ Health check failed (HTTP $HTTP)" >> $GITHUB_STEP_SUMMARY
-            exit 1
-          fi
+          # حذف release قبلی و ایجاد release جدید با همان tag
+          gh release delete deploy-latest --yes 2>/dev/null || true
+          git push origin :refs/tags/deploy-latest 2>/dev/null || true
+          gh release create deploy-latest beewaz-image.tar.gz \
+            --title "deploy-latest — ${GITHUB_SHA:0:8}" \
+            --notes "Auto-deploy: commit ${GITHUB_SHA:0:8} | image ${{ env.IMAGE_SIZE }}" \
+            --latest=false
+          echo "## ✅ Image uploaded — commit \`${GITHUB_SHA:0:8}\` | ${{ env.IMAGE_SIZE }}" >> $GITHUB_STEP_SUMMARY
+          echo "Server will pick up the new image within 5 minutes via cron."
