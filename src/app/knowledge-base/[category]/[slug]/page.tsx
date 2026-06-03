@@ -164,8 +164,8 @@ export default async function KbArticlePage({ params }: Props) {
               </div>
               <p className="font-bold mb-1">مشاوره رایگان</p>
               <p className="text-white/70 text-xs mb-4">سوال دارید؟ با کارشناسان ما تماس بگیرید</p>
-              <a href="tel:02100000000" className="btn bg-white text-brand-600 font-bold text-sm py-2 px-4 w-full">
-                ۰۲۱-۰۰۰۰-۰۰۰۰
+              <a href="tel:02147956" className="btn bg-white text-brand-600 font-bold text-sm py-2 px-4 w-full">
+                ۰۲۱-۴۷۹۵۶
               </a>
             </div>
 

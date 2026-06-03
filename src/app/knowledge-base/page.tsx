@@ -152,7 +152,7 @@ export default function KnowledgeBasePage() {
             <h3 className="text-xl font-black mb-2">سوال دارید؟</h3>
             <p className="text-white/80 text-sm mb-6">کارشناسان ما آماده پاسخگویی هستند</p>
             <div className="flex items-center justify-center gap-3 flex-wrap">
-              <a href="tel:02100000000" className="btn bg-white text-brand-600 hover:bg-surface-50 px-6 py-2.5 text-sm font-bold">
+              <a href="tel:02147956" className="btn bg-white text-brand-600 hover:bg-surface-50 px-6 py-2.5 text-sm font-bold">
                 تماس بگیرید
               </a>
               <a href="#chat" className="btn border border-white/30 text-white hover:bg-white/10 px-6 py-2.5 text-sm">

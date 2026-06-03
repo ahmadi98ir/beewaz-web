@@ -28,13 +28,13 @@ export async function Footer() {
   const currentYear = new Date().getFullYear()
   const persianYear = currentYear - 621
 
-  const phone    = settings.contact_phone   ?? '۰۲۱-۰۰۰۰-۰۰۰۰'
-  const email    = settings.contact_email   ?? 'info@beewaz.ir'
+  const phone    = settings.contact_phone   ?? '۰۲۱-۴۷۹۵۶'
+  const email    = settings.contact_email   ?? 'info@beewaz-co.com'
   const address  = settings.contact_address ?? 'تهران، ایران'
-  const tagline  = settings.site_tagline    ?? 'ارائه‌دهنده سیستم‌های حفاظتی و دزدگیر اماكن تجاری و مسکونی.'
+  const tagline  = settings.site_tagline    ?? 'طراح و سازنده سیستم‌های هوشمند و حفاظتی اماکن تجاری و مسکونی.'
   const siteName = settings.site_name      ?? 'بیواز'
 
-  const instagram  = settings.social_instagram ?? 'https://instagram.com/beewaz'
+  const instagram  = settings.social_instagram ?? 'https://instagram.com/beewaz_co'
   const telegram   = settings.social_telegram  ?? 'https://t.me/beewaz'
   const waNumber   = settings.whatsapp_number  ?? '989000000000'
   const whatsapp   = `https://wa.me/${waNumber}`

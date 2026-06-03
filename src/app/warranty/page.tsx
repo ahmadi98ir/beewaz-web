@@ -10,14 +10,14 @@ export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
   title: 'گارانتی و خدمات پس از فروش',
-  description: 'شرایط گارانتی ۱۸ ماهه محصولات بیواز، موارد تحت پوشش، خدمات پس از فروش و راهنمای گام‌به‌گام استفاده از گارانتی.',
+  description: 'شرایط گارانتی ۲۴ ماهه محصولات بیواز، موارد تحت پوشش، خدمات پس از فروش و راهنمای گام‌به‌گام استفاده از گارانتی.',
 }
 
 export default async function WarrantyPage() {
   const cms = await getCmsContent('warranty', {
     hero_title:      'گارانتی و خدمات پس از فروش',
     hero_subtitle:   'پشتیبانی واقعی، نه شعار',
-    warranty_months: '۱۸',
+    warranty_months: '۲۴',
   })
 
   const highlights = [
