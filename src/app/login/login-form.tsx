@@ -36,6 +36,36 @@ export default function LoginForm() {
     if (step === 'otp') otpRef.current?.focus()
   }, [step])
 
+  // خواندن خودکار کد از پیامک (WebOTP API) — Chrome/Android
+  // پیامک باید به فرمت «@beewaz.ir #۱۲۳۴۵۶» ختم شود تا مرورگر کد را تشخیص دهد
+  useEffect(() => {
+    if (step !== 'otp') return
+    if (!('OTPCredential' in window)) return
+
+    const ac = new AbortController()
+    navigator.credentials
+      .get({
+        // @ts-expect-error — otp هنوز در تایپ‌های استاندارد TS نیست
+        otp: { transport: ['sms'] },
+        signal: ac.signal,
+      })
+      .then((cred) => {
+        const code = (cred as unknown as { code?: string } | null)?.code
+        if (code) setOtp(code.replace(/\D/g, '').slice(0, 6))
+      })
+      .catch(() => { /* کاربر اجازه نداد یا منقضی شد — بی‌اهمیت */ })
+
+    return () => ac.abort()
+  }, [step])
+
+  // ورود خودکار وقتی کد ۶ رقمی کامل شد (با autofill پیامک)
+  useEffect(() => {
+    if (step === 'otp' && otp.length === 6 && !loading) {
+      verifyOtp()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [otp, step])
+
   const normalizePhone = (v: string) =>
     v
       .replace(/[۰-۹]/g, (d) => String.fromCharCode(d.charCodeAt(0) - 0x06f0 + 0x30))
