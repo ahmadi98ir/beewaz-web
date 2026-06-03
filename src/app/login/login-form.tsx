@@ -26,6 +26,7 @@ export default function LoginForm() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [countdown, setCountdown] = useState(0)
+  const [otpDebug, setOtpDebug] = useState('')
   const otpRef = useRef<HTMLInputElement>(null)
 
   // تایمر ارسال مجدد
@@ -44,7 +45,11 @@ export default function LoginForm() {
   useEffect(() => {
     if (step !== 'otp') return
     if (typeof window === 'undefined') return
-    if (!('OTPCredential' in window) && !('credentials' in navigator)) return
+    if (!('OTPCredential' in window)) {
+      setOtpDebug('WebOTP پشتیبانی نمی‌شود (نیاز به Chrome اندروید + HTTPS)')
+      return
+    }
+    setOtpDebug('در انتظار پیامک…')
 
     const ac = new AbortController()
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -55,8 +60,12 @@ export default function LoginForm() {
       })
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .then((cred: any) => {
-        if (!cred) return
+        if (!cred) {
+          setOtpDebug('کردنشال خالی برگشت (null)')
+          return
+        }
         const raw: string = cred.code ?? cred.id ?? ''
+        setOtpDebug('دریافت شد: ' + JSON.stringify({ code: cred.code, id: cred.id, raw }))
         const digits = raw
           .replace(/[۰-۹]/g, (d: string) => String.fromCharCode(d.charCodeAt(0) - 0x06f0 + 0x30))
           .replace(/[٠-٩]/g, (d: string) => String.fromCharCode(d.charCodeAt(0) - 0x0660 + 0x30))
@@ -72,7 +81,10 @@ export default function LoginForm() {
           otpRef.current.dispatchEvent(new Event('input', { bubbles: true }))
         }
       })
-      .catch(() => { /* کاربر اجازه نداد یا API پشتیبانی نمی‌شود */ })
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .catch((err: any) => {
+        setOtpDebug('خطا: ' + (err?.name || '') + ' ' + (err?.message || String(err)))
+      })
 
     return () => ac.abort()
   }, [step])
@@ -240,6 +252,11 @@ export default function LoginForm() {
                   inputMode="numeric"
                   autoComplete="one-time-code"
                 />
+                {otpDebug && (
+                  <p dir="ltr" className="mt-2 text-[10px] leading-tight text-left break-all bg-yellow-50 border border-yellow-200 rounded p-2 text-yellow-800">
+                    WebOTP: {otpDebug}
+                  </p>
+                )}
                 <div className="mt-2 flex items-center justify-between text-xs text-surface-400">
                   <span>کد ۶ رقمی پیامک شد</span>
                   {countdown > 0 ? (
