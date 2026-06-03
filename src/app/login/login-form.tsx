@@ -41,31 +41,38 @@ export default function LoginForm() {
   }, [step])
 
   // خواندن خودکار کد از پیامک (WebOTP API) — Chrome/Android
-  // پیامک باید به فرمت «@beewaz.ir #۱۲۳۴۵۶» ختم شود تا مرورگر کد را تشخیص دهد
   useEffect(() => {
     if (step !== 'otp') return
-    if (!('OTPCredential' in window)) return
+    if (typeof window === 'undefined') return
+    if (!('OTPCredential' in window) && !('credentials' in navigator)) return
 
     const ac = new AbortController()
-    navigator.credentials
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(navigator.credentials as any)
       .get({
-        // @ts-expect-error
         otp: { transport: ['sms'] },
         signal: ac.signal,
       })
-      .then((cred) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .then((cred: any) => {
         if (!cred) return
-        const code = (cred as unknown as OTPCredential).code
-        if (!code) return
-        // normalize Persian/Arabic digits then strip non-digits
-        const normalized = code
-          .replace(/[۰-۹]/g, (d) => String.fromCharCode(d.charCodeAt(0) - 0x06f0 + 0x30))
-          .replace(/[٠-٩]/g, (d) => String.fromCharCode(d.charCodeAt(0) - 0x0660 + 0x30))
+        const raw: string = cred.code ?? cred.id ?? ''
+        const digits = raw
+          .replace(/[۰-۹]/g, (d: string) => String.fromCharCode(d.charCodeAt(0) - 0x06f0 + 0x30))
+          .replace(/[٠-٩]/g, (d: string) => String.fromCharCode(d.charCodeAt(0) - 0x0660 + 0x30))
           .replace(/\D/g, '')
           .slice(0, 6)
-        if (normalized) setOtp(normalized)
+        if (!digits) return
+        // update React state
+        setOtp(digits)
+        // also set DOM value directly so autocomplete handlers fire
+        if (otpRef.current) {
+          const nativeInputSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set
+          nativeInputSetter?.call(otpRef.current, digits)
+          otpRef.current.dispatchEvent(new Event('input', { bubbles: true }))
+        }
       })
-      .catch(() => { /* کاربر اجازه نداد یا منقضی شد — بی‌اهمیت */ })
+      .catch(() => { /* کاربر اجازه نداد یا API پشتیبانی نمی‌شود */ })
 
     return () => ac.abort()
   }, [step])
