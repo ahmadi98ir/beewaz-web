@@ -196,11 +196,11 @@ export function MobileMenu({ items }: Props) {
             مشاوره رایگان
           </Link>
           <a
-            href="tel:+982100000000"
+            href="tel:02147956"
             className="flex items-center justify-center gap-2 text-sm text-surface-600 hover:text-brand-600 transition-colors py-2"
           >
             <PhoneIcon size={15} />
-            <span>۰۲۱-۰۰۰۰-۰۰۰۰</span>
+            <span>۰۲۱-۴۷۹۵۶</span>
           </a>
         </div>
       </aside>

@@ -21,7 +21,7 @@ const PARTICLES = [
   { x:90, y:85, s:1,   d:23, dl:-13 },
 ]
 
-const DEFAULT_TRUST = ['نصب رایگان', 'ضمانت اصالت', 'پشتیبانی ۲۴/۷', 'گارانتی ۱۸ ماهه']
+const DEFAULT_TRUST = ['نصب رایگان', 'ضمانت اصالت', 'پشتیبانی ۲۴/۷', 'گارانتی ۲۴ ماهه']
 
 export function Hero({ cms }: HeroProps) {
   const [mounted, setMounted] = useState(false)
@@ -65,7 +65,7 @@ export function Hero({ cms }: HeroProps) {
   const titleLine3    = titleParts[2]          ?? (cms?.site_tagline ?? 'دزدگیر هوشمند بیواز')
   const desc          = cms?.hero_subtitle     ?? (cms?.hero_desc ?? 'بیش از ۱۰ سال تجربه در تأمین امنیت منازل، فروشگاه‌ها و اماکن تجاری. نصب رایگان، ضمانت اصالت کالا و پشتیبانی ۲۴ ساعته در سراسر ایران.')
   const ctaPrimary    = cms?.hero_cta_primary      ?? 'مشاوره رایگان'
-  const ctaPrimaryUrl = cms?.hero_cta_primary_url  ?? 'tel:02191090'
+  const ctaPrimaryUrl = cms?.hero_cta_primary_url  ?? 'tel:02147956'
   const ctaSec        = cms?.hero_cta_secondary     ?? 'مشاهده محصولات'
   const ctaSecUrl     = cms?.hero_cta_secondary_url ?? '/shop'
 

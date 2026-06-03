@@ -28,7 +28,7 @@ export default function SuccessPage() {
         <div className="bg-surface-50 rounded-2xl p-4 text-sm text-surface-600 leading-relaxed mb-8 space-y-2">
           <p>📦 سفارش شما در اسرع وقت آماده ارسال می‌شود.</p>
           <p>📱 از طریق SMS وضعیت ارسال اطلاع‌رسانی می‌شود.</p>
-          <p>📞 برای پیگیری: <a href="tel:02100000000" className="font-bold text-brand-600" dir="ltr">021-0000-0000</a></p>
+          <p>📞 برای پیگیری: <a href="tel:02147956" className="font-bold text-brand-600" dir="ltr">۰۲۱-۴۷۹۵۶</a></p>
         </div>
 
         <div className="flex flex-col sm:flex-row gap-3">

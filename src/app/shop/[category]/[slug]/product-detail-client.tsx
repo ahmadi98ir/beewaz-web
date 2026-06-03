@@ -315,7 +315,7 @@ export function ProductDetailClient({ product, related }: Props) {
 
               <div className="grid grid-cols-3 gap-3 pt-2">
                 {[
-                  { icon: ShieldIcon, text: 'گارانتی ۱۸ ماهه', accent: true },
+                  { icon: ShieldIcon, text: 'گارانتی ۲۴ ماهه', accent: true },
                   { icon: CheckIcon, text: 'ارسال سریع', accent: false },
                   { icon: PhoneIcon, text: 'پشتیبانی ۲۴/۷', accent: true },
                 ].map(({ icon: Icon, text, accent }) => (

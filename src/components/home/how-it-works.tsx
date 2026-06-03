@@ -15,7 +15,7 @@ const DEFAULT_STEPS: Step[] = [
   { icon: '📞', title: 'مشاوره رایگان', desc: 'با کارشناسان ما تماس بگیرید تا بهترین راهکار امنیتی را برای شما طراحی کنیم', color: 'from-blue-500 to-cyan-400', glow: 'shadow-blue-500/30' },
   { icon: '🎯', title: 'انتخاب محصول', desc: 'بهترین دزدگیر برای فضا و بودجه شما را با دقت انتخاب و سفارشی‌سازی می‌کنیم', color: 'from-violet-500 to-purple-400', glow: 'shadow-violet-500/30' },
   { icon: '🔧', title: 'نصب تخصصی', desc: 'تیم فنی حرفه‌ای ما در محل شما نصب استاندارد و آزمایش کامل انجام می‌دهد', color: 'from-amber-500 to-orange-400', glow: 'shadow-amber-500/30' },
-  { icon: '🛡️', title: 'پشتیبانی دائمی', desc: 'گارانتی ۱۸ ماهه و پشتیبانی ۲۴ ساعته — ۷ روز هفته در خدمت شما هستیم', color: 'from-emerald-500 to-green-400', glow: 'shadow-emerald-500/30' },
+  { icon: '🛡️', title: 'پشتیبانی دائمی', desc: 'گارانتی ۲۴ ماهه و پشتیبانی ۲۴ ساعته — ۷ روز هفته در خدمت شما هستیم', color: 'from-emerald-500 to-green-400', glow: 'shadow-emerald-500/30' },
 ]
 
 interface HowItWorksProps { cms?: CmsContent }

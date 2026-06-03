@@ -45,11 +45,11 @@ export default async function ContactPage() {
     if (s.value) settingsMap[s.key] = s.value
   }
 
-  // اولویت: page_content > site_settings > خالی
-  const phone   = cms.contact_phone   ?? settingsMap.contact_phone   ?? ''
-  const email   = cms.contact_email   ?? settingsMap.contact_email   ?? ''
+  // اولویت: page_content > site_settings > مقدار پیش‌فرض واقعی
+  const phone   = cms.contact_phone   ?? settingsMap.contact_phone   ?? '۰۲۱-۴۷۹۵۶'
+  const email   = cms.contact_email   ?? settingsMap.contact_email   ?? 'info@beewaz-co.com'
   const address = cms.contact_address ?? settingsMap.contact_address ?? ''
-  const hours   = cms.contact_hours   ?? settingsMap.contact_hours   ?? ''
+  const hours   = cms.contact_hours   ?? settingsMap.contact_hours   ?? 'شنبه تا چهارشنبه ۸ تا ۱۷ — پنجشنبه ۸ تا ۱۲'
 
   return (
     <main>

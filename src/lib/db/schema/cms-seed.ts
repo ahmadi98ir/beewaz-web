@@ -19,15 +19,15 @@ export const DEFAULT_SITE_SETTINGS: NewSiteSetting[] = [
   { key: 'og_image_url',     value: '/images/og-image.jpg',      type: 'image',   label: 'تصویر اشتراک‌گذاری (OG)', group: 'seo' },
 
   // ── Contact ──
-  { key: 'contact_phone',    value: '021-00000000',              type: 'text',    label: 'شماره تماس',           group: 'contact' },
-  { key: 'contact_phone2',   value: '0910-0000000',              type: 'text',    label: 'شماره موبایل',         group: 'contact' },
-  { key: 'contact_email',    value: 'info@beewaz.ir',            type: 'text',    label: 'ایمیل',                group: 'contact', isRequired: true },
+  { key: 'contact_phone',    value: '021-47956',                 type: 'text',    label: 'شماره تماس',           group: 'contact' },
+  { key: 'contact_phone2',   value: '',                          type: 'text',    label: 'شماره موبایل',         group: 'contact' },
+  { key: 'contact_email',    value: 'info@beewaz-co.com',        type: 'text',    label: 'ایمیل',                group: 'contact', isRequired: true },
   { key: 'contact_address',  value: 'تهران، ...',                type: 'text',    label: 'آدرس',                 group: 'contact' },
-  { key: 'contact_hours',    value: 'شنبه تا چهارشنبه ۸ تا ۱۷', type: 'text',    label: 'ساعت کاری',            group: 'contact' },
+  { key: 'contact_hours',    value: 'شنبه تا چهارشنبه ۸ تا ۱۷ — پنجشنبه ۸ تا ۱۲', type: 'text', label: 'ساعت کاری', group: 'contact' },
   { key: 'whatsapp_number',  value: '',                          type: 'text',    label: 'شماره واتساپ',         group: 'contact', hint: 'مثال: 989121234567' },
 
   // ── Social ──
-  { key: 'social_instagram', value: 'https://instagram.com/beewaz.ir', type: 'url', label: 'اینستاگرام',     group: 'social' },
+  { key: 'social_instagram', value: 'https://instagram.com/beewaz_co', type: 'url', label: 'اینستاگرام',     group: 'social' },
   { key: 'social_telegram',  value: '',                          type: 'url',     label: 'تلگرام',               group: 'social' },
   { key: 'social_youtube',   value: '',                          type: 'url',     label: 'یوتیوب',               group: 'social' },
   { key: 'social_linkedin',  value: '',                          type: 'url',     label: 'لینکدین',              group: 'social' },
@@ -59,7 +59,7 @@ export const DEFAULT_PAGE_CONTENT: NewPageContent[] = [
   // ── Home — Hero ──
   { page: 'home', key: 'hero_badge',        type: 'text',    label: 'بج روی عنوان hero',   valueFa: '🔒 بیش از ۱۵,۰۰۰ مشتری راضی', position: 1 },
   { page: 'home', key: 'hero_title',        type: 'text',    label: 'عنوان اصلی hero',     valueFa: 'امنیت خانه و کسب‌وکار\nرا به بیواز بسپارید', position: 2 },
-  { page: 'home', key: 'hero_subtitle',     type: 'text',    label: 'زیرعنوان hero',       valueFa: 'سیستم‌های دزدگیر هوشمند ایرانی با ۱۰ سال سابقه، گارانتی ۱۸ ماهه و پشتیبانی ۲۴ ساعته', position: 3 },
+  { page: 'home', key: 'hero_subtitle',     type: 'text',    label: 'زیرعنوان hero',       valueFa: 'سیستم‌های دزدگیر هوشمند ایرانی با ۱۰ سال سابقه، گارانتی ۲۴ ماهه و پشتیبانی ۲۴ ساعته', position: 3 },
   { page: 'home', key: 'hero_cta_primary',  type: 'text',    label: 'دکمه اول hero',       valueFa: 'مشاوره رایگان', position: 4 },
   { page: 'home', key: 'hero_cta_primary_url', type: 'url', label: 'لینک دکمه اول',       valueFa: '/contact', position: 5 },
   { page: 'home', key: 'hero_cta_secondary',  type: 'text', label: 'دکمه دوم hero',       valueFa: 'مشاهده محصولات', position: 6 },
@@ -82,7 +82,7 @@ export const DEFAULT_PAGE_CONTENT: NewPageContent[] = [
     { icon: '📞', title: 'مشاوره رایگان', desc: 'با کارشناسان ما تماس بگیرید' },
     { icon: '🎯', title: 'انتخاب محصول', desc: 'بهترین دزدگیر برای فضای شما' },
     { icon: '🔧', title: 'نصب تخصصی', desc: 'تیم فنی در محل شما نصب می‌کند' },
-    { icon: '🛡️', title: 'پشتیبانی دائمی', desc: 'گارانتی ۱۸ ماهه و پشتیبانی ۲۴/۷' },
+    { icon: '🛡️', title: 'پشتیبانی دائمی', desc: 'گارانتی ۲۴ ماهه و پشتیبانی ۲۴/۷' },
   ]), position: 31 },
 
   // ── About ──

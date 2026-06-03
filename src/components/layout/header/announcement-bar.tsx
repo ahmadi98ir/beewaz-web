@@ -6,8 +6,8 @@ import type { CmsContent } from '@/lib/cms'
 
 const DEFAULT_MESSAGES = [
   { icon: '🚚', text: 'ارسال رایگان برای سفارش‌های بالای', bold: '۵۰۰،۰۰۰ تومان', suffix: ' — تحویل اکسپرس به سراسر ایران' },
-  { icon: '🛡️', text: 'گارانتی رسمی', bold: '۱۸ ماهه', suffix: ' برای تمام محصولات بیواز الکترونیک' },
-  { icon: '📞', text: 'مشاوره رایگان با کارشناسان:', bold: '۰۲۱-۰۰۰۰-۰۰۰۰', suffix: ' — همه روزه ۸ تا ۲۲' },
+  { icon: '🛡️', text: 'گارانتی طلایی', bold: '۲۴ ماهه', suffix: ' برای تمام محصولات بیواز الکترونیک' },
+  { icon: '📞', text: 'مشاوره رایگان با کارشناسان:', bold: '۰۲۱-۴۷۹۵۶', suffix: ' — شنبه تا چهارشنبه ۸ تا ۱۷' },
 ]
 
 interface AnnouncementBarProps {
