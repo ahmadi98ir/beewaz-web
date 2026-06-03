@@ -9,6 +9,10 @@ import { toFaDigits } from '@/lib/utils'
 
 type Step = 'phone' | 'otp'
 
+interface OTPCredential {
+  code: string
+}
+
 const RESEND_SECONDS = 120
 
 export default function LoginForm() {
@@ -45,13 +49,21 @@ export default function LoginForm() {
     const ac = new AbortController()
     navigator.credentials
       .get({
-        // @ts-expect-error — otp هنوز در تایپ‌های استاندارد TS نیست
+        // @ts-expect-error
         otp: { transport: ['sms'] },
         signal: ac.signal,
       })
       .then((cred) => {
-        const code = (cred as unknown as { code?: string } | null)?.code
-        if (code) setOtp(code.replace(/\D/g, '').slice(0, 6))
+        if (!cred) return
+        const code = (cred as unknown as OTPCredential).code
+        if (!code) return
+        // normalize Persian/Arabic digits then strip non-digits
+        const normalized = code
+          .replace(/[۰-۹]/g, (d) => String.fromCharCode(d.charCodeAt(0) - 0x06f0 + 0x30))
+          .replace(/[٠-٩]/g, (d) => String.fromCharCode(d.charCodeAt(0) - 0x0660 + 0x30))
+          .replace(/\D/g, '')
+          .slice(0, 6)
+        if (normalized) setOtp(normalized)
       })
       .catch(() => { /* کاربر اجازه نداد یا منقضی شد — بی‌اهمیت */ })
 
