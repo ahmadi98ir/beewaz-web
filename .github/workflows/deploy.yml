@@ -103,10 +103,21 @@ jobs:
           mkdir -p ~/.ssh
           echo "$SSH_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -H 78.157.51.14 >> ~/.ssh/known_hosts 2>/dev/null
+
+          # debug: validate key format
+          echo "Key first line: $(head -1 ~/.ssh/deploy_key)"
+          echo "Key lines: $(wc -l < ~/.ssh/deploy_key)"
+          ssh-keygen -l -f ~/.ssh/deploy_key 2>&1 || echo "Key validation failed"
+
+          # test SSH connectivity
+          echo "Testing SSH port..."
+          nc -zv -w10 78.157.51.14 22 2>&1 || echo "Port 22 unreachable from GitHub Actions"
+
+          ssh-keyscan -H 78.157.51.14 >> ~/.ssh/known_hosts 2>/dev/null || true
 
           # آپلود tarball به سرور
-          scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
+          scp -v -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
+            -o ConnectTimeout=15 \
             beewaz-build.tar.gz root@78.157.51.14:/tmp/beewaz-build.tar.gz
 
           # deploy روی سرور
