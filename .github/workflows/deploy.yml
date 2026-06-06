@@ -63,4 +63,55 @@ jobs:
             --notes "Auto-deploy: commit ${GITHUB_SHA:0:8} | image ${{ env.IMAGE_SIZE }}" \
             --latest=false
           echo "## ✅ Image uploaded — commit \`${GITHUB_SHA:0:8}\` | ${{ env.IMAGE_SIZE }}" >> $GITHUB_STEP_SUMMARY
-          echo "Server will pick up the new image within 5 minutes via cron."
+
+      - name: Trigger server pull & deploy
+        env:
+          UPLOAD_TOKEN: ${{ secrets.DEPLOY_RECEIVER_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+          APP_UUID: jw4kpfn8utdybrmwkr80fm8f
+          RECEIVER: http://78.157.51.14:5001
+          COOLIFY: http://78.157.51.14:8000
+        run: |
+          set -e
+          RELEASE_URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/deploy-latest/beewaz-image.tar.gz"
+          ENCODED=$(python3 -c "import urllib.parse,sys; print(urllib.parse.quote(sys.argv[1]))" "$RELEASE_URL")
+
+          echo "→ Telling server to pull image..."
+          HTTP=$(curl -sf -o /tmp/pull-resp.txt -w "%{http_code}" --max-time 15 \
+            -X POST \
+            -H "X-Upload-Token: $UPLOAD_TOKEN" \
+            "${RECEIVER}/api/upload/pull?url=${ENCODED}&gh_token=${GH_TOKEN}" || echo "000")
+          echo "  pull trigger: HTTP $HTTP — $(cat /tmp/pull-resp.txt 2>/dev/null)"
+
+          if [ "$HTTP" != "202" ]; then
+            echo "⚠️ Server unreachable (HTTP $HTTP) — cron will deploy within 5 min"
+            echo "## ⚠️ Auto-deploy skipped (server unreachable)" >> $GITHUB_STEP_SUMMARY
+            exit 0
+          fi
+
+          echo "→ Waiting for docker load..."
+          for i in $(seq 1 36); do
+            sleep 10
+            STATUS=$(curl -sf --max-time 5 "${RECEIVER}/api/upload/status" 2>/dev/null || echo "unreachable")
+            echo "  [$i/36] $STATUS"
+            [[ "$STATUS" == done* ]] && break
+            if [[ "$STATUS" == error* ]]; then
+              echo "❌ Load error: $STATUS"
+              echo "## ❌ docker load failed: $STATUS" >> $GITHUB_STEP_SUMMARY
+              exit 1
+            fi
+          done
+
+          echo "→ Restarting app via Coolify..."
+          HTTP=$(curl -sf -o /dev/null -w "%{http_code}" --max-time 30 \
+            -X POST "${COOLIFY}/api/v1/applications/${APP_UUID}/restart" \
+            -H "Authorization: Bearer $COOLIFY_TOKEN" \
+            -H "Content-Type: application/json" || echo "000")
+          echo "  Coolify restart: HTTP $HTTP"
+
+          if [ "$HTTP" = "200" ] || [ "$HTTP" = "202" ]; then
+            echo "## 🚀 Deployed \`${GITHUB_SHA:0:8}\` to production!" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "## ⚠️ Coolify restart returned HTTP $HTTP" >> $GITHUB_STEP_SUMMARY
+          fi
