@@ -69,13 +69,13 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if gh release view deploy-cache >/dev/null 2>&1; then
-            gh release upload deploy-cache beewaz-build.tar.gz --clobber
-          else
-            gh release create deploy-cache beewaz-build.tar.gz \
-              --title "Deploy Cache (${GITHUB_SHA:0:8})" \
-              --notes "Built from commit ${GITHUB_SHA} at $(date -u)" \
-              --latest=false
-          fi
+          # حذف release قبلی و ساخت جدید — تا release ID عوض بشه و سرور تشخیص بده
+          gh release delete deploy-cache --yes 2>/dev/null || true
+          git push origin :refs/tags/deploy-cache 2>/dev/null || true
+          sleep 2
+          gh release create deploy-cache beewaz-build.tar.gz \
+            --title "Deploy Cache (${GITHUB_SHA:0:8})" \
+            --notes "Built from commit ${GITHUB_SHA} at $(date -u)" \
+            --latest=false
           echo "## ✅ Build uploaded — commit \`${GITHUB_SHA:0:8}\` | ${{ env.BUILD_SIZE }}" >> $GITHUB_STEP_SUMMARY
           echo "## ⏱ Server will auto-deploy within 5 min via cron" >> $GITHUB_STEP_SUMMARY
