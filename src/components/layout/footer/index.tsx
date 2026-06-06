@@ -167,23 +167,16 @@ export async function Footer() {
             <span className="text-white/20">|</span>
             <span>ساخته شده با ❤️ در ایران</span>
             <span className="text-white/20">|</span>
-            {/* نماد اعتماد الکترونیکی */}
-            <a
-              referrerPolicy="origin"
-              target="_blank"
-              rel="noopener noreferrer"
-              href="https://trustseal.enamad.ir/?id=733910&Code=1fDUu6rrYqBiYkpnIrcclfpuPGF2bvxs"
-            >
+            <a referrerPolicy="origin" target="_blank" rel="noopener noreferrer"
+              href="https://trustseal.enamad.ir/?id=733910&Code=1fDUu6rrYqBiYkpnIrcclfpuPGF2bvxs">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-              <img
-                referrerPolicy="origin"
+              <img referrerPolicy="origin"
                 src="https://trustseal.enamad.ir/logo.aspx?id=733910&Code=1fDUu6rrYqBiYkpnIrcclfpuPGF2bvxs"
                 alt="نماد اعتماد الکترونیکی"
                 style={{ cursor: 'pointer' }}
                 {...{ code: '1fDUu6rrYqBiYkpnIrcclfpuPGF2bvxs' } as any}
-                className="h-12 w-auto opacity-80 hover:opacity-100 transition-opacity"
-              />
+                className="h-12 w-auto opacity-80 hover:opacity-100 transition-opacity" />
             </a>
           </div>
         </div>
