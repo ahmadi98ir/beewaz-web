@@ -49,19 +49,14 @@ do_deploy() {
   log "Files deployed to container"
 
   log "Restarting..."
-  HTTP=$(curl -sf -o /dev/null -w "%{http_code}" --max-time 30 \
-    -X POST "http://localhost:8000/api/v1/applications/$APP_UUID/restart" \
-    -H "Authorization: Bearer $COOLIFY_TOKEN" \
-    -H "Content-Type: application/json" || echo "000")
-
-  if [ "$HTTP" = "200" ] || [ "$HTTP" = "202" ]; then
+  # مستقیم docker restart می‌زنیم — Coolify API کانتینر رو از image اصلی بازسازی
+  # می‌کنه و فایل‌هایی که با docker cp کپی کردیم پاک می‌شن. docker restart همون
+  # کانتینر رو stop/start می‌کنه و تغییرات فایل‌سیستم حفظ می‌شه.
+  if docker restart "$CONTAINER" >/dev/null 2>&1; then
     echo "$RELEASE_ID" > "$STATE_FILE"
-    log "✅ Deploy successful (id=$RELEASE_ID)"
+    log "✅ Deploy successful (id=$RELEASE_ID) — container restarted"
   else
-    log "WARNING: Coolify returned HTTP $HTTP — docker restart fallback"
-    docker restart "$CONTAINER"
-    echo "$RELEASE_ID" > "$STATE_FILE"
-    log "✅ Container restarted via docker"
+    log "ERROR: docker restart failed for $CONTAINER"
   fi
 }
 
