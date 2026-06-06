@@ -111,17 +111,18 @@ jobs:
 
           # test SSH connectivity
           echo "Testing SSH port..."
-          nc -zv -w10 78.157.51.14 22 2>&1 || echo "Port 22 unreachable from GitHub Actions"
+          nc -zv -w10 78.157.51.14 8443 2>&1 || echo "Port 8443 unreachable from GitHub Actions"
 
-          ssh-keyscan -H 78.157.51.14 >> ~/.ssh/known_hosts 2>/dev/null || true
+          ssh-keyscan -p 8443 -H 78.157.51.14 >> ~/.ssh/known_hosts 2>/dev/null || true
 
           # آپلود tarball به سرور
-          scp -v -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
-            -o ConnectTimeout=15 \
+          scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
+            -o ConnectTimeout=15 -P 8443 \
             beewaz-build.tar.gz root@78.157.51.14:/tmp/beewaz-build.tar.gz
 
           # deploy روی سرور
-          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no root@78.157.51.14 << 'ENDSSH'
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
+            -p 8443 root@78.157.51.14 << 'ENDSSH'
             set -e
             echo "[deploy] Extracting tarball..."
             rm -rf /tmp/bz-build && mkdir /tmp/bz-build
