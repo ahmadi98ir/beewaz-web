@@ -95,33 +95,38 @@ jobs:
             --latest=false
           echo "## ✅ Build uploaded — commit \`${GITHUB_SHA:0:8}\` | ${{ env.BUILD_SIZE }}" >> $GITHUB_STEP_SUMMARY
 
-      - name: Switch Coolify to dockerfile build + trigger deploy
+      - name: Deploy to server via SSH
+        env:
+          SSH_KEY: ${{ secrets.SERVER_SSH_KEY }}
         run: |
-          SERVER="http://78.157.51.14:8000"
-          TOKEN="5|beewaz-deploy-fix-2026"
-          APP_UUID="jw4kpfn8utdybrmwkr80fm8f"
+          # نصب SSH key
+          mkdir -p ~/.ssh
+          echo "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H 78.157.51.14 >> ~/.ssh/known_hosts 2>/dev/null
 
-          echo "=== Checking current app config ==="
-          curl -sf --max-time 15 \
-            -H "Authorization: Bearer $TOKEN" \
-            "$SERVER/api/v1/applications/$APP_UUID" 2>/dev/null \
-            | python3 -c "import sys,json; d=json.load(sys.stdin); print('build_pack:', d.get('build_pack'), '| status:', d.get('status'))" \
-            2>/dev/null || echo "Could not reach Coolify API"
+          # آپلود tarball به سرور
+          scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
+            beewaz-build.tar.gz root@78.157.51.14:/tmp/beewaz-build.tar.gz
 
-          echo "=== Switching build_pack to dockerfile ==="
-          PATCH_RESULT=$(curl -sf --max-time 15 \
-            -X PATCH "$SERVER/api/v1/applications/$APP_UUID" \
-            -H "Authorization: Bearer $TOKEN" \
-            -H "Content-Type: application/json" \
-            -d '{"build_pack":"dockerfile","dockerfile_location":"/Dockerfile"}' \
-            2>/dev/null || echo "PATCH_FAILED")
-          echo "Patch result: $PATCH_RESULT"
+          # deploy روی سرور
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no root@78.157.51.14 << 'ENDSSH'
+            set -e
+            echo "[deploy] Extracting tarball..."
+            rm -rf /tmp/bz-build && mkdir /tmp/bz-build
+            tar -xzf /tmp/beewaz-build.tar.gz -C /tmp/bz-build
 
-          echo "=== Triggering Coolify deploy ==="
-          DEPLOY_RESULT=$(curl -sf --max-time 15 \
-            -X GET "$SERVER/api/v1/deploy?uuid=$APP_UUID&force=true" \
-            -H "Authorization: Bearer $TOKEN" \
-            2>/dev/null || echo "DEPLOY_FAILED")
-          echo "Deploy result: $DEPLOY_RESULT"
+            echo "[deploy] Finding container..."
+            CONTAINER=$(docker ps --format "{{.Names}}" | grep jw4kpfn8utdybrmwkr80fm8f | head -1)
+            IMAGE=$(docker inspect --format '{{.Config.Image}}' "$CONTAINER")
+            echo "[deploy] Container: $CONTAINER | Image: $IMAGE"
 
-          echo "## ⏱ Coolify notified — building from Dockerfile (no ghcr.io needed)" >> $GITHUB_STEP_SUMMARY
+            echo "[deploy] Building Docker image..."
+            docker build -t "$IMAGE" /tmp/bz-build
+
+            echo "[deploy] Restarting container..."
+            docker restart "$CONTAINER"
+            echo "[deploy] ✅ Deploy successful!"
+          ENDSSH
+
+          echo "## ✅ Deployed via SSH — commit \`${GITHUB_SHA:0:8}\`" >> $GITHUB_STEP_SUMMARY
