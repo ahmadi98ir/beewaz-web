@@ -159,13 +159,32 @@ export async function Footer() {
 
       {/* Bottom Bar */}
       <div className="border-t border-white/10">
-        <div className="container-main py-5 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-white/40">
+        <div className="container-main py-5 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-white/40">
           <p>© {persianYear} — {currentYear} {siteName}. تمامی حقوق محفوظ است.</p>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 flex-wrap justify-center">
             <Link href="/privacy" className="hover:text-white/70 transition-colors">حریم خصوصی</Link>
             <Link href="/terms" className="hover:text-white/70 transition-colors">شرایط استفاده</Link>
             <span className="text-white/20">|</span>
             <span>ساخته شده با ❤️ در ایران</span>
+            <span className="text-white/20">|</span>
+            {/* نماد اعتماد الکترونیکی */}
+            <a
+              referrerPolicy="origin"
+              target="_blank"
+              rel="noopener noreferrer"
+              href="https://trustseal.enamad.ir/?id=733910&Code=1fDUu6rrYqBiYkpnIrcclfpuPGF2bvxs"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+              <img
+                referrerPolicy="origin"
+                src="https://trustseal.enamad.ir/logo.aspx?id=733910&Code=1fDUu6rrYqBiYkpnIrcclfpuPGF2bvxs"
+                alt="نماد اعتماد الکترونیکی"
+                style={{ cursor: 'pointer' }}
+                {...{ code: '1fDUu6rrYqBiYkpnIrcclfpuPGF2bvxs' } as any}
+                className="h-12 w-auto opacity-80 hover:opacity-100 transition-opacity"
+              />
+            </a>
           </div>
         </div>
       </div>
