@@ -1,16 +1,17 @@
 #!/bin/bash
 # /opt/beewaz-autodeploy.sh
 # Auto-deploy script — runs every 5 minutes via cron
-# Checks deploy-cache release for new standalone build, deploys via docker cp
+# Checks GitHub Releases for new image, downloads and deploys via Coolify
 
-COOLIFY_TOKEN="5|beewaz-deploy-fix-2026"
+COOLIFY_TOKEN="8|nwRYs2cOstQbrTRHFr3ZIFSGzA3gZ7KVRZSFDoCi560b5e36"
 APP_UUID="jw4kpfn8utdybrmwkr80fm8f"
 GITHUB_REPO="ahmadi98ir/beewaz-web"
-STATE_FILE="/var/lib/beewaz-deploy/last-sha"
+STATE_FILE="/var/lib/beewaz-deploy/last-release-id"
 LOCK_FILE="/tmp/beewaz-deploy.lock"
 
 log() { logger -t beewaz-deploy "$*"; echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"; }
 
+# جلوگیری از اجرای همزمان
 if [ -f "$LOCK_FILE" ]; then
   log "already running, skipping"
   exit 0
@@ -20,65 +21,70 @@ trap "rm -f $LOCK_FILE" EXIT
 
 mkdir -p "$(dirname $STATE_FILE)"
 
-# دریافت SHA آخرین build از build-version.txt
-REMOTE_SHA=$(curl -sfL --max-time 15 \
-  --doh-url https://1.1.1.1/dns-query \
-  "https://github.com/$GITHUB_REPO/releases/download/deploy-cache/build-version.txt" 2>/dev/null | tr -d '[:space:]')
-
-if [ -z "$REMOTE_SHA" ]; then
+# دریافت آخرین release
+RELEASE_JSON=$(curl -sf --max-time 15 \
+  -H "Accept: application/vnd.github+json" \
+  "https://api.github.com/repos/$GITHUB_REPO/releases/tags/deploy-latest")
+if [ -z "$RELEASE_JSON" ]; then
   log "INFO: could not reach GitHub — will retry next cycle"
   exit 0
 fi
 
-CURRENT_SHA=$(cat "$STATE_FILE" 2>/dev/null)
-if [ "$REMOTE_SHA" = "$CURRENT_SHA" ]; then
-  exit 0
-fi
+RELEASE_ID=$(echo "$RELEASE_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])" 2>/dev/null)
+RELEASE_TITLE=$(echo "$RELEASE_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin)['name'])" 2>/dev/null)
 
-log "New build detected: ${REMOTE_SHA:0:8} (was ${CURRENT_SHA:0:8})"
-
-# دانلود standalone tarball
-log "Downloading build tarball..."
-curl -sfL --max-time 300 \
-  --doh-url https://1.1.1.1/dns-query \
-  "https://github.com/$GITHUB_REPO/releases/download/deploy-cache/beewaz-build.tar.gz" \
-  -o /tmp/bz-build.tar.gz
-if [ $? -ne 0 ] || [ ! -s /tmp/bz-build.tar.gz ]; then
-  log "ERROR: download failed — will retry next cycle"
-  rm -f /tmp/bz-build.tar.gz
-  exit 0
-fi
-log "Downloaded: $(du -sh /tmp/bz-build.tar.gz | cut -f1)"
-
-# یافتن container
-CONTAINER=$(docker ps --format "{{.Names}}" | grep -i beewaz | head -1)
-if [ -z "$CONTAINER" ]; then
-  log "ERROR: no beewaz container found"
-  rm -f /tmp/bz-build.tar.gz
+if [ -z "$RELEASE_ID" ]; then
+  log "ERROR: could not parse release JSON"
   exit 1
 fi
-log "Container: $CONTAINER"
 
-# استخراج و کپی فایل‌ها
-rm -rf /tmp/bz-bundle && mkdir /tmp/bz-bundle
-tar -xzf /tmp/bz-build.tar.gz -C /tmp/bz-bundle
-docker cp /tmp/bz-bundle/. $CONTAINER:/app/
-rm -rf /tmp/bz-build.tar.gz /tmp/bz-bundle
-log "Files deployed to container"
+# بررسی اینکه آیا deploy جدیده
+CURRENT_ID=$(cat "$STATE_FILE" 2>/dev/null)
+if [ "$RELEASE_ID" = "$CURRENT_ID" ]; then
+  exit 0
+fi
 
-# restart
+log "New release detected: $RELEASE_TITLE (id=$RELEASE_ID)"
+
+# دانلود image
+DOWNLOAD_URL="https://github.com/$GITHUB_REPO/releases/download/deploy-latest/beewaz-image.tar.gz"
+log "Downloading image from GitHub Releases..."
+curl -sfL --max-time 600 "$DOWNLOAD_URL" -o /tmp/beewaz-image.tar.gz
+if [ $? -ne 0 ] || [ ! -s /tmp/beewaz-image.tar.gz ]; then
+  log "ERROR: download failed or file is empty — will retry next cycle"
+  rm -f /tmp/beewaz-image.tar.gz
+  exit 0
+fi
+
+log "Loading Docker image..."
+docker load < /tmp/beewaz-image.tar.gz
+if [ $? -ne 0 ]; then
+  log "ERROR: docker load failed"
+  rm -f /tmp/beewaz-image.tar.gz
+  exit 1
+fi
+rm -f /tmp/beewaz-image.tar.gz
+
+# restart از طریق Coolify
 log "Restarting via Coolify..."
-HTTP=$(curl -sf -o /dev/null -w "%{http_code}" --max-time 30 \
+HTTP=$(curl -sf -o /dev/null -w "%{http_code}" \
   -X POST "http://localhost:8000/api/v1/applications/$APP_UUID/restart" \
   -H "Authorization: Bearer $COOLIFY_TOKEN" \
-  -H "Content-Type: application/json" || echo "000")
+  -H "Content-Type: application/json" \
+  --max-time 30 || echo "000")
 
 if [ "$HTTP" = "200" ] || [ "$HTTP" = "202" ]; then
-  echo "$REMOTE_SHA" > "$STATE_FILE"
-  log "✅ Deploy successful: ${REMOTE_SHA:0:8}"
+  echo "$RELEASE_ID" > "$STATE_FILE"
+  log "✅ Deploy successful: $RELEASE_TITLE"
 else
-  log "WARNING: Coolify returned HTTP $HTTP — trying docker restart"
-  docker restart "$CONTAINER"
-  echo "$REMOTE_SHA" > "$STATE_FILE"
-  log "✅ Container restarted via docker: ${REMOTE_SHA:0:8}"
+  log "WARNING: Coolify restart returned HTTP $HTTP — trying docker restart fallback"
+  CONTAINER=$(docker ps --format "{{.Names}}" | grep -i "jw4kpfn8utdybrmwkr80fm8f" | head -1)
+  if [ -n "$CONTAINER" ]; then
+    docker restart "$CONTAINER"
+    echo "$RELEASE_ID" > "$STATE_FILE"
+    log "✅ Container $CONTAINER restarted via docker"
+  else
+    log "ERROR: no beewaz container found"
+    exit 1
+  fi
 fi
