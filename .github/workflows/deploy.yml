@@ -95,42 +95,14 @@ jobs:
             --latest=false
           echo "## ✅ Build uploaded — commit \`${GITHUB_SHA:0:8}\` | ${{ env.BUILD_SIZE }}" >> $GITHUB_STEP_SUMMARY
 
-      - name: Deploy to server via SSH
+      - name: Upload to Cloudflare R2
         env:
-          SSH_KEY: ${{ secrets.SERVER_SSH_KEY }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          AWS_ENDPOINT_URL: https://780f1658226b1429c605646103baeb07.r2.cloudflarestorage.com
         run: |
-          # نصب SSH key (base64-encoded در secret ذخیره شده)
-          mkdir -p ~/.ssh
-          echo "$SSH_KEY" | base64 -d > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
-          ssh-keygen -l -f ~/.ssh/deploy_key 2>&1 || echo "Key validation failed"
-
-          ssh-keyscan -p 8443 -H 78.157.51.14 >> ~/.ssh/known_hosts 2>/dev/null || true
-
-          # آپلود tarball به سرور
-          scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
-            -o ConnectTimeout=15 -P 8443 \
-            beewaz-build.tar.gz root@78.157.51.14:/tmp/beewaz-build.tar.gz
-
-          # deploy روی سرور
-          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
-            -p 8443 root@78.157.51.14 << 'ENDSSH'
-            set -e
-            echo "[deploy] Extracting tarball..."
-            rm -rf /tmp/bz-build && mkdir /tmp/bz-build
-            tar -xzf /tmp/beewaz-build.tar.gz -C /tmp/bz-build
-
-            echo "[deploy] Finding container..."
-            CONTAINER=$(docker ps --format "{{.Names}}" | grep jw4kpfn8utdybrmwkr80fm8f | head -1)
-            IMAGE=$(docker inspect --format '{{.Config.Image}}' "$CONTAINER")
-            echo "[deploy] Container: $CONTAINER | Image: $IMAGE"
-
-            echo "[deploy] Building Docker image..."
-            docker build -t "$IMAGE" /tmp/bz-build
-
-            echo "[deploy] Restarting container..."
-            docker restart "$CONTAINER"
-            echo "[deploy] ✅ Deploy successful!"
-          ENDSSH
-
-          echo "## ✅ Deployed via SSH — commit \`${GITHUB_SHA:0:8}\`" >> $GITHUB_STEP_SUMMARY
+          echo "${GITHUB_SHA}" > sha.txt
+          aws s3 cp beewaz-build.tar.gz s3://beewaz-deploy/beewaz-build.tar.gz --no-progress
+          aws s3 cp sha.txt s3://beewaz-deploy/sha.txt
+          echo "## ✅ Uploaded to R2 — commit \`${GITHUB_SHA:0:8}\` | ${{ env.BUILD_SIZE }}" >> $GITHUB_STEP_SUMMARY

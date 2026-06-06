@@ -1,10 +1,9 @@
 #!/bin/bash
 # /opt/beewaz-autodeploy.sh
-# Auto-deploy — سرور tarball از GitHub Release دانلود می‌کنه و Docker image می‌سازه
-# بدون نیاز به git clone یا ghcr.io (که در ایران بلاک‌ه)
+# Auto-deploy — tarball را از Cloudflare R2 دانلود می‌کند
 # cron: * * * * * /opt/beewaz-autodeploy.sh >> /var/log/beewaz-deploy.log 2>&1
 
-GITHUB_REPO="ahmadi98ir/beewaz-web"
+R2_BASE="https://pub-304fa4e803c8406fa2617521a41f0971.r2.dev"
 STATE_FILE="/var/lib/beewaz-deploy/last-sha"
 DEPLOY_LOCK="/tmp/beewaz-deploy-running.lock"
 POLL_LOCK="/tmp/beewaz-poll.lock"
@@ -15,13 +14,10 @@ log() { logger -t beewaz-deploy "$*"; echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"; 
 
 mkdir -p "$(dirname $STATE_FILE)"
 
-# دانلود با retry (CDN گاهی قطع می‌شه)
 download_with_retry() {
   local URL="$1" DEST="$2"
   for attempt in 1 2 3 4 5; do
-    if curl -fsSL --max-time 120 --retry 2 \
-        --doh-url https://1.1.1.1/dns-query \
-        -o "$DEST" "$URL" 2>/dev/null; then
+    if curl -fsSL --max-time 120 --retry 2 -o "$DEST" "$URL" 2>/dev/null; then
       return 0
     fi
     log "Download attempt $attempt failed, retrying in ${attempt}0s..."
@@ -30,43 +26,21 @@ download_with_retry() {
   return 1
 }
 
-# ── deploy از روی tarball ─────────────────────────────────────────────────────
 do_deploy() {
   local SHA="$1"
   if [ -f "$DEPLOY_LOCK" ]; then log "deploy already in progress"; return; fi
   touch "$DEPLOY_LOCK"
   trap "rm -f $DEPLOY_LOCK" RETURN
 
-  log "New commit detected ($SHA) — downloading build tarball..."
-
-  # دانلود release asset URL از API
-  ASSET_URL=$(curl -sf --max-time 15 \
-    --doh-url https://1.1.1.1/dns-query \
-    -H "Accept: application/vnd.github+json" \
-    "https://api.github.com/repos/$GITHUB_REPO/releases/tags/deploy-cache" 2>/dev/null \
-    | python3 -c "
-import sys,json
-data=json.load(sys.stdin)
-for a in data.get('assets',[]):
-    if a['name']=='beewaz-build.tar.gz':
-        print(a['browser_download_url'])
-        break
-" 2>/dev/null)
-
-  if [ -z "$ASSET_URL" ]; then
-    log "ERROR: could not get asset URL from GitHub API"
-    return
-  fi
-  log "Downloading from: $ASSET_URL"
+  log "New commit detected ($SHA) — downloading build tarball from R2..."
 
   rm -f "$TARBALL"
-  if ! download_with_retry "$ASSET_URL" "$TARBALL"; then
+  if ! download_with_retry "$R2_BASE/beewaz-build.tar.gz" "$TARBALL"; then
     log "ERROR: download failed after 5 attempts"
     return
   fi
   log "Download complete ($(du -sh $TARBALL | cut -f1))"
 
-  # extract
   rm -rf "$BUILD_DIR" && mkdir -p "$BUILD_DIR"
   if ! tar -xzf "$TARBALL" -C "$BUILD_DIR" 2>&1; then
     log "ERROR: tar extraction failed"
@@ -78,14 +52,12 @@ for a in data.get('assets',[]):
     return
   fi
 
-  # تشخیص image فعلی کانتینر
   CONTAINER=$(docker ps --format "{{.Names}}" | grep "jw4kpfn8utdybrmwkr80fm8f" | head -1)
   if [ -z "$CONTAINER" ]; then log "ERROR: container not found"; return; fi
   IMAGE=$(docker inspect --format '{{.Config.Image}}' "$CONTAINER" 2>/dev/null)
   log "Container: $CONTAINER | Image: $IMAGE"
 
-  # docker build از tarball (بدون npm install چون standalone آماده‌ست)
-  log "Building Docker image from pre-built tarball..."
+  log "Building Docker image..."
   if docker build -t "$IMAGE" "$BUILD_DIR" 2>&1 | tail -5; then
     log "Build successful"
   else
@@ -93,7 +65,6 @@ for a in data.get('assets',[]):
     return
   fi
 
-  # restart کانتینر
   log "Restarting container..."
   if docker restart "$CONTAINER" >/dev/null 2>&1; then
     echo "$SHA" > "$STATE_FILE"
@@ -103,14 +74,8 @@ for a in data.get('assets',[]):
   fi
 }
 
-# ── چک یک‌بار ────────────────────────────────────────────────────────────────
 check_once() {
-  SHA=$(curl -sf --max-time 10 \
-    --doh-url https://1.1.1.1/dns-query \
-    -H "Accept: application/vnd.github+json" \
-    "https://api.github.com/repos/$GITHUB_REPO/commits/main" 2>/dev/null \
-    | python3 -c "import sys,json; print(json.load(sys.stdin)['sha'])" 2>/dev/null)
-
+  SHA=$(curl -sf --max-time 10 "$R2_BASE/sha.txt" 2>/dev/null | tr -d '[:space:]')
   [ -z "$SHA" ] && return
 
   CURRENT=$(cat "$STATE_FILE" 2>/dev/null)
@@ -119,7 +84,6 @@ check_once() {
   do_deploy "$SHA"
 }
 
-# ── حلقه اصلی: هر دقیقه ۳ بار (هر ۲۰ ثانیه) ────────────────────────────────
 if [ -f "$POLL_LOCK" ]; then exit 0; fi
 touch "$POLL_LOCK"
 trap "rm -f $POLL_LOCK" EXIT
