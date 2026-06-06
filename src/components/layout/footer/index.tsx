@@ -157,9 +157,32 @@ export async function Footer() {
         </div>
       </div>
 
+      {/* نمادهای اعتماد */}
+      <div className="border-t border-white/10">
+        <div className="container-main py-6 flex flex-col items-center gap-3">
+          <p className="text-xs text-white/40">نمادهای اعتماد</p>
+          <div className="flex items-center gap-4">
+            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+            <a referrerPolicy="origin" target="_blank" rel="noopener noreferrer"
+              href="https://trustseal.enamad.ir/?id=733910&Code=1fDUu6rrYqBiYkpnIrcclfpuPGF2bvxs"
+              {...{ code: '1fDUu6rrYqBiYkpnIrcclfpuPGF2bvxs' } as any}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img referrerPolicy="origin"
+                id="enamad-badge"
+                src="https://trustseal.enamad.ir/logo.aspx?id=733910&Code=1fDUu6rrYqBiYkpnIrcclfpuPGF2bvxs"
+                alt="نماد اعتماد الکترونیکی"
+                style={{ cursor: 'pointer' }}
+                {...{ code: '1fDUu6rrYqBiYkpnIrcclfpuPGF2bvxs' } as any}
+                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+                className="h-20 w-auto opacity-90 hover:opacity-100 transition-opacity" />
+            </a>
+          </div>
+        </div>
+      </div>
+
       {/* Bottom Bar */}
       <div className="border-t border-white/10">
-        <div className="container-main py-5 flex flex-col sm:flex-row items-center justify-between gap-6 text-xs text-white/40">
+        <div className="container-main py-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-white/40">
           <p>© {persianYear} — {currentYear} {siteName}. تمامی حقوق محفوظ است.</p>
           <div className="flex items-center gap-4 flex-wrap justify-center">
             <Link href="/privacy" className="hover:text-white/70 transition-colors">حریم خصوصی</Link>
@@ -167,21 +190,6 @@ export async function Footer() {
             <span className="text-white/20">|</span>
             <span>ساخته شده با ❤️ در ایران</span>
           </div>
-          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-          <a referrerPolicy="origin" target="_blank" rel="noopener noreferrer"
-            href="https://trustseal.enamad.ir/?id=733910&Code=1fDUu6rrYqBiYkpnIrcclfpuPGF2bvxs"
-            {...{ code: '1fDUu6rrYqBiYkpnIrcclfpuPGF2bvxs' } as any}
-            className="flex-shrink-0">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img referrerPolicy="origin"
-              id="enamad-badge"
-              src="https://trustseal.enamad.ir/logo.aspx?id=733910&Code=1fDUu6rrYqBiYkpnIrcclfpuPGF2bvxs"
-              alt="نماد اعتماد الکترونیکی"
-              style={{ cursor: 'pointer' }}
-              {...{ code: '1fDUu6rrYqBiYkpnIrcclfpuPGF2bvxs' } as any}
-              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
-              className="h-16 w-auto opacity-90 hover:opacity-100 transition-opacity" />
-          </a>
         </div>
       </div>
 
