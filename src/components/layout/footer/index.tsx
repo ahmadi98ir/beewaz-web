@@ -103,6 +103,20 @@ export async function Footer() {
                 </a>
               ))}
             </div>
+
+            {/* نماد اعتماد الکترونیکی */}
+            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+            <a referrerPolicy="origin" target="_blank" rel="noopener noreferrer"
+              href="https://trustseal.enamad.ir/?id=733910&Code=1fDUu6rrYqBiYkpnIrcclfpuPGF2bvxs"
+              {...{ code: '1fDUu6rrYqBiYkpnIrcclfpuPGF2bvxs' } as any}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img referrerPolicy="origin"
+                src="https://trustseal.enamad.ir/logo.aspx?id=733910&Code=1fDUu6rrYqBiYkpnIrcclfpuPGF2bvxs"
+                alt="نماد اعتماد الکترونیکی"
+                style={{ cursor: 'pointer' }}
+                {...{ code: '1fDUu6rrYqBiYkpnIrcclfpuPGF2bvxs' } as any}
+                className="h-24 w-auto" />
+            </a>
           </div>
 
           {/* ستون ۲ — فروشگاه */}
@@ -154,29 +168,6 @@ export async function Footer() {
             </div>
           </div>
 
-        </div>
-      </div>
-
-      {/* نمادهای اعتماد */}
-      <div className="border-t border-white/10">
-        <div className="container-main py-6 flex flex-col items-center gap-3">
-          <p className="text-xs text-white/40">نمادهای اعتماد</p>
-          <div className="flex items-center gap-4">
-            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-            <a referrerPolicy="origin" target="_blank" rel="noopener noreferrer"
-              href="https://trustseal.enamad.ir/?id=733910&Code=1fDUu6rrYqBiYkpnIrcclfpuPGF2bvxs"
-              {...{ code: '1fDUu6rrYqBiYkpnIrcclfpuPGF2bvxs' } as any}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img referrerPolicy="origin"
-                id="enamad-badge"
-                src="https://trustseal.enamad.ir/logo.aspx?id=733910&Code=1fDUu6rrYqBiYkpnIrcclfpuPGF2bvxs"
-                alt="نماد اعتماد الکترونیکی"
-                style={{ cursor: 'pointer' }}
-                {...{ code: '1fDUu6rrYqBiYkpnIrcclfpuPGF2bvxs' } as any}
-                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
-                className="h-20 w-auto opacity-90 hover:opacity-100 transition-opacity" />
-            </a>
-          </div>
         </div>
       </div>
 
