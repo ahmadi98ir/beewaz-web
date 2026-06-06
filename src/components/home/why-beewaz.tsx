@@ -3,8 +3,20 @@
 import type { ReactNode } from 'react'
 import { useEffect, useRef, useState } from 'react'
 import type { CmsContent } from '@/lib/cms'
+import {
+  ShieldIcon,
+  SmartphoneIcon,
+  BoltIcon,
+  WrenchIcon,
+  GemIcon,
+  TagIcon,
+} from '@/components/ui/icons'
 
 interface WhyBeewazProps { cms?: CmsContent }
+
+// آیکون‌ها به‌صورت SVG (بر اساس index) رندر می‌شوند تا مستقل از فونت emoji و
+// داده‌های CMS همیشه نمایش داده شوند. مقدار `icon` در داده‌ها صرفاً برای سازگاری است.
+const FEATURE_ICONS = [ShieldIcon, SmartphoneIcon, BoltIcon, WrenchIcon, GemIcon, TagIcon]
 
 const DEFAULT_FEATURES = [
   { icon:'🛡️', title:'امنیت ۲۴ ساعته', desc:'سیستم‌های هوشمند ما بدون وقفه از اموال شما محافظت می‌کنند. هشدار فوری به موبایل در کمتر از ۳ ثانیه.', color:'#F97316', glow:'rgba(249,115,22,0.3)' },
@@ -66,8 +78,8 @@ export function WhyBeewaz({ cms }: WhyBeewazProps) {
               <div style={{ background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.07)', borderRadius:20, padding:'1.75rem', transition:'all 0.3s ease', cursor:'default' }}
                 onMouseEnter={e => { const el = e.currentTarget; el.style.background='rgba(255,255,255,0.06)'; el.style.borderColor=`rgba(${f.color.slice(1).match(/../g)!.map(h=>parseInt(h,16)).join(',')},0.3)`; el.style.transform='translateY(-4px)'; }}
                 onMouseLeave={e => { const el = e.currentTarget; el.style.background='rgba(255,255,255,0.03)'; el.style.borderColor='rgba(255,255,255,0.07)'; el.style.transform='translateY(0)'; }}>
-                <div style={{ width:52, height:52, borderRadius:14, background:`rgba(${f.color.slice(1).match(/../g)!.map(h=>parseInt(h,16)).join(',')},0.12)`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:'1.5rem', marginBottom:'1.1rem', boxShadow:`0 0 20px ${f.glow}` }}>
-                  {f.icon}
+                <div style={{ width:52, height:52, borderRadius:14, background:`rgba(${f.color.slice(1).match(/../g)!.map(h=>parseInt(h,16)).join(',')},0.12)`, display:'flex', alignItems:'center', justifyContent:'center', marginBottom:'1.1rem', boxShadow:`0 0 20px ${f.glow}` }}>
+                  {(() => { const Icon = FEATURE_ICONS[i % FEATURE_ICONS.length]!; return <Icon size={26} style={{ color: f.color }} /> })()}
                 </div>
                 <h3 style={{ color:'#fff', fontWeight:700, fontSize:'1.05rem', marginBottom:'0.6rem' }}>{f.title}</h3>
                 <p style={{ color:'rgba(255,255,255,0.5)', fontSize:'0.9rem', lineHeight:1.7 }}>{f.desc}</p>

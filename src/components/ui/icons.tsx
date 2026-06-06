@@ -117,3 +117,33 @@ export const HeartIcon = icon(
 export const CheckIcon = icon(
   <path d="M20 6 9 17l-5-5" />,
 )
+
+export const BoltIcon = icon(
+  <path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z" />,
+)
+
+export const WrenchIcon = icon(
+  <path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.5-2.5 2.5-2.5z" />,
+)
+
+export const GemIcon = icon(
+  <>
+    <path d="M6 3h12l4 6-10 12L2 9z" />
+    <path d="M2 9h20" />
+    <path d="m12 3-4 6 4 12 4-12-4-6" />
+  </>,
+)
+
+export const TagIcon = icon(
+  <>
+    <path d="M3 7v5l8 8 6-6-8-8H3z" />
+    <circle cx="7" cy="11" r="1.2" />
+  </>,
+)
+
+export const SmartphoneIcon = icon(
+  <>
+    <rect width="12" height="20" x="6" y="2" rx="2" ry="2" />
+    <line x1="11" x2="13" y1="18" y2="18" />
+  </>,
+)
