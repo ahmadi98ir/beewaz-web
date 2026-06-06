@@ -166,6 +166,17 @@ export async function Footer() {
             <Link href="/terms" className="hover:text-white/70 transition-colors">شرایط استفاده</Link>
             <span className="text-white/20">|</span>
             <span>ساخته شده با ❤️ در ایران</span>
+            <span className="text-white/20">|</span>
+            <a referrerPolicy="origin" target="_blank" rel="noopener noreferrer"
+              href="https://trustseal.enamad.ir/?id=733910&Code=1fDUu6rrYqBiYkpnIrcclfpuPGF2bvxs">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img referrerPolicy="origin"
+                src="https://trustseal.enamad.ir/logo.aspx?id=733910&Code=1fDUu6rrYqBiYkpnIrcclfpuPGF2bvxs"
+                alt="نماد اعتماد الکترونیکی"
+                style={{ cursor: 'pointer' }}
+                {...{ code: '1fDUu6rrYqBiYkpnIrcclfpuPGF2bvxs' } as React.ImgHTMLAttributes<HTMLImageElement>}
+                className="h-10 w-auto opacity-70 hover:opacity-100 transition-opacity" />
+            </a>
           </div>
         </div>
       </div>
