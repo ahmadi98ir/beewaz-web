@@ -46,17 +46,22 @@ do_deploy() {
   tar -xzf /tmp/bz-build.tar.gz -C /tmp/bz-bundle
   docker cp /tmp/bz-bundle/. $CONTAINER:/app/
   rm -rf /tmp/bz-build.tar.gz /tmp/bz-bundle
-  log "Files deployed to container"
+  log "Files copied to container"
 
-  log "Restarting..."
-  # مستقیم docker restart می‌زنیم — Coolify API کانتینر رو از image اصلی بازسازی
-  # می‌کنه و فایل‌هایی که با docker cp کپی کردیم پاک می‌شن. docker restart همون
-  # کانتینر رو stop/start می‌کنه و تغییرات فایل‌سیستم حفظ می‌شه.
+  # image نام فعلی کانتینر رو پیدا کن
+  IMAGE=$(docker inspect --format '{{.Config.Image}}' "$CONTAINER" 2>/dev/null)
+  log "Committing new image: $IMAGE"
+  # ذخیره تغییرات به عنوان image جدید — این مهمه چون Coolify از image میسازه نه container
+  docker commit "$CONTAINER" "$IMAGE" >/dev/null 2>&1
+  log "Image committed: $IMAGE"
+
+  log "Restarting container..."
+  # docker restart مستقیم — همان container رو stop/start می‌کنه بدون rebuild از image
   if docker restart "$CONTAINER" >/dev/null 2>&1; then
     echo "$RELEASE_ID" > "$STATE_FILE"
-    log "✅ Deploy successful (id=$RELEASE_ID) — container restarted"
+    log "✅ Deploy successful (id=$RELEASE_ID)"
   else
-    log "ERROR: docker restart failed for $CONTAINER"
+    log "ERROR: docker restart failed"
   fi
 }
 
