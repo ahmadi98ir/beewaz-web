@@ -91,10 +91,11 @@ jobs:
           sudo apt-get install -y sshpass >/dev/null 2>&1
 
           SSH_OPTS="-o StrictHostKeyChecking=no -o ConnectTimeout=30 -p 8443"
+          SCP_OPTS="-o StrictHostKeyChecking=no -o ConnectTimeout=30 -P 8443"
           SERVER="root@78.157.51.14"
 
           echo "→ Uploading build to server..."
-          sshpass -p "$SSH_PASS" scp $SSH_OPTS beewaz-build.tar.gz $SERVER:/tmp/bz-build.tar.gz
+          sshpass -p "$SSH_PASS" scp $SCP_OPTS beewaz-build.tar.gz $SERVER:/tmp/bz-build.tar.gz
           echo "  Upload done"
 
           echo "→ Extracting + deploying on server..."
