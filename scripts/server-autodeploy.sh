@@ -1,95 +1,97 @@
 #!/bin/bash
 # /opt/beewaz-autodeploy.sh
-# Auto-deploy — cron هر دقیقه اجرا می‌کنه، ولی داخل script سه بار با ۲۰ ثانیه فاصله چک می‌کنه
-# → عملاً هر ۲۰ ثانیه یک‌بار release جدید رو تشخیص می‌ده
+# Auto-deploy — سرور مستقیم از GitHub clone می‌کنه و Docker image می‌سازه
+# بدون نیاز به CDN (که در ایران بلاک‌ه)
+# cron: * * * * * /opt/beewaz-autodeploy.sh >> /var/log/beewaz-deploy.log 2>&1
 
-COOLIFY_TOKEN="5|beewaz-deploy-fix-2026"
 APP_UUID="jw4kpfn8utdybrmwkr80fm8f"
 GITHUB_REPO="ahmadi98ir/beewaz-web"
-STATE_FILE="/var/lib/beewaz-deploy/last-release-id"
+STATE_FILE="/var/lib/beewaz-deploy/last-sha"
 DEPLOY_LOCK="/tmp/beewaz-deploy-running.lock"
 POLL_LOCK="/tmp/beewaz-poll.lock"
+BUILD_DIR="/tmp/bz-build-src"
 
 log() { logger -t beewaz-deploy "$*"; echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"; }
 
 mkdir -p "$(dirname $STATE_FILE)"
 
-# ── تابع deploy ──────────────────────────────────────────────────────────────
+# ── deploy از روی سورس ────────────────────────────────────────────────────────
 do_deploy() {
-  local RELEASE_ID="$1"
-  # lock از تداخل deploy جلوگیری می‌کنه
-  if [ -f "$DEPLOY_LOCK" ]; then log "deploy already in progress, skipping"; return; fi
+  local SHA="$1"
+  if [ -f "$DEPLOY_LOCK" ]; then log "deploy already in progress"; return; fi
   touch "$DEPLOY_LOCK"
   trap "rm -f $DEPLOY_LOCK" RETURN
 
-  log "New build detected (release id=$RELEASE_ID) — deploying..."
+  log "New commit detected ($SHA) — building..."
 
-  log "Downloading build tarball..."
-  curl -sfL --max-time 600 \
-    --doh-url https://1.1.1.1/dns-query \
-    "https://github.com/$GITHUB_REPO/releases/download/deploy-cache/beewaz-build.tar.gz" \
-    -o /tmp/bz-build.tar.gz
-  if [ $? -ne 0 ] || [ ! -s /tmp/bz-build.tar.gz ]; then
-    log "ERROR: download failed — will retry next cycle"
-    rm -f /tmp/bz-build.tar.gz; return
+  # clone/pull سورس
+  if [ -d "$BUILD_DIR/.git" ]; then
+    log "Pulling latest..."
+    git -C "$BUILD_DIR" fetch origin main --depth=1 2>&1 | tail -1
+    git -C "$BUILD_DIR" reset --hard origin/main 2>&1 | tail -1
+  else
+    rm -rf "$BUILD_DIR"
+    log "Cloning repo..."
+    git clone --depth=1 "https://github.com/$GITHUB_REPO.git" "$BUILD_DIR" 2>&1 | tail -1
   fi
-  log "Downloaded: $(du -sh /tmp/bz-build.tar.gz | cut -f1)"
 
+  if [ ! -f "$BUILD_DIR/Dockerfile" ]; then
+    log "ERROR: clone failed — Dockerfile not found"
+    return
+  fi
+
+  # تشخیص image فعلی کانتینر
   CONTAINER=$(docker ps --format "{{.Names}}" | grep "$APP_UUID" | head -1)
-  if [ -z "$CONTAINER" ]; then
-    log "ERROR: no container found for $APP_UUID"
-    rm -f /tmp/bz-build.tar.gz; return
-  fi
-  log "Container: $CONTAINER"
-
-  rm -rf /tmp/bz-bundle && mkdir /tmp/bz-bundle
-  tar -xzf /tmp/bz-build.tar.gz -C /tmp/bz-bundle
-  docker cp /tmp/bz-bundle/. $CONTAINER:/app/
-  rm -rf /tmp/bz-build.tar.gz /tmp/bz-bundle
-  log "Files copied to container"
-
-  # image نام فعلی کانتینر رو پیدا کن
+  if [ -z "$CONTAINER" ]; then log "ERROR: container not found"; return; fi
   IMAGE=$(docker inspect --format '{{.Config.Image}}' "$CONTAINER" 2>/dev/null)
-  log "Committing new image: $IMAGE"
-  # ذخیره تغییرات به عنوان image جدید — این مهمه چون Coolify از image میسازه نه container
-  docker commit "$CONTAINER" "$IMAGE" >/dev/null 2>&1
-  log "Image committed: $IMAGE"
+  log "Container: $CONTAINER | Image: $IMAGE"
 
+  # docker build
+  log "Building Docker image (این ممکنه چند دقیقه طول بکشه)..."
+  if docker build \
+    --build-arg NEXT_PUBLIC_APP_URL=https://beewaz.ir \
+    -t "$IMAGE" \
+    "$BUILD_DIR" 2>&1 | tail -5; then
+    log "Build successful"
+  else
+    log "ERROR: docker build failed"
+    return
+  fi
+
+  # restart کانتینر
   log "Restarting container..."
-  # docker restart مستقیم — همان container رو stop/start می‌کنه بدون rebuild از image
   if docker restart "$CONTAINER" >/dev/null 2>&1; then
-    echo "$RELEASE_ID" > "$STATE_FILE"
-    log "✅ Deploy successful (id=$RELEASE_ID)"
+    echo "$SHA" > "$STATE_FILE"
+    log "✅ Deploy successful (sha=$SHA)"
   else
     log "ERROR: docker restart failed"
   fi
 }
 
-# ── تابع یک چک ───────────────────────────────────────────────────────────────
+# ── چک یک‌بار ────────────────────────────────────────────────────────────────
 check_once() {
-  RELEASE_JSON=$(curl -sf --max-time 10 \
+  # آخرین commit روی main از API (نه CDN)
+  SHA=$(curl -sf --max-time 10 \
     --doh-url https://1.1.1.1/dns-query \
     -H "Accept: application/vnd.github+json" \
-    "https://api.github.com/repos/$GITHUB_REPO/releases/tags/deploy-cache" 2>/dev/null)
-  [ -z "$RELEASE_JSON" ] && return
+    "https://api.github.com/repos/$GITHUB_REPO/commits/main" 2>/dev/null \
+    | python3 -c "import sys,json; print(json.load(sys.stdin)['sha'])" 2>/dev/null)
 
-  RELEASE_ID=$(echo "$RELEASE_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])" 2>/dev/null)
-  [ -z "$RELEASE_ID" ] && return
+  [ -z "$SHA" ] && return
 
-  CURRENT_ID=$(cat "$STATE_FILE" 2>/dev/null)
-  [ "$RELEASE_ID" = "$CURRENT_ID" ] && return
+  CURRENT=$(cat "$STATE_FILE" 2>/dev/null)
+  [ "$SHA" = "$CURRENT" ] && return
 
-  do_deploy "$RELEASE_ID"
+  do_deploy "$SHA"
 }
 
-# ── حلقه اصلی: اگر poll lock نباشه ۳ بار چک می‌کنه (هر ۲۰ ثانیه) ──────────
+# ── حلقه اصلی: هر دقیقه ۳ بار (هر ۲۰ ثانیه) ────────────────────────────────
 if [ -f "$POLL_LOCK" ]; then exit 0; fi
 touch "$POLL_LOCK"
 trap "rm -f $POLL_LOCK" EXIT
 
 for i in 1 2 3; do
   check_once
-  # اگر deploy شد زودتر خارج می‌شیم
   [ -f "$DEPLOY_LOCK" ] && break
   [ "$i" -lt 3 ] && sleep 20
 done
