@@ -78,7 +78,7 @@ if [ "$HTTP" = "200" ] || [ "$HTTP" = "202" ]; then
   log "✅ Deploy successful: $RELEASE_TITLE"
 else
   log "WARNING: Coolify restart returned HTTP $HTTP — trying docker restart fallback"
-  CONTAINER=$(docker ps --format "{{.Names}}" | grep -i beewaz | head -1)
+  CONTAINER=$(docker ps --format "{{.Names}}" | grep -i "jw4kpfn8utdybrmwkr80fm8f" | head -1)
   if [ -n "$CONTAINER" ]; then
     docker restart "$CONTAINER"
     echo "$RELEASE_ID" > "$STATE_FILE"
