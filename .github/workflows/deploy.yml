@@ -94,4 +94,34 @@ jobs:
             --notes "Built from commit ${GITHUB_SHA} at $(date -u)" \
             --latest=false
           echo "## ✅ Build uploaded — commit \`${GITHUB_SHA:0:8}\` | ${{ env.BUILD_SIZE }}" >> $GITHUB_STEP_SUMMARY
-          echo "## ⏱ Server will auto-deploy within 5 min via cron" >> $GITHUB_STEP_SUMMARY
+
+      - name: Switch Coolify to dockerfile build + trigger deploy
+        run: |
+          SERVER="http://78.157.51.14:8000"
+          TOKEN="5|beewaz-deploy-fix-2026"
+          APP_UUID="jw4kpfn8utdybrmwkr80fm8f"
+
+          echo "=== Checking current app config ==="
+          curl -sf --max-time 15 \
+            -H "Authorization: Bearer $TOKEN" \
+            "$SERVER/api/v1/applications/$APP_UUID" 2>/dev/null \
+            | python3 -c "import sys,json; d=json.load(sys.stdin); print('build_pack:', d.get('build_pack'), '| status:', d.get('status'))" \
+            2>/dev/null || echo "Could not reach Coolify API"
+
+          echo "=== Switching build_pack to dockerfile ==="
+          PATCH_RESULT=$(curl -sf --max-time 15 \
+            -X PATCH "$SERVER/api/v1/applications/$APP_UUID" \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Content-Type: application/json" \
+            -d '{"build_pack":"dockerfile","dockerfile_location":"/Dockerfile"}' \
+            2>/dev/null || echo "PATCH_FAILED")
+          echo "Patch result: $PATCH_RESULT"
+
+          echo "=== Triggering Coolify deploy ==="
+          DEPLOY_RESULT=$(curl -sf --max-time 15 \
+            -X GET "$SERVER/api/v1/deploy?uuid=$APP_UUID&force=true" \
+            -H "Authorization: Bearer $TOKEN" \
+            2>/dev/null || echo "DEPLOY_FAILED")
+          echo "Deploy result: $DEPLOY_RESULT"
+
+          echo "## ⏱ Coolify notified — building from Dockerfile (no ghcr.io needed)" >> $GITHUB_STEP_SUMMARY
