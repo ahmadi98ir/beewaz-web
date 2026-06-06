@@ -98,17 +98,16 @@ jobs:
           echo "  Upload done"
 
           echo "→ Extracting + deploying on server..."
-          sshpass -p "$SSH_PASS" ssh $SSH_OPTS $SERVER bash -s << 'REMOTE'
-          set -e
-          CONTAINER=$(docker ps --format '{{.Names}}' | grep -i beewaz | head -1)
-          if [ -z "$CONTAINER" ]; then echo "ERROR: no beewaz container found"; exit 1; fi
-          echo "  Container: $CONTAINER"
-          rm -rf /tmp/bz-bundle && mkdir /tmp/bz-bundle
-          tar -xzf /tmp/bz-build.tar.gz -C /tmp/bz-bundle
-          docker cp /tmp/bz-bundle/. $CONTAINER:/app/
-          rm -rf /tmp/bz-build.tar.gz /tmp/bz-bundle
-          echo "  Files deployed to container"
-REMOTE
+          sshpass -p "$SSH_PASS" ssh $SSH_OPTS $SERVER \
+            'set -e
+             CONTAINER=$(docker ps --format "{{.Names}}" | grep -i beewaz | head -1)
+             if [ -z "$CONTAINER" ]; then echo "ERROR: no beewaz container found"; exit 1; fi
+             echo "  Container: $CONTAINER"
+             rm -rf /tmp/bz-bundle && mkdir /tmp/bz-bundle
+             tar -xzf /tmp/bz-build.tar.gz -C /tmp/bz-bundle
+             docker cp /tmp/bz-bundle/. $CONTAINER:/app/
+             rm -rf /tmp/bz-build.tar.gz /tmp/bz-bundle
+             echo "  Files deployed"'
 
           echo "→ Restarting via Coolify..."
           HTTP=$(sshpass -p "$SSH_PASS" ssh $SSH_OPTS $SERVER \
