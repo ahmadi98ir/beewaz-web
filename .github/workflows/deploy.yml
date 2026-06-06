@@ -82,43 +82,36 @@ jobs:
           fi
           echo "## ✅ Build uploaded — commit \`${GITHUB_SHA:0:8}\` | ${{ env.BUILD_SIZE }}" >> $GITHUB_STEP_SUMMARY
 
-      - name: Deploy to server via SSH
+      - name: Deploy to server via SCP + SSH
         env:
           SSH_PASS: ${{ secrets.DEPLOY_SSH_PASS }}
           COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
         run: |
+          set -e
           sudo apt-get install -y sshpass >/dev/null 2>&1
 
-          ssh_cmd() {
-            sshpass -p "$SSH_PASS" ssh -o StrictHostKeyChecking=no -p 8443 root@78.157.51.14 "$@"
-          }
+          SSH_OPTS="-o StrictHostKeyChecking=no -o ConnectTimeout=30 -p 8443"
+          SERVER="root@78.157.51.14"
 
-          echo "→ Downloading build on server..."
-          ssh_cmd "
-            set -e
-            curl -sfL --doh-url https://1.1.1.1/dns-query \
-              -H 'Authorization: token ${{ secrets.GITHUB_TOKEN }}' \
-              -H 'Accept: application/octet-stream' \
-              'https://github.com/ahmadi98ir/beewaz-web/releases/download/deploy-cache/beewaz-build.tar.gz' \
-              -o /tmp/bz-build.tar.gz
-            echo 'Download done: '$(du -sh /tmp/bz-build.tar.gz | cut -f1)
-          "
+          echo "→ Uploading build to server..."
+          sshpass -p "$SSH_PASS" scp $SSH_OPTS beewaz-build.tar.gz $SERVER:/tmp/bz-build.tar.gz
+          echo "  Upload done"
 
-          echo "→ Copying files into container..."
-          ssh_cmd "
-            set -e
-            CONTAINER=\$(docker ps --format '{{.Names}}' | grep -i beewaz | head -1)
-            if [ -z \"\$CONTAINER\" ]; then echo 'ERROR: no beewaz container'; exit 1; fi
-            echo \"Container: \$CONTAINER\"
-            rm -rf /tmp/bz-bundle && mkdir /tmp/bz-bundle
-            tar -xzf /tmp/bz-build.tar.gz -C /tmp/bz-bundle
-            docker cp /tmp/bz-bundle/. \$CONTAINER:/app/
-            rm -rf /tmp/bz-build.tar.gz /tmp/bz-bundle
-            echo 'Files copied'
-          "
+          echo "→ Extracting + deploying on server..."
+          sshpass -p "$SSH_PASS" ssh $SSH_OPTS $SERVER bash -s << 'REMOTE'
+          set -e
+          CONTAINER=$(docker ps --format '{{.Names}}' | grep -i beewaz | head -1)
+          if [ -z "$CONTAINER" ]; then echo "ERROR: no beewaz container found"; exit 1; fi
+          echo "  Container: $CONTAINER"
+          rm -rf /tmp/bz-bundle && mkdir /tmp/bz-bundle
+          tar -xzf /tmp/bz-build.tar.gz -C /tmp/bz-bundle
+          docker cp /tmp/bz-bundle/. $CONTAINER:/app/
+          rm -rf /tmp/bz-build.tar.gz /tmp/bz-bundle
+          echo "  Files deployed to container"
+REMOTE
 
           echo "→ Restarting via Coolify..."
-          HTTP=$(sshpass -p "$SSH_PASS" ssh -o StrictHostKeyChecking=no -p 8443 root@78.157.51.14 \
+          HTTP=$(sshpass -p "$SSH_PASS" ssh $SSH_OPTS $SERVER \
             "curl -sf -o /dev/null -w '%{http_code}' --max-time 30 \
               -X POST 'http://localhost:8000/api/v1/applications/jw4kpfn8utdybrmwkr80fm8f/restart' \
               -H 'Authorization: Bearer $COOLIFY_TOKEN' \
@@ -128,7 +121,8 @@ jobs:
           if [ "$HTTP" = "200" ] || [ "$HTTP" = "202" ]; then
             echo "## 🚀 Deployed \`${GITHUB_SHA:0:8}\` to production!" >> $GITHUB_STEP_SUMMARY
           else
-            echo "## ⚠️ Coolify restart returned HTTP $HTTP — trying docker restart..."  >> $GITHUB_STEP_SUMMARY
-            ssh_cmd "docker restart \$(docker ps --format '{{.Names}}' | grep -i beewaz | head -1)"
+            echo "## ⚠️ Coolify returned HTTP $HTTP — falling back to docker restart" >> $GITHUB_STEP_SUMMARY
+            sshpass -p "$SSH_PASS" ssh $SSH_OPTS $SERVER \
+              "docker restart \$(docker ps --format '{{.Names}}' | grep -i beewaz | head -1)"
             echo "## 🚀 Deployed \`${GITHUB_SHA:0:8}\` via docker restart" >> $GITHUB_STEP_SUMMARY
           fi
