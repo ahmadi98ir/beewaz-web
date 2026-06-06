@@ -1,57 +1,92 @@
 #!/bin/bash
 # /opt/beewaz-autodeploy.sh
-# Auto-deploy — سرور مستقیم از GitHub clone می‌کنه و Docker image می‌سازه
-# بدون نیاز به CDN (که در ایران بلاک‌ه)
+# Auto-deploy — سرور tarball از GitHub Release دانلود می‌کنه و Docker image می‌سازه
+# بدون نیاز به git clone یا ghcr.io (که در ایران بلاک‌ه)
 # cron: * * * * * /opt/beewaz-autodeploy.sh >> /var/log/beewaz-deploy.log 2>&1
 
-APP_UUID="jw4kpfn8utdybrmwkr80fm8f"
 GITHUB_REPO="ahmadi98ir/beewaz-web"
 STATE_FILE="/var/lib/beewaz-deploy/last-sha"
 DEPLOY_LOCK="/tmp/beewaz-deploy-running.lock"
 POLL_LOCK="/tmp/beewaz-poll.lock"
-BUILD_DIR="/tmp/bz-build-src"
+BUILD_DIR="/tmp/bz-build"
+TARBALL="/tmp/beewaz-build.tar.gz"
 
 log() { logger -t beewaz-deploy "$*"; echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"; }
 
 mkdir -p "$(dirname $STATE_FILE)"
 
-# ── deploy از روی سورس ────────────────────────────────────────────────────────
+# دانلود با retry (CDN گاهی قطع می‌شه)
+download_with_retry() {
+  local URL="$1" DEST="$2"
+  for attempt in 1 2 3 4 5; do
+    if curl -fsSL --max-time 120 --retry 2 \
+        --doh-url https://1.1.1.1/dns-query \
+        -o "$DEST" "$URL" 2>/dev/null; then
+      return 0
+    fi
+    log "Download attempt $attempt failed, retrying in ${attempt}0s..."
+    sleep $((attempt * 10))
+  done
+  return 1
+}
+
+# ── deploy از روی tarball ─────────────────────────────────────────────────────
 do_deploy() {
   local SHA="$1"
   if [ -f "$DEPLOY_LOCK" ]; then log "deploy already in progress"; return; fi
   touch "$DEPLOY_LOCK"
   trap "rm -f $DEPLOY_LOCK" RETURN
 
-  log "New commit detected ($SHA) — building..."
+  log "New commit detected ($SHA) — downloading build tarball..."
 
-  # clone/pull سورس
-  if [ -d "$BUILD_DIR/.git" ]; then
-    log "Pulling latest..."
-    git -C "$BUILD_DIR" fetch origin main --depth=1 2>&1 | tail -1
-    git -C "$BUILD_DIR" reset --hard origin/main 2>&1 | tail -1
-  else
-    rm -rf "$BUILD_DIR"
-    log "Cloning repo..."
-    git clone --depth=1 "https://github.com/$GITHUB_REPO.git" "$BUILD_DIR" 2>&1 | tail -1
+  # دانلود release asset URL از API
+  ASSET_URL=$(curl -sf --max-time 15 \
+    --doh-url https://1.1.1.1/dns-query \
+    -H "Accept: application/vnd.github+json" \
+    "https://api.github.com/repos/$GITHUB_REPO/releases/tags/deploy-cache" 2>/dev/null \
+    | python3 -c "
+import sys,json
+data=json.load(sys.stdin)
+for a in data.get('assets',[]):
+    if a['name']=='beewaz-build.tar.gz':
+        print(a['browser_download_url'])
+        break
+" 2>/dev/null)
+
+  if [ -z "$ASSET_URL" ]; then
+    log "ERROR: could not get asset URL from GitHub API"
+    return
+  fi
+  log "Downloading from: $ASSET_URL"
+
+  rm -f "$TARBALL"
+  if ! download_with_retry "$ASSET_URL" "$TARBALL"; then
+    log "ERROR: download failed after 5 attempts"
+    return
+  fi
+  log "Download complete ($(du -sh $TARBALL | cut -f1))"
+
+  # extract
+  rm -rf "$BUILD_DIR" && mkdir -p "$BUILD_DIR"
+  if ! tar -xzf "$TARBALL" -C "$BUILD_DIR" 2>&1; then
+    log "ERROR: tar extraction failed"
+    return
   fi
 
   if [ ! -f "$BUILD_DIR/Dockerfile" ]; then
-    log "ERROR: clone failed — Dockerfile not found"
+    log "ERROR: Dockerfile not found in tarball"
     return
   fi
 
   # تشخیص image فعلی کانتینر
-  CONTAINER=$(docker ps --format "{{.Names}}" | grep "$APP_UUID" | head -1)
+  CONTAINER=$(docker ps --format "{{.Names}}" | grep "jw4kpfn8utdybrmwkr80fm8f" | head -1)
   if [ -z "$CONTAINER" ]; then log "ERROR: container not found"; return; fi
   IMAGE=$(docker inspect --format '{{.Config.Image}}' "$CONTAINER" 2>/dev/null)
   log "Container: $CONTAINER | Image: $IMAGE"
 
-  # docker build
-  log "Building Docker image (این ممکنه چند دقیقه طول بکشه)..."
-  if docker build \
-    --build-arg NEXT_PUBLIC_APP_URL=https://beewaz.ir \
-    -t "$IMAGE" \
-    "$BUILD_DIR" 2>&1 | tail -5; then
+  # docker build از tarball (بدون npm install چون standalone آماده‌ست)
+  log "Building Docker image from pre-built tarball..."
+  if docker build -t "$IMAGE" "$BUILD_DIR" 2>&1 | tail -5; then
     log "Build successful"
   else
     log "ERROR: docker build failed"
@@ -70,7 +105,6 @@ do_deploy() {
 
 # ── چک یک‌بار ────────────────────────────────────────────────────────────────
 check_once() {
-  # آخرین commit روی main از API (نه CDN)
   SHA=$(curl -sf --max-time 10 \
     --doh-url https://1.1.1.1/dns-query \
     -H "Accept: application/vnd.github+json" \
