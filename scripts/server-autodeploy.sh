@@ -1,81 +1,95 @@
 #!/bin/bash
 # /opt/beewaz-autodeploy.sh
-# Auto-deploy — every 5 min via cron
-# Uses GitHub API (no CDN redirect) to check version, then downloads standalone build
+# Auto-deploy — cron هر دقیقه اجرا می‌کنه، ولی داخل script سه بار با ۲۰ ثانیه فاصله چک می‌کنه
+# → عملاً هر ۲۰ ثانیه یک‌بار release جدید رو تشخیص می‌ده
 
 COOLIFY_TOKEN="5|beewaz-deploy-fix-2026"
 APP_UUID="jw4kpfn8utdybrmwkr80fm8f"
 GITHUB_REPO="ahmadi98ir/beewaz-web"
 STATE_FILE="/var/lib/beewaz-deploy/last-release-id"
-LOCK_FILE="/tmp/beewaz-deploy.lock"
+DEPLOY_LOCK="/tmp/beewaz-deploy-running.lock"
+POLL_LOCK="/tmp/beewaz-poll.lock"
 
 log() { logger -t beewaz-deploy "$*"; echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"; }
 
-if [ -f "$LOCK_FILE" ]; then log "already running, skipping"; exit 0; fi
-touch "$LOCK_FILE"
-trap "rm -f $LOCK_FILE" EXIT
-
 mkdir -p "$(dirname $STATE_FILE)"
 
-# بررسی release از طریق API (نه CDN — مستقیم جواب می‌ده)
-RELEASE_JSON=$(curl -sf --max-time 20 \
-  --doh-url https://1.1.1.1/dns-query \
-  -H "Accept: application/vnd.github+json" \
-  "https://api.github.com/repos/$GITHUB_REPO/releases/tags/deploy-cache" 2>/dev/null)
+# ── تابع deploy ──────────────────────────────────────────────────────────────
+do_deploy() {
+  local RELEASE_ID="$1"
+  # lock از تداخل deploy جلوگیری می‌کنه
+  if [ -f "$DEPLOY_LOCK" ]; then log "deploy already in progress, skipping"; return; fi
+  touch "$DEPLOY_LOCK"
+  trap "rm -f $DEPLOY_LOCK" RETURN
 
-if [ -z "$RELEASE_JSON" ]; then
-  log "INFO: could not reach GitHub API — will retry next cycle"
-  exit 0
-fi
+  log "New build detected (release id=$RELEASE_ID) — deploying..."
 
-RELEASE_ID=$(echo "$RELEASE_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])" 2>/dev/null)
-if [ -z "$RELEASE_ID" ]; then log "ERROR: could not parse release JSON"; exit 1; fi
+  log "Downloading build tarball..."
+  curl -sfL --max-time 600 \
+    --doh-url https://1.1.1.1/dns-query \
+    "https://github.com/$GITHUB_REPO/releases/download/deploy-cache/beewaz-build.tar.gz" \
+    -o /tmp/bz-build.tar.gz
+  if [ $? -ne 0 ] || [ ! -s /tmp/bz-build.tar.gz ]; then
+    log "ERROR: download failed — will retry next cycle"
+    rm -f /tmp/bz-build.tar.gz; return
+  fi
+  log "Downloaded: $(du -sh /tmp/bz-build.tar.gz | cut -f1)"
 
-CURRENT_ID=$(cat "$STATE_FILE" 2>/dev/null)
-if [ "$RELEASE_ID" = "$CURRENT_ID" ]; then exit 0; fi
+  CONTAINER=$(docker ps --format "{{.Names}}" | grep "$APP_UUID" | head -1)
+  if [ -z "$CONTAINER" ]; then
+    log "ERROR: no container found for $APP_UUID"
+    rm -f /tmp/bz-build.tar.gz; return
+  fi
+  log "Container: $CONTAINER"
 
-log "New build detected (release id=$RELEASE_ID)"
+  rm -rf /tmp/bz-bundle && mkdir /tmp/bz-bundle
+  tar -xzf /tmp/bz-build.tar.gz -C /tmp/bz-bundle
+  docker cp /tmp/bz-bundle/. $CONTAINER:/app/
+  rm -rf /tmp/bz-build.tar.gz /tmp/bz-bundle
+  log "Files deployed to container"
 
-# دانلود standalone tarball (از CDN با timeout بلند)
-log "Downloading build tarball..."
-curl -sfL --max-time 600 \
-  --doh-url https://1.1.1.1/dns-query \
-  "https://github.com/$GITHUB_REPO/releases/download/deploy-cache/beewaz-build.tar.gz" \
-  -o /tmp/bz-build.tar.gz
-if [ $? -ne 0 ] || [ ! -s /tmp/bz-build.tar.gz ]; then
-  log "ERROR: download failed — will retry next cycle"
-  rm -f /tmp/bz-build.tar.gz; exit 0
-fi
-log "Downloaded: $(du -sh /tmp/bz-build.tar.gz | cut -f1)"
+  log "Restarting..."
+  HTTP=$(curl -sf -o /dev/null -w "%{http_code}" --max-time 30 \
+    -X POST "http://localhost:8000/api/v1/applications/$APP_UUID/restart" \
+    -H "Authorization: Bearer $COOLIFY_TOKEN" \
+    -H "Content-Type: application/json" || echo "000")
 
-# یافتن container
-CONTAINER=$(docker ps --format "{{.Names}}" | grep "$APP_UUID" | head -1)
-if [ -z "$CONTAINER" ]; then
-  log "ERROR: no container found for $APP_UUID"
-  rm -f /tmp/bz-build.tar.gz; exit 1
-fi
-log "Container: $CONTAINER"
+  if [ "$HTTP" = "200" ] || [ "$HTTP" = "202" ]; then
+    echo "$RELEASE_ID" > "$STATE_FILE"
+    log "✅ Deploy successful (id=$RELEASE_ID)"
+  else
+    log "WARNING: Coolify returned HTTP $HTTP — docker restart fallback"
+    docker restart "$CONTAINER"
+    echo "$RELEASE_ID" > "$STATE_FILE"
+    log "✅ Container restarted via docker"
+  fi
+}
 
-# کپی فایل‌ها
-rm -rf /tmp/bz-bundle && mkdir /tmp/bz-bundle
-tar -xzf /tmp/bz-build.tar.gz -C /tmp/bz-bundle
-docker cp /tmp/bz-bundle/. $CONTAINER:/app/
-rm -rf /tmp/bz-build.tar.gz /tmp/bz-bundle
-log "Files deployed to container"
+# ── تابع یک چک ───────────────────────────────────────────────────────────────
+check_once() {
+  RELEASE_JSON=$(curl -sf --max-time 10 \
+    --doh-url https://1.1.1.1/dns-query \
+    -H "Accept: application/vnd.github+json" \
+    "https://api.github.com/repos/$GITHUB_REPO/releases/tags/deploy-cache" 2>/dev/null)
+  [ -z "$RELEASE_JSON" ] && return
 
-# restart
-log "Restarting..."
-HTTP=$(curl -sf -o /dev/null -w "%{http_code}" --max-time 30 \
-  -X POST "http://localhost:8000/api/v1/applications/$APP_UUID/restart" \
-  -H "Authorization: Bearer $COOLIFY_TOKEN" \
-  -H "Content-Type: application/json" || echo "000")
+  RELEASE_ID=$(echo "$RELEASE_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])" 2>/dev/null)
+  [ -z "$RELEASE_ID" ] && return
 
-if [ "$HTTP" = "200" ] || [ "$HTTP" = "202" ]; then
-  echo "$RELEASE_ID" > "$STATE_FILE"
-  log "✅ Deploy successful (id=$RELEASE_ID)"
-else
-  log "WARNING: Coolify returned HTTP $HTTP — docker restart fallback"
-  docker restart "$CONTAINER"
-  echo "$RELEASE_ID" > "$STATE_FILE"
-  log "✅ Container restarted via docker"
-fi
+  CURRENT_ID=$(cat "$STATE_FILE" 2>/dev/null)
+  [ "$RELEASE_ID" = "$CURRENT_ID" ] && return
+
+  do_deploy "$RELEASE_ID"
+}
+
+# ── حلقه اصلی: اگر poll lock نباشه ۳ بار چک می‌کنه (هر ۲۰ ثانیه) ──────────
+if [ -f "$POLL_LOCK" ]; then exit 0; fi
+touch "$POLL_LOCK"
+trap "rm -f $POLL_LOCK" EXIT
+
+for i in 1 2 3; do
+  check_once
+  # اگر deploy شد زودتر خارج می‌شیم
+  [ -f "$DEPLOY_LOCK" ] && break
+  [ "$i" -lt 3 ] && sleep 20
+done
