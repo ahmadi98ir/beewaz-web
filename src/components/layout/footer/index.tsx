@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { EnamadBadge } from './enamad-badge'
 import { BeewazLogo } from '@/components/ui/logo'
 import {
   PhoneIcon,
@@ -105,11 +106,7 @@ export async function Footer() {
             </div>
 
             {/* نماد اعتماد الکترونیکی */}
-            <div
-              dangerouslySetInnerHTML={{
-                __html: `<a referrerpolicy="origin" target="_blank" href="https://trustseal.enamad.ir/?id=733910&Code=1fDUu6rrYqBiYkpnIrcclfpuPGF2bvxs"><img referrerpolicy="origin" src="https://trustseal.enamad.ir/logo.aspx?id=733910&Code=1fDUu6rrYqBiYkpnIrcclfpuPGF2bvxs" alt="" style="cursor:pointer;height:96px;width:auto" code="1fDUu6rrYqBiYkpnIrcclfpuPGF2bvxs"></a>`
-              }}
-            />
+            <EnamadBadge />
           </div>
 
           {/* ستون ۲ — فروشگاه */}
