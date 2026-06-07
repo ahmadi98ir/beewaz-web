@@ -1,5 +1,4 @@
 import Link from 'next/link'
-import { EnamadBadge } from './enamad-badge'
 import { BeewazLogo } from '@/components/ui/logo'
 import {
   PhoneIcon,
@@ -106,7 +105,15 @@ export async function Footer() {
             </div>
 
             {/* نماد اعتماد الکترونیکی */}
-            <EnamadBadge />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <a href="https://trustseal.enamad.ir/?id=733910&Code=1fDUu6rrYqBiYkpnIrcclfpuPGF2bvxs"
+              target="_blank" referrerPolicy="origin">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="https://trustseal.enamad.ir/logo.aspx?id=733910&Code=1fDUu6rrYqBiYkpnIrcclfpuPGF2bvxs"
+                alt="نماد اعتماد الکترونیکی"
+                referrerPolicy="origin"
+                style={{ cursor: 'pointer', height: '96px', width: 'auto' }} />
+            </a>
           </div>
 
           {/* ستون ۲ — فروشگاه */}
