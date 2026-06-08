@@ -74,7 +74,7 @@ const navSections: NavSection[] = [
   {
     title: 'مالی',
     items: [
-      { href: '/admin/payment-gateways', label: 'درگاه‌های پرداخت', permission: 'settings:write', icon: <NavIcon d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /> },
+      { href: '/admin/payment-gateways', label: 'درگاه‌های پرداخت', permission: 'settings:read', icon: <NavIcon d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /> },
     ],
   },
 ]
