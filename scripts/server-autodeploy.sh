@@ -69,6 +69,13 @@ do_deploy() {
   if docker restart "$CONTAINER" >/dev/null 2>&1; then
     echo "$SHA" > "$STATE_FILE"
     log "✅ Deploy successful (sha=$SHA)"
+    # Notify Coolify to pick up the new image
+    COOLIFY_RESP=$(curl -sf --max-time 15 -X POST \
+      "http://78.157.51.14:8000/api/v1/applications/jw4kpfn8utdybrmwkr80fm8f/restart" \
+      -H "Authorization: Bearer 5|beewaz-deploy-fix-2026" \
+      -H "Content-Type: application/json" 2>&1) && \
+      log "Coolify restart triggered: $COOLIFY_RESP" || \
+      log "Coolify restart notify failed (non-critical): $COOLIFY_RESP"
   else
     log "ERROR: docker restart failed"
   fi
