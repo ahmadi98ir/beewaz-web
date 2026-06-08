@@ -3,12 +3,9 @@ import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { orders } from '@/lib/db/schema'
 import { eq, and } from 'drizzle-orm'
+import { getZarinpalConfig } from '@/lib/payment-config'
 
-const ZARINPAL_MERCHANT = process.env.ZARINPAL_MERCHANT_ID ?? ''
-const ZARINPAL_REQUEST_URL = 'https://api.zarinpal.com/pg/v4/payment/request.json'
-const ZARINPAL_STARTPAY_URL = 'https://www.zarinpal.com/pg/StartPay/'
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://beewaz.ir'
-const CALLBACK_URL = `${BASE_URL}/api/zarinpal/verify`
 
 export async function GET(req: Request) {
   const session = await auth()
@@ -30,18 +27,23 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: 'سفارش یافت نشد یا قبلاً پرداخت شده' }, { status: 404 })
   }
 
-  const body = {
-    merchant_id: ZARINPAL_MERCHANT,
-    amount: order.totalAmount,
-    callback_url: `${CALLBACK_URL}?orderId=${order.id}`,
-    description: `پرداخت سفارش بیواز #${order.id.slice(0, 8)}`,
-    currency: 'IRR',
+  const config = await getZarinpalConfig()
+  if (!config.merchantId) {
+    return NextResponse.json({ error: 'درگاه زرین‌پال پیکربندی نشده' }, { status: 503 })
   }
 
-  const zpRes = await fetch(ZARINPAL_REQUEST_URL, {
+  const callbackUrl = `${BASE_URL}/api/zarinpal/verify?orderId=${order.id}`
+
+  const zpRes = await fetch(config.requestUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
+    body: JSON.stringify({
+      merchant_id: config.merchantId,
+      amount: order.totalAmount,
+      callback_url: callbackUrl,
+      description: `پرداخت سفارش بیواز #${order.id.slice(0, 8)}`,
+      currency: 'IRR',
+    }),
   })
   const zpData = await zpRes.json() as { data?: { authority: string; code: number }; errors?: unknown }
 
@@ -51,8 +53,7 @@ export async function GET(req: Request) {
   }
 
   const authority = zpData.data.authority
-  // Store authority in transactionId for later verification
   await db.update(orders).set({ transactionId: authority }).where(eq(orders.id, order.id))
 
-  return NextResponse.redirect(`${ZARINPAL_STARTPAY_URL}${authority}`)
+  return NextResponse.redirect(`${config.startPayUrl}${authority}`)
 }

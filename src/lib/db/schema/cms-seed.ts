@@ -45,6 +45,14 @@ export const DEFAULT_SITE_SETTINGS: NewSiteSetting[] = [
 
   // ── Notification ──
   { key: 'admin_order_notify_phone', value: '', type: 'text', label: 'شماره اطلاع‌رسانی سفارش جدید', group: 'notification', hint: 'SMS هنگام ثبت سفارش' },
+
+  // ── Payment Gateways ──
+  { key: 'zarinpal_enabled',     value: 'false', type: 'boolean', label: 'زرین‌پال فعال',              group: 'payment' },
+  { key: 'zarinpal_merchant_id', value: '',       type: 'text',    label: 'Merchant ID زرین‌پال',       group: 'payment', hint: 'UUID از پنل زرین‌پال' },
+  { key: 'zarinpal_sandbox',     value: 'false',  type: 'boolean', label: 'حالت آزمایشی (Sandbox)',     group: 'payment' },
+  { key: 'idpay_enabled',        value: 'false',  type: 'boolean', label: 'آیدی‌پی فعال',               group: 'payment' },
+  { key: 'idpay_api_key',        value: '',       type: 'text',    label: 'API Key آیدی‌پی',            group: 'payment', hint: 'از داشبورد idpay.ir' },
+  { key: 'idpay_sandbox',        value: 'false',  type: 'boolean', label: 'حالت آزمایشی آیدی‌پی',       group: 'payment' },
 ]
 
 // ─── Page Content defaults ────────────────────────────────────────────────────

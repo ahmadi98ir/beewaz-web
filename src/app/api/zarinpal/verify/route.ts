@@ -2,9 +2,7 @@ import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { orders, products, orderItems } from '@/lib/db/schema'
 import { and, eq, sql } from 'drizzle-orm'
-
-const ZARINPAL_MERCHANT = process.env.ZARINPAL_MERCHANT_ID ?? ''
-const ZARINPAL_VERIFY_URL = 'https://api.zarinpal.com/pg/v4/payment/verify.json'
+import { getZarinpalConfig } from '@/lib/payment-config'
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
@@ -34,11 +32,13 @@ export async function GET(req: Request) {
     return NextResponse.redirect(new URL(`/orders/${order.id}/confirmation`, req.url))
   }
 
-  const zpRes = await fetch(ZARINPAL_VERIFY_URL, {
+  const config = await getZarinpalConfig()
+
+  const zpRes = await fetch(config.verifyUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      merchant_id: ZARINPAL_MERCHANT,
+      merchant_id: config.merchantId,
       amount: order.totalAmount,
       authority,
     }),
@@ -50,9 +50,7 @@ export async function GET(req: Request) {
     return NextResponse.redirect(new URL(`/checkout?error=payment_failed`, req.url))
   }
 
-  // به‌روزرسانی وضعیت سفارش + کاهش موجودی در یک transaction (idempotent)
   await db.transaction(async (tx) => {
-    // فقط اگر سفارش هنوز pending است به‌روزرسانی کن — جلوگیری از پردازش دوباره در callbackهای همزمان
     const invRows = await tx.execute<{ nextInvoice: number }>(
       sql`SELECT nextval('invoice_number_seq') AS "nextInvoice"`
     )
@@ -65,7 +63,7 @@ export async function GET(req: Request) {
     }).where(and(eq(orders.id, order.id), eq(orders.status, 'pending')))
       .returning({ id: orders.id })
 
-    if (updated.length === 0) return // قبلاً پردازش شده — موجودی دوباره کم نشود
+    if (updated.length === 0) return
 
     const items = await tx.select({ productId: orderItems.productId, quantity: orderItems.quantity })
       .from(orderItems).where(eq(orderItems.orderId, order.id))

@@ -71,6 +71,12 @@ const navSections: NavSection[] = [
       { href: '/admin/seo',      label: 'دستیار سئو ✨',  permission: 'content:write', icon: <NavIcon d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /> },
     ],
   },
+  {
+    title: 'مالی',
+    items: [
+      { href: '/admin/payment-gateways', label: 'درگاه‌های پرداخت', permission: 'settings:write', icon: <NavIcon d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /> },
+    ],
+  },
 ]
 
 const bottomItems: NavItem[] = [
