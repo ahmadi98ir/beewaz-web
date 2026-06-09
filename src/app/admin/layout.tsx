@@ -14,11 +14,13 @@ export const metadata: Metadata = {
 export default function AdminLayout({ children }: { children: ReactNode }) {
   return (
     <AdminSessionProvider>
-      <div className="flex h-screen overflow-hidden bg-surface-50" dir="rtl">
+      {/* کانتینر اصلی: h-screen + overflow-hidden روی کل پنل */}
+      <div className="flex h-screen overflow-hidden bg-[#070711]" dir="rtl">
         <AdminSidebar />
-        <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
+        {/* محتوای اصلی: اسکرول مستقل + بک‌گراند پر تا انتها */}
+        <main className="flex-1 min-w-0 overflow-y-auto bg-[#070711]">
           {children}
-        </div>
+        </main>
       </div>
     </AdminSessionProvider>
   )
