@@ -9,6 +9,7 @@
     { "idx": 4,  "version": "7", "when": 1748737200000, "tag": "0004_fix_missing_columns",   "breakpoints": true },
     { "idx": 5,  "version": "7", "when": 1748823600000, "tag": "0005_coupons",               "breakpoints": true },
     { "idx": 6,  "version": "7", "when": 1749650000000, "tag": "0014_phase2_new_schemas",    "breakpoints": true },
-    { "idx": 7,  "version": "7", "when": 1749736400000, "tag": "0015_fix_enums_and_missing_tables", "breakpoints": true }
+    { "idx": 7,  "version": "7", "when": 1749736400000, "tag": "0015_fix_enums_and_missing_tables", "breakpoints": true },
+    { "idx": 8,  "version": "7", "when": 1749822800000, "tag": "0016_product_variants",             "breakpoints": true }
   ]
 }

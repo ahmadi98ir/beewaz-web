@@ -11,13 +11,9 @@ import {
 } from '@/lib/db/schema'
 import { productFormSchema, type ProductFormValues } from '../_components/schema'
 
-// ─── Return type ─────────────────────────────────────────────────────────────
-
 export type SaveProductResult =
   | { success: true;  productId: string }
   | { success: false; error: string; field?: string }
-
-// ─── Main action ─────────────────────────────────────────────────────────────
 
 export async function saveProduct(
   raw: ProductFormValues
@@ -25,7 +21,6 @@ export async function saveProduct(
   const session = await auth()
   if (!session?.user) return { success: false, error: 'ابتدا وارد شوید' }
 
-  // Validation سمت سرور (دفاع در عمق)
   const parsed = productFormSchema.safeParse(raw)
   if (!parsed.success) {
     const first = parsed.error.errors[0]
@@ -37,7 +32,6 @@ export async function saveProduct(
   try {
     const productId = await db.transaction(async (tx) => {
 
-      // ── ۱. ثبت در products ───────────────────────────────────────────────
       const totalStock = data.hasVariants
         ? (data.variants?.reduce((s, v) => s + (v.stock ?? 0), 0) ?? 0)
         : data.stock
@@ -63,15 +57,11 @@ export async function saveProduct(
       if (!newProduct) throw new Error('insert_product_failed')
       const pid = newProduct.id
 
-      // ── ۲. ثبت Variants ──────────────────────────────────────────────────
       if (data.hasVariants && data.variants?.length) {
-
-        // همه attribute value idهای درگیر را یکجا جمع می‌کنیم
         const allValueIds = [...new Set(
           data.variants.flatMap((v) => v.attributeValueIds)
         )]
 
-        // نگاشت valueId → typeId برای ساخت assignments
         const valueTypeMap = new Map<string, string>()
         if (allValueIds.length > 0) {
           const rows = await tx
@@ -81,22 +71,21 @@ export async function saveProduct(
           rows.forEach((r) => valueTypeMap.set(r.id, r.typeId))
         }
 
-        // ثبت هر variant
         for (const variant of data.variants) {
           const [newVariant] = await tx
             .insert(productVariants)
             .values({
-              productId: pid,
-              name:      variant.label,
+              productId:    pid,
+              nameFa:       variant.label,
               sku:       variant.sku || null,
-              price:     String(variant.price ?? data.price),
+              price:        variant.price ?? data.price,
+              comparePrice: typeof variant.comparePrice === 'number' ? variant.comparePrice : null,
               stock:     variant.stock ?? 0,
             })
             .returning({ id: productVariants.id })
 
           if (!newVariant) throw new Error('insert_variant_failed')
 
-          // ثبت ارتباط variant ↔ attribute values
           if (variant.attributeValueIds.length > 0) {
             await tx
               .insert(productVariantOptions)
@@ -109,7 +98,6 @@ export async function saveProduct(
           }
         }
 
-        // ── ۳. ثبت attribute type assignments روی product ────────────────
         const usedTypeIds = [...new Set([...valueTypeMap.values()])]
         if (usedTypeIds.length > 0) {
           await tx
@@ -119,21 +107,22 @@ export async function saveProduct(
         }
 
       } else {
-        // محصول ساده — یک variant پیش‌فرض (برای سازگاری با معماری جدید)
         await tx.insert(productVariants).values({
-          productId: pid,
-          name:      'پیش‌فرض',
+          productId:    pid,
+          nameFa:       'پیش‌فرض',
           sku:       data.sku,
-          price:     String(data.price),
+          price:        data.price,
+          comparePrice: data.comparePrice || null,
+          isActive:     true,
+          sortOrder:    0,
           stock:     data.stock,
         })
       }
 
-      // ── ۴. ثبت تصاویر محصول ─────────────────────────────────────────────
       if (data.images && data.images.length > 0) {
         await tx.insert(productImages).values(
           data.images.map((img, i) => ({
-            productId: pid,
+            productId:    pid,
             url:       img.url,
             alt:       null,
             isPrimary: img.isPrimary,

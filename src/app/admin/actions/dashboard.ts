@@ -2,7 +2,7 @@
 
 import { unstable_cache } from 'next/cache'
 import { db } from '@/lib/db'
-import { orders, products, users } from '@/lib/db/schema'
+import { orders, products, users, analyticsDailySnapshots } from '@/lib/db/schema'
 import { eq, desc, gte, sql, isNull, and, lte, inArray } from 'drizzle-orm'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -85,7 +85,7 @@ export const getDashboardData = unstable_cache(
     const lastMonthStart = startOfLastMonth()
     const lastMonthEnd  = endOfLastMonth()
 
-    const [statsRow, lowStockRows, recentOrderRows, sparkData] = await Promise.all([
+    const [statsRow, lowStockRows, recentOrderRows, sparkData, snapshotRows] = await Promise.all([
       // ─── آمار کلی ────────────────────────────────────────────────────────
       db
         .select({
@@ -144,9 +144,28 @@ export const getDashboardData = unstable_cache(
 
       // ─── Spark data ───────────────────────────────────────────────────────
       fetchSparkData(),
+
+      // ─── ۳۰ روز snapshot از analytics_daily_snapshots ────────────────────
+      db
+        .select({
+          abandonedCarts:      analyticsDailySnapshots.abandonedCarts,
+          abandonedValueToman: analyticsDailySnapshots.abandonedValueToman,
+          conversionRateBps:   analyticsDailySnapshots.conversionRateBps,
+        })
+        .from(analyticsDailySnapshots)
+        .where(gte(analyticsDailySnapshots.date, sql<string>`(now() - interval '30 days')::date`))
+        .orderBy(desc(analyticsDailySnapshots.date))
+        .limit(30),
     ])
 
     const s = statsRow[0]
+
+    // جمع abandoned carts از snapshot‌های ۳۰ روز اخیر
+    const abandonedCartsCount = snapshotRows.reduce((acc, r) => acc + r.abandonedCarts, 0)
+    const abandonedCartsToman = snapshotRows.reduce((acc, r) => acc + Number(r.abandonedValueToman), 0)
+    const avgConvBps = snapshotRows.length
+      ? Math.round(snapshotRows.reduce((acc, r) => acc + r.conversionRateBps, 0) / snapshotRows.length)
+      : 0
 
     const recentOrders = recentOrderRows.map((o) => ({
       id:          o.id,
@@ -166,11 +185,9 @@ export const getDashboardData = unstable_cache(
       lowStockProducts:      lowStockRows.map((p) => ({ ...p, threshold: 5 })),
       recentOrders,
       sparkData,
-      abandonedCartsCount:   0,
-      abandonedCartsToman:   0,
-      conversionRatePct:     s?.ordersThisMonth
-        ? Math.round((Number(s?.paidThisMonth ?? 0) / Number(s?.ordersThisMonth)) * 100)
-        : 0,
+      abandonedCartsCount,
+      abandonedCartsToman,
+      conversionRatePct: Math.round(avgConvBps / 100),
     }
   },
   ['admin-dashboard'],
