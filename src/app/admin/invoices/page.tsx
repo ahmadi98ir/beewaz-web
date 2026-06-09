@@ -3,7 +3,8 @@ import Link from 'next/link'
 import { db } from '@/lib/db'
 import { orders, orderItems, users } from '@/lib/db/schema'
 import { eq, inArray, desc } from 'drizzle-orm'
-import { loadInvoiceSettings, type InvoiceOrder } from './actions'
+import { loadInvoiceSettings } from './actions'
+import type { InvoiceOrder } from './types'
 import { InvoicesClient } from './_components/invoices-client'
 
 export const metadata: Metadata = { title: 'فاکتورها' }

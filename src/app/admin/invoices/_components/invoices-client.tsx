@@ -1,8 +1,8 @@
 'use client'
 
 import { useState, useTransition, useRef, useEffect } from 'react'
-import { saveInvoiceSettings, type InvoiceSettings } from '../actions'
-import type { InvoiceOrder } from '../actions'
+import { saveInvoiceSettings } from '../actions'
+import type { InvoiceSettings, InvoiceOrder } from '../types'
 import { PrintableInvoice } from './printable-invoice'
 
 // ─── Shared styles ────────────────────────────────────────────────────────────

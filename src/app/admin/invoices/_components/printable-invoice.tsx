@@ -1,6 +1,6 @@
 'use client'
 
-import type { InvoiceSettings, InvoiceOrder } from '../actions'
+import type { InvoiceSettings, InvoiceOrder } from '../types'
 
 function n(v: string | null | undefined) {
   const num = Number(v ?? 0)
