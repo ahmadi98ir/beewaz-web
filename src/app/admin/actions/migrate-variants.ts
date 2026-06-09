@@ -2,7 +2,7 @@
 
 import { db } from '@/lib/db'
 import { products, productVariants } from '@/lib/db/schema'
-import { sql, isNull } from 'drizzle-orm'
+import { sql } from 'drizzle-orm'
 
 export async function migrateDefaultVariants(): Promise<{
   checked: number
@@ -10,9 +10,28 @@ export async function migrateDefaultVariants(): Promise<{
   skipped: number
   errors: string[]
 }> {
+  // اطمینان از وجود جدول product_variants (اگر migration هنوز اجرا نشده)
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS "product_variants" (
+      "id"            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      "product_id"    UUID NOT NULL REFERENCES "products"("id") ON DELETE CASCADE,
+      "name_fa"       VARCHAR(120) NOT NULL,
+      "sku"           VARCHAR(60) UNIQUE,
+      "price"         BIGINT,
+      "compare_price" BIGINT,
+      "stock"         INTEGER NOT NULL DEFAULT 0,
+      "weight"        INTEGER,
+      "is_active"     BOOLEAN NOT NULL DEFAULT true,
+      "image_url"     TEXT,
+      "sort_order"    INTEGER NOT NULL DEFAULT 0,
+      "created_at"    TIMESTAMPTZ NOT NULL DEFAULT now(),
+      "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT now()
+    )
+  `)
+
   const errors: string[] = []
 
-  // محصولاتی که هنوز هیچ variant ندارند — با LEFT JOIN
+  // محصولاتی که هنوز variant ندارند
   const productRows = await db
     .select({
       id:     products.id,
@@ -25,11 +44,10 @@ export async function migrateDefaultVariants(): Promise<{
     .leftJoin(productVariants, sql`${productVariants.productId} = ${products.id}`)
     .where(sql`${products.deletedAt} IS NULL AND ${productVariants.id} IS NULL`)
 
-  // تعداد محصولاتی که از قبل variant دارند
   const [skippedRow] = await db
     .select({ cnt: sql<number>`COUNT(DISTINCT ${productVariants.productId})::int` })
     .from(productVariants)
-  const skipped = skippedRow?.cnt ?? 0
+  const skipped = Number(skippedRow?.cnt ?? 0)
 
   if (productRows.length === 0) {
     return { checked: skipped, created: 0, skipped, errors: [] }
@@ -38,7 +56,6 @@ export async function migrateDefaultVariants(): Promise<{
   let created = 0
 
   for (const p of productRows) {
-    // اول با SKU امتحان کن
     const inserted = await db
       .insert(productVariants)
       .values({
@@ -59,7 +76,7 @@ export async function migrateDefaultVariants(): Promise<{
       continue
     }
 
-    // اگر SKU conflict داشت، بدون SKU ثبت کن
+    // SKU conflict — بدون SKU امتحان کن
     try {
       await db.insert(productVariants).values({
         productId:    p.id,
