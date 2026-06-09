@@ -1,12 +1,14 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useTransition } from 'react'
 import { useForm, FormProvider, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { productFormSchema, type ProductFormValues } from './schema'
 import { FormCard, Field, inputCls, errorInputCls } from './form-card'
 import { VariantBuilder } from './variant-builder'
+import { saveProduct } from '../actions/product'
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 
@@ -59,6 +61,9 @@ interface Category { id: string; nameFa: string }
 
 export function ProductFormV2() {
   const [categories, setCategories] = useState<Category[]>([])
+  const [serverError, setServerError] = useState<string | null>(null)
+  const [isPending, startTransition] = useTransition()
+  const router = useRouter()
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const methods = useForm<ProductFormValues>({
@@ -97,9 +102,19 @@ export function ProductFormV2() {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   function onSubmit(data: any) {
-    const _d = data as ProductFormValues
-    console.log('form data:', _d)
-    alert('فرم آماده‌سازی شد — در فاز بعدی ذخیره می‌شود.')
+    setServerError(null)
+    startTransition(async () => {
+      const result = await saveProduct(data as ProductFormValues)
+      if (result.success) {
+        router.push(`/admin/products`)
+      } else {
+        setServerError(result.error)
+        // اگر field مشخص بود، focus روی آن
+        if (result.field) {
+          methods.setError(result.field as keyof ProductFormValues, { message: result.error })
+        }
+      }
+    })
   }
 
   return (
@@ -311,32 +326,39 @@ export function ProductFormV2() {
           </div>
         </FormCard>
 
+        {/* ─── خطای سرور ─────────────────────────────────────────────────── */}
+        {serverError && (
+          <div className="flex items-center gap-2.5 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/25 text-red-300 text-sm">
+            <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 flex-shrink-0">
+              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+            </svg>
+            {serverError}
+          </div>
+        )}
+
         {/* ─── دکمه‌های ارسال ────────────────────────────────────────────── */}
         <div className="flex items-center gap-3 pb-8">
           <button
             type="submit"
-            disabled={isSubmitting}
-            className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold transition-all disabled:opacity-50 flex items-center gap-2"
+            disabled={isPending}
+            className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold transition-all disabled:opacity-60 flex items-center gap-2"
           >
-            {isSubmitting && (
+            {isPending && (
               <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
                 <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" className="opacity-25" />
                 <path d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="4" strokeLinecap="round" className="opacity-75" />
               </svg>
             )}
-            ایجاد محصول
+            {isPending ? 'در حال ذخیره...' : 'ایجاد محصول'}
           </button>
 
           <button
             type="button"
-            onClick={() => {
-              methods.setValue('status', 'draft')
-              handleSubmit(onSubmit)()
-            }}
-            disabled={isSubmitting}
-            className="px-6 py-2.5 rounded-xl bg-white/[0.06] hover:bg-white/[0.10] text-white/70 text-sm font-semibold border border-white/[0.08] transition-all disabled:opacity-50"
+            onClick={() => { methods.setValue('status', 'draft'); handleSubmit(onSubmit)() }}
+            disabled={isPending}
+            className="px-6 py-2.5 rounded-xl bg-white/[0.06] hover:bg-white/[0.10] text-white/70 text-sm font-semibold border border-white/[0.08] transition-all disabled:opacity-60"
           >
-            ذخیره به عنوان پیش‌نویس
+            ذخیره پیش‌نویس
           </button>
 
           <Link href="/admin/products" className="px-4 py-2.5 text-white/40 text-sm hover:text-white/70 transition-colors">
