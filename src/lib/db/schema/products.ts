@@ -35,13 +35,19 @@ export const products = pgTable('products', {
 })
 
 export const productVariants = pgTable('product_variants', {
-  id:        uuid('id').primaryKey().defaultRandom(),
-  productId: uuid('product_id').notNull().references(() => products.id, { onDelete: 'cascade' }),
-  name:      varchar('name', { length: 100 }).notNull(),
-  sku:       varchar('sku', { length: 50 }),
-  price:     numeric('price', { precision: 14, scale: 0 }),
-  stock:     integer('stock').default(0).notNull(),
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  id:           uuid('id').primaryKey().defaultRandom(),
+  productId:    uuid('product_id').notNull().references(() => products.id, { onDelete: 'cascade' }),
+  nameFa:       varchar('name_fa', { length: 120 }).notNull(),
+  sku:          varchar('sku', { length: 60 }).unique(),
+  price:        bigint('price', { mode: 'number' }),
+  comparePrice: bigint('compare_price', { mode: 'number' }),
+  stock:        integer('stock').default(0).notNull(),
+  weight:       integer('weight'),
+  isActive:     boolean('is_active').default(true).notNull(),
+  imageUrl:     text('image_url'),
+  sortOrder:    integer('sort_order').default(0).notNull(),
+  createdAt:    timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt:    timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 })
 
 export const productImages = pgTable('product_images', {
