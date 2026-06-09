@@ -138,8 +138,12 @@ const SEED_DATA: Array<{ nameFa: string; code: string; sortOrder: number; cities
 async function seed() {
   console.log('🌱 شروع seed استان‌ها و شهرها...')
 
-  // پاک کردن داده‌های قبلی (در صورت وجود)
-  await db.execute(sql`TRUNCATE TABLE cities, provinces RESTART IDENTITY CASCADE`)
+  // اگر قبلاً seed شده، دوباره اجرا نکن
+  const existing = await db.select().from(provinces).limit(1)
+  if (existing.length > 0) {
+    console.log('⚠️  استان‌ها قبلاً seed شده‌اند. برای seed مجدد ابتدا TRUNCATE کنید.')
+    process.exit(0)
+  }
 
   let totalCities = 0
 
