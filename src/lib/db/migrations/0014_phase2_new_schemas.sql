@@ -5,18 +5,23 @@
 
 -- ─── 1. Enums جدید ────────────────────────────────────────────────────────────
 
-CREATE TYPE IF NOT EXISTS "inventory_tx_type" AS ENUM (
-  'sale', 'return', 'adjustment', 'restock', 'damage', 'initial'
-);
+DO $$ BEGIN
+  CREATE TYPE "inventory_tx_type" AS ENUM ('sale', 'return', 'adjustment', 'restock', 'damage', 'initial');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-CREATE TYPE IF NOT EXISTS "sms_status" AS ENUM (
-  'queued', 'sent', 'delivered', 'failed'
-);
+DO $$ BEGIN
+  CREATE TYPE "sms_status" AS ENUM ('queued', 'sent', 'delivered', 'failed');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-CREATE TYPE IF NOT EXISTS "sms_trigger" AS ENUM (
-  'order_status_change', 'otp', 'payment_success',
-  'shipment_tracking', 'low_stock_alert', 'manual'
-);
+DO $$ BEGIN
+  CREATE TYPE "sms_trigger" AS ENUM (
+    'order_status_change', 'otp', 'payment_success',
+    'shipment_tracking', 'low_stock_alert', 'manual'
+  );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- ─── 2. Attribute Types (رنگ، سایز، متریال) ──────────────────────────────────
 
