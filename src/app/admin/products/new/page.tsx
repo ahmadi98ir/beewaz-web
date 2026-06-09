@@ -5,7 +5,7 @@ export const metadata = { title: 'محصول جدید' }
 
 export default function NewProductPage() {
   return (
-    <div className="min-h-screen bg-[#070711]">
+    <div className="min-h-full bg-[#070711]">
       {/* Header */}
       <div className="sticky top-0 z-20 bg-[#070711]/80 backdrop-blur-xl border-b border-white/[0.06] px-6 py-4 flex items-center gap-4">
         <Link

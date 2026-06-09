@@ -119,6 +119,22 @@
     border-radius: var(--radius-sm);
   }
 
+  /* input/select/textarea در صفحات dark ادمین — outline را خاموش کن (border خودشان handle می‌کند) */
+  .dark-input:focus-visible,
+  .dark-input:focus {
+    outline: none !important;
+  }
+
+  /* autofill مرورگر — جلوگیری از سفید شدن بک‌گراند */
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover,
+  input:-webkit-autofill:focus,
+  select:-webkit-autofill,
+  textarea:-webkit-autofill {
+    -webkit-text-fill-color: inherit;
+    transition: background-color 9999s ease-in-out 0s;
+  }
+
   /* اسکرول‌بار سفارشی */
   ::-webkit-scrollbar       { width: 6px; height: 6px; }
   ::-webkit-scrollbar-track { background: var(--color-surface-100); }

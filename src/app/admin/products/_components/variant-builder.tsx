@@ -5,6 +5,20 @@ import { useFormContext, useFieldArray, Controller } from 'react-hook-form'
 import type { ProductFormValues, VariantRow } from './schema'
 import { inputCls } from './form-card'
 
+// input کوچک داخل جدول — بدون سفید شدن هنگام focus/autofill
+const matrixInputCls = [
+  'w-full rounded-lg px-2.5 py-1.5 text-xs text-white',
+  'bg-[#1a1a32] border border-[rgba(255,255,255,0.08)]',
+  'placeholder:text-white/20',
+  'focus:outline-none focus:border-indigo-500/50 focus:bg-[#1e1e3a]',
+  '[&:-webkit-autofill]:[box-shadow:0_0_0_1000px_#1a1a32_inset]',
+  '[&:-webkit-autofill]:[-webkit-text-fill-color:rgb(255_255_255)]',
+  '[color-scheme:dark]',
+  'transition-colors duration-150',
+].join(' ')
+
+const matrixInputErrCls = matrixInputCls.replace('border-[rgba(255,255,255,0.08)]', 'border-red-500/50')
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface AttributeValue {
@@ -86,7 +100,7 @@ function VariantMatrixRow({ index }: { index: number }) {
         <input
           {...register(`variants.${index}.sku`)}
           placeholder="اختیاری"
-          className={`w-full bg-white/[0.04] border ${rowErrors?.sku ? 'border-red-500/50' : 'border-white/[0.08]'} rounded-lg px-2.5 py-1.5 text-xs text-white placeholder:text-white/20 focus:outline-none focus:border-indigo-500/50 focus:bg-white/[0.07]`}
+          className={rowErrors?.sku ? matrixInputErrCls : matrixInputCls}
           dir="ltr"
         />
       </td>
@@ -98,7 +112,7 @@ function VariantMatrixRow({ index }: { index: number }) {
             {...register(`variants.${index}.price`)}
             type="number"
             placeholder="ریال"
-            className={`w-full bg-white/[0.04] border ${rowErrors?.price ? 'border-red-500/50' : 'border-white/[0.08]'} rounded-lg px-2.5 py-1.5 text-xs text-white placeholder:text-white/20 focus:outline-none focus:border-indigo-500/50 focus:bg-white/[0.07]`}
+            className={rowErrors?.price ? matrixInputErrCls : matrixInputCls}
             dir="ltr"
           />
           {rowErrors?.price && (
@@ -113,7 +127,7 @@ function VariantMatrixRow({ index }: { index: number }) {
           {...register(`variants.${index}.stock`)}
           type="number"
           placeholder="۰"
-          className={`w-full bg-white/[0.04] border ${rowErrors?.stock ? 'border-red-500/50' : 'border-white/[0.08]'} rounded-lg px-2.5 py-1.5 text-xs text-white placeholder:text-white/20 focus:outline-none focus:border-indigo-500/50 focus:bg-white/[0.07]`}
+          className={rowErrors?.stock ? matrixInputErrCls : matrixInputCls}
           dir="ltr"
         />
       </td>

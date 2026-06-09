@@ -55,11 +55,20 @@ export function Field({ label, error, required, hint, children }: FieldProps) {
 }
 
 export const inputCls = [
-  'w-full bg-white/[0.06] border border-white/[0.10] rounded-xl px-3.5 py-2.5',
+  'w-full rounded-xl px-3.5 py-2.5',
+  // بک‌گراند با رنگ مطلق (نه opacity) — از سفید شدن هنگام focus جلوگیری می‌کند
+  'bg-[#1e1e3a] border border-[rgba(255,255,255,0.10)]',
   'text-white text-sm placeholder:text-white/25',
-  'focus:outline-none focus:border-indigo-500/60 focus:bg-white/[0.08]',
-  'transition-all duration-150',
+  'focus:outline-none focus:border-indigo-500/60 focus:bg-[#222240]',
+  // autofill مرورگر
+  '[&:-webkit-autofill]:[box-shadow:0_0_0_1000px_#1e1e3a_inset]',
+  '[&:-webkit-autofill]:[-webkit-text-fill-color:rgb(255_255_255)]',
+  '[color-scheme:dark]',
+  'transition-colors duration-150',
   'disabled:opacity-40',
 ].join(' ')
 
-export const errorInputCls = inputCls.replace('border-white/[0.10]', 'border-red-500/50')
+export const errorInputCls = inputCls.replace(
+  'border-[rgba(255,255,255,0.10)]',
+  'border-red-500/50'
+)
