@@ -86,3 +86,37 @@ export {
   type FollowUp, type NewFollowUp,
   type CustomerNote, type NewCustomerNote,
 } from './crm'
+
+// ─── Attributes (Product Variants) ───────────────────────────────────────────
+export {
+  productAttributeTypes, productAttributeValues, productVariantOptions, productAttributeTypeAssignments,
+  attributeTypesRelations, attributeValuesRelations, variantOptionsRelations,
+  type ProductAttributeType, type ProductAttributeValue, type ProductVariantOption,
+} from './attributes'
+
+// ─── Inventory ────────────────────────────────────────────────────────────────
+export {
+  inventoryTxTypeEnum, inventoryTransactions, lowStockAlerts,
+  inventoryTransactionsRelations,
+  type InventoryTransaction, type NewInventoryTransaction, type InventoryTxType, type LowStockAlert,
+} from './inventory'
+
+// ─── Locations ───────────────────────────────────────────────────────────────
+export {
+  provinces, cities, provincesRelations, citiesRelations,
+  type Province, type City,
+} from './locations'
+
+// ─── SMS Logs ─────────────────────────────────────────────────────────────────
+export {
+  smsStatusEnum, smsTriggerEnum, smsLogs, smsLogsRelations,
+  type SmsLog, type NewSmsLog, type SmsStatus, type SmsTrigger,
+} from './sms-logs'
+
+// ─── Analytics ────────────────────────────────────────────────────────────────
+export {
+  productViews, cartAbandonmentSessions, analyticsDailySnapshots,
+  productViewsRelations, cartAbandonmentRelations,
+  type ProductView, type CartAbandonmentSession, type NewCartAbandonmentSession,
+  type AnalyticsDailySnapshot,
+} from './analytics'
