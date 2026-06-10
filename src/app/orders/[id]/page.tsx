@@ -289,9 +289,9 @@ export default function OrderDetailPage() {
           </div>
         </div>
 
-        {order.officialInvoice && (
+        {['paid', 'processing', 'shipped', 'delivered'].includes(order.status) && (
           <Link href={`/orders/${order.id}/invoice`} className="btn btn-outline w-full text-sm py-2.5 mb-3 flex items-center justify-center gap-2">
-            🧾 مشاهده و چاپ فاکتور رسمی
+            📄 دریافت فاکتور رسمی
           </Link>
         )}
 
