@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { updateReturnStatus, RETURN_STATUS_LABELS } from '../actions'
+import { updateReturnStatus } from '../actions'
+import { RETURN_STATUS_LABELS } from './constants'
 import type { ReturnStatus } from '@/lib/db/schema'
 
 // ─── Types ────────────────────────────────────────────────────────────────────

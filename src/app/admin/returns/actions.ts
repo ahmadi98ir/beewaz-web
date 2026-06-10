@@ -7,15 +7,9 @@ import { eq }             from 'drizzle-orm'
 import { returnRequests, smsLogs, orders, users } from '@/lib/db/schema'
 import { sendSmsPattern, SMS_TEMPLATES }          from '@/lib/sms/sms-ir'
 import type { ReturnStatus }                      from '@/lib/db/schema'
+import { RETURN_STATUS_LABELS }                   from './_components/constants'
 
 const PATH = '/admin/returns'
-
-export const RETURN_STATUS_LABELS: Record<ReturnStatus, string> = {
-  pending:  'در انتظار بررسی',
-  approved: 'تأیید شده',
-  rejected: 'رد شده',
-  refunded: 'بازپرداخت شده',
-}
 
 export async function updateReturnStatus(
   returnId: string,
