@@ -59,9 +59,10 @@ export async function GET() {
     await db.execute(sql`CREATE INDEX IF NOT EXISTS "rr_requested_at_idx" ON "return_requests"("requested_at")`)
     results.push('return_requests indexes: ok')
 
-    // ── categories table ─────────────────────────────────────────────────
+    // ── categories table — DROP and recreate (no data yet) ───────────────
+    await db.execute(sql`DROP TABLE IF EXISTS "categories" CASCADE`)
     await db.execute(sql`
-      CREATE TABLE IF NOT EXISTS "categories" (
+      CREATE TABLE "categories" (
         "id"         uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
         "name_fa"    varchar(100) NOT NULL,
         "slug"       varchar(120) NOT NULL,
@@ -72,7 +73,7 @@ export async function GET() {
         CONSTRAINT "categories_slug_unique" UNIQUE("slug")
       )
     `)
-    results.push('categories table: ok')
+    results.push('categories table: recreated')
 
     await db.execute(sql`CREATE INDEX IF NOT EXISTS "cat_parent_id_idx" ON "categories"("parent_id")`)
     await db.execute(sql`CREATE INDEX IF NOT EXISTS "cat_slug_idx"      ON "categories"("slug")`)
