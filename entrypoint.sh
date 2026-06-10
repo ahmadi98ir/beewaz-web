@@ -11,15 +11,9 @@ grep -q "api.sms.ir" /etc/hosts 2>/dev/null || echo "185.211.56.44 api.sms.ir" >
 # اجرای migration قبل از start
 echo "[entrypoint] ── Migration ─────────────────────────"
 if [ -f /app/migrate.mjs ]; then
-  node /app/migrate.mjs
-  MIGRATE_EXIT=$?
-  if [ $MIGRATE_EXIT -ne 0 ]; then
-    echo "[entrypoint] ⚠️  Migration exited with code $MIGRATE_EXIT — app will start anyway"
-    echo "[entrypoint]    Check logs above for the exact DB error"
-  fi
+  node /app/migrate.mjs || echo "[entrypoint] ⚠️  migrate.mjs exited with error — app will start anyway (check logs above)"
 else
-  echo "[entrypoint] ❌ migrate.mjs not found at /app/migrate.mjs — skipping"
-  echo "[entrypoint]    Fix: add COPY migrate.mjs to Dockerfile runner stage"
+  echo "[entrypoint] ❌ migrate.mjs not found — skipping migrations"
 fi
 echo "[entrypoint] ────────────────────────────────────────"
 
