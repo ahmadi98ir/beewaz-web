@@ -9,46 +9,55 @@ import type { ReturnRow } from './_components/returns-client'
 export const metadata: Metadata = { title: 'مرجوعی‌ها' }
 
 export default async function ReturnsPage() {
-  const rows = await db
-    .select({
-      id:              returnRequests.id,
-      orderId:         returnRequests.orderId,
-      invoiceNumber:   orders.invoiceNumber,
-      status:          returnRequests.status,
-      reason:          returnRequests.reason,
-      reasonText:      returnRequests.reasonText,
-      adminNotes:      returnRequests.adminNotes,
-      requestedAt:     returnRequests.requestedAt,
-      resolvedAt:      returnRequests.resolvedAt,
-      userName:        users.fullName,
-      userPhone:       users.phone,
-      itemProductName: orderItems.productName,
-      itemVariantName: orderItems.variantName,
-      itemQuantity:    orderItems.quantity,
-    })
-    .from(returnRequests)
-    .leftJoin(orders,     eq(returnRequests.orderId,     orders.id))
-    .leftJoin(users,      eq(returnRequests.userId,      users.id))
-    .leftJoin(orderItems, eq(returnRequests.orderItemId, orderItems.id))
-    .orderBy(desc(returnRequests.requestedAt))
-    .limit(200)
+  let data: ReturnRow[] = []
+  let dbError: string | null = null
 
-  const data: ReturnRow[] = rows.map((r) => ({
-    id:              r.id,
-    orderId:         r.orderId,
-    invoiceNumber:   r.invoiceNumber ?? null,
-    status:          r.status,
-    reason:          r.reason,
-    reasonText:      r.reasonText ?? null,
-    adminNotes:      r.adminNotes ?? null,
-    requestedAt:     r.requestedAt.toISOString(),
-    resolvedAt:      r.resolvedAt?.toISOString() ?? null,
-    userName:        r.userName ?? null,
-    userPhone:       r.userPhone ?? null,
-    itemProductName: r.itemProductName ?? null,
-    itemVariantName: r.itemVariantName ?? null,
-    itemQuantity:    r.itemQuantity ?? null,
-  }))
+  try {
+    const rows = await db
+      .select({
+        id:              returnRequests.id,
+        orderId:         returnRequests.orderId,
+        invoiceNumber:   orders.invoiceNumber,
+        status:          returnRequests.status,
+        reason:          returnRequests.reason,
+        reasonText:      returnRequests.reasonText,
+        adminNotes:      returnRequests.adminNotes,
+        requestedAt:     returnRequests.requestedAt,
+        resolvedAt:      returnRequests.resolvedAt,
+        userName:        users.fullName,
+        userPhone:       users.phone,
+        itemProductName: orderItems.productName,
+        itemVariantName: orderItems.variantName,
+        itemQuantity:    orderItems.quantity,
+      })
+      .from(returnRequests)
+      .leftJoin(orders,     eq(returnRequests.orderId,     orders.id))
+      .leftJoin(users,      eq(returnRequests.userId,      users.id))
+      .leftJoin(orderItems, eq(returnRequests.orderItemId, orderItems.id))
+      .orderBy(desc(returnRequests.requestedAt))
+      .limit(200)
+
+    data = rows.map((r) => ({
+      id:              r.id,
+      orderId:         r.orderId,
+      invoiceNumber:   r.invoiceNumber ?? null,
+      status:          r.status,
+      reason:          r.reason,
+      reasonText:      r.reasonText ?? null,
+      adminNotes:      r.adminNotes ?? null,
+      requestedAt:     r.requestedAt.toISOString(),
+      resolvedAt:      r.resolvedAt?.toISOString() ?? null,
+      userName:        r.userName ?? null,
+      userPhone:       r.userPhone ?? null,
+      itemProductName: r.itemProductName ?? null,
+      itemVariantName: r.itemVariantName ?? null,
+      itemQuantity:    r.itemQuantity ?? null,
+    }))
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error('[ReturnsPage] DB error:', msg)
+    dbError = msg
+  }
 
   const pendingCount = data.filter((r) => r.status === 'pending').length
 
@@ -93,6 +102,20 @@ export default async function ReturnsPage() {
           </div>
         </div>
       </div>
+
+      {/* ─── DB Error Banner ─────────────────────────────────────────────── */}
+      {dbError && (
+        <div className="max-w-5xl mx-auto px-6 pt-6">
+          <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-4 space-y-1">
+            <p className="text-red-400 font-bold text-sm">خطا در بارگذاری داده‌های مرجوعی</p>
+            <p className="text-red-300/70 text-xs font-mono break-all">{dbError}</p>
+            <p className="text-white/30 text-xs">
+              احتمالاً جدول <code className="text-white/50">return_requests</code> در دیتابیس وجود ندارد.
+              Migration را اجرا کنید.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* ─── Content ─────────────────────────────────────────────────────── */}
       <div className="max-w-5xl mx-auto px-6 py-6">
