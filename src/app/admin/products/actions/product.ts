@@ -7,7 +7,7 @@ import { inArray } from 'drizzle-orm'
 import {
   products, productVariants, productVariantOptions,
   productAttributeTypeAssignments, productAttributeValues,
-  productImages,
+  productImages, productSpecs,
 } from '@/lib/db/schema'
 import { productFormSchema, type ProductFormValues } from '../_components/schema'
 
@@ -131,6 +131,17 @@ export async function saveProduct(
       }
       if (imageRows.length > 0) {
         await tx.insert(productImages).values(imageRows)
+      }
+
+      if (data.specs && data.specs.length > 0) {
+        await tx.insert(productSpecs).values(
+          data.specs.map((spec, i) => ({
+            productId: pid,
+            keyFa:     spec.keyFa,
+            valueFa:   spec.valueFa,
+            sortOrder: i,
+          }))
+        )
       }
 
       return pid
