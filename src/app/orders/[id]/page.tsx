@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { formatPrice, toFaDigits } from '@/lib/utils'
+import { InvoiceButtons } from './_components/invoice-buttons'
 
 interface OrderItem {
   id: string
@@ -290,9 +291,7 @@ export default function OrderDetailPage() {
         </div>
 
         {['paid', 'processing', 'shipped', 'delivered'].includes(order.status) && (
-          <Link href={`/orders/${order.id}/invoice`} className="btn btn-outline w-full text-sm py-2.5 mb-3 flex items-center justify-center gap-2">
-            📄 دریافت فاکتور رسمی
-          </Link>
+          <InvoiceButtons orderId={order.id} />
         )}
 
         <div className="flex gap-3">

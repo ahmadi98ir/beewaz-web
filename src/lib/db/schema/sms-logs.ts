@@ -15,6 +15,7 @@ export const smsTriggerEnum = pgEnum('sms_trigger', [
   'shipment_tracking',
   'low_stock_alert',
   'manual',
+  'invoice_request',
 ])
 
 export const smsLogs = pgTable('sms_logs', {

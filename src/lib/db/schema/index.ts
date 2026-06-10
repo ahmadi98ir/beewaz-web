@@ -113,6 +113,12 @@ export {
   type SmsLog, type NewSmsLog, type SmsStatus, type SmsTrigger,
 } from './sms-logs'
 
+// ─── Order Billing Details ────────────────────────────────────────────────────
+export {
+  orderBillingDetails, orderBillingDetailsRelations,
+  type OrderBillingDetails, type NewOrderBillingDetails,
+} from './billing-details'
+
 // ─── Analytics ────────────────────────────────────────────────────────────────
 export {
   productViews, cartAbandonmentSessions, analyticsDailySnapshots,
