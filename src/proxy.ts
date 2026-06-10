@@ -1,6 +1,8 @@
 import NextAuth from 'next-auth'
 import { NextResponse } from 'next/server'
 import { authConfig } from '@/lib/auth.config'
+import { locales, defaultLocale, isValidLocale } from '@/lib/i18n/locales'
+import type { Locale } from '@/lib/i18n/locales'
 
 // proxy = جایگزین middleware در Next.js 16.
 // از auth.config (بدون DB/bcrypt) استفاده می‌کند تا edge-safe باشد.
@@ -15,6 +17,22 @@ function hostFromUrl(value: string | null): string | null {
   } catch {
     return null
   }
+}
+
+/** زبان کاربر را از کوکی → Accept-Language header → پیش‌فرض تشخیص می‌دهد */
+function detectLocale(req: Parameters<Parameters<typeof auth>[0]>[0]): Locale {
+  // ۱. کوکی صریح کاربر
+  const cookie = req.cookies.get('NEXT_LOCALE')?.value
+  if (cookie && isValidLocale(cookie)) return cookie
+
+  // ۲. Accept-Language header
+  const acceptLang = req.headers.get('accept-language') ?? ''
+  for (const part of acceptLang.split(',')) {
+    const tag = part.split(';')[0]?.trim().toLowerCase().slice(0, 2)
+    if (tag && isValidLocale(tag)) return tag
+  }
+
+  return defaultLocale
 }
 
 export default auth((req) => {
@@ -36,8 +54,8 @@ export default auth((req) => {
     }
   }
 
-  // اضافه کردن x-pathname برای استفاده در root layout
   const requestId = crypto.randomUUID()
+  const locale    = detectLocale(req)
 
   if (pathname.startsWith('/admin')) {
     if (!req.auth) {
@@ -45,8 +63,6 @@ export default auth((req) => {
       loginUrl.searchParams.set('callbackUrl', pathname)
       return NextResponse.redirect(loginUrl)
     }
-    // هر نقش کارمندی (غیر از مشتری) اجازه ورود به پنل دارد؛ دسترسی دقیق
-    // هر بخش با RBAC در سطح صفحه/API و نوار کناری کنترل می‌شود.
     const role = req.auth.user?.role as string | undefined
     if (!role || role === 'customer') {
       return NextResponse.redirect(new URL('/', req.url))
@@ -59,10 +75,11 @@ export default auth((req) => {
     return NextResponse.redirect(loginUrl)
   }
 
-  // pass-through: اضافه کردن هدرها
+  // pass-through: اضافه کردن هدرها (locale برای استفاده در layout/server components)
   const response = NextResponse.next()
   response.headers.set('x-pathname', pathname)
   response.headers.set('x-request-id', requestId)
+  response.headers.set('x-locale', locale)
   return response
 })
 
