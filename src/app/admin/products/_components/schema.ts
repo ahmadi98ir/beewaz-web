@@ -34,10 +34,8 @@ export const productFormSchema = z.object({
   variants:    z.array(variantRowSchema).optional(),
 
   // ─── تصاویر ──────────────────────────────────────────────────────────────
-  images: z.array(z.object({
-    url:       z.string().url(),
-    isPrimary: z.boolean(),
-  })).default([]),
+  mainImage: z.string().url('آدرس تصویر معتبر نیست').optional().or(z.literal('')),
+  gallery:   z.array(z.string().url()).default([]),
 
   // ─── SEO ─────────────────────────────────────────────────────────────────
   metaTitle: z.string().max(70).optional().or(z.literal('')),

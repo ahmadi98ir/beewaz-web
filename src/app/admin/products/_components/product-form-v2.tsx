@@ -8,7 +8,8 @@ import Link from 'next/link'
 import { productFormSchema, type ProductFormValues } from './schema'
 import { FormCard, Field, inputCls, errorInputCls } from './form-card'
 import { VariantBuilder } from './variant-builder'
-import { ImageUploaderV2 } from './image-uploader-v2'
+import { MainImageUploader } from './main-image-uploader'
+import { GalleryUploader } from './gallery-uploader'
 import { saveProduct } from '../actions/product'
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
@@ -80,7 +81,7 @@ export function ProductFormV2() {
       status: 'draft', isFeatured: false,
       price: 0, comparePrice: undefined, stock: 0,
       hasVariants: false, variants: [],
-      images: [],
+      mainImage: '', gallery: [],
       metaTitle: '', metaDesc: '',
     },
   })
@@ -309,19 +310,47 @@ export function ProductFormV2() {
         {/* ─── تصاویر محصول ─────────────────────────────────────────────── */}
         <FormCard
           title="تصاویر محصول"
-          subtitle="تصویر اصلی و گالری — JPG، PNG، WebP — حداکثر ۲ مگابایت هر فایل"
+          subtitle="JPG، PNG، WebP — حداکثر ۲ مگابایت هر فایل"
           icon={<IconImage />}
         >
-          <Controller
-            control={control}
-            name="images"
-            render={({ field }) => (
-              <ImageUploaderV2
-                value={field.value ?? []}
-                onChange={field.onChange}
+          <div className="space-y-6">
+            {/* تصویر اصلی */}
+            <div>
+              <p className="text-xs font-semibold text-white/50 uppercase tracking-wider mb-3">
+                تصویر اصلی (ویترین)
+              </p>
+              <Controller
+                control={control}
+                name="mainImage"
+                render={({ field }) => (
+                  <MainImageUploader
+                    value={field.value ?? ''}
+                    onChange={field.onChange}
+                  />
+                )}
               />
-            )}
-          />
+              {errors.mainImage && (
+                <p className="text-xs text-red-400 mt-1">{errors.mainImage.message}</p>
+              )}
+            </div>
+
+            {/* گالری */}
+            <div>
+              <p className="text-xs font-semibold text-white/50 uppercase tracking-wider mb-3">
+                گالری تصاویر (تا ۷ تصویر)
+              </p>
+              <Controller
+                control={control}
+                name="gallery"
+                render={({ field }) => (
+                  <GalleryUploader
+                    value={field.value ?? []}
+                    onChange={field.onChange}
+                  />
+                )}
+              />
+            </div>
+          </div>
         </FormCard>
 
         {/* ─── SEO ───────────────────────────────────────────────────────── */}

@@ -119,16 +119,18 @@ export async function saveProduct(
         })
       }
 
-      if (data.images && data.images.length > 0) {
-        await tx.insert(productImages).values(
-          data.images.map((img, i) => ({
-            productId:    pid,
-            url:       img.url,
-            alt:       null,
-            isPrimary: img.isPrimary,
-            sortOrder: i,
-          }))
-        )
+      // ساخت آرایه تصاویر: تصویر اصلی + گالری
+      const imageRows: { productId: string; url: string; alt: null; isPrimary: boolean; sortOrder: number }[] = []
+      if (data.mainImage) {
+        imageRows.push({ productId: pid, url: data.mainImage, alt: null, isPrimary: true, sortOrder: 0 })
+      }
+      if (data.gallery?.length) {
+        data.gallery.forEach((url, i) => {
+          imageRows.push({ productId: pid, url, alt: null, isPrimary: false, sortOrder: i + 1 })
+        })
+      }
+      if (imageRows.length > 0) {
+        await tx.insert(productImages).values(imageRows)
       }
 
       return pid
