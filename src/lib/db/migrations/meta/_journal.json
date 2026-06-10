@@ -12,6 +12,7 @@
     { "idx": 7,  "version": "7", "when": 1749736400000, "tag": "0015_fix_enums_and_missing_tables", "breakpoints": true },
     { "idx": 8,  "version": "7", "when": 1749822800000, "tag": "0016_product_variants",             "breakpoints": true },
     { "idx": 9,  "version": "7", "when": 1749909200000, "tag": "0017_order_billing_details",        "breakpoints": true },
-    { "idx": 10, "version": "7", "when": 1749995600000, "tag": "0018_return_requests",               "breakpoints": true }
+    { "idx": 10, "version": "7", "when": 1749995600000, "tag": "0018_return_requests",               "breakpoints": true },
+    { "idx": 11, "version": "7", "when": 1749999200000, "tag": "0019_ensure_return_requests",        "breakpoints": true }
   ]
 }
