@@ -47,7 +47,6 @@ export default auth((req) => {
     }
     // هر نقش کارمندی (غیر از مشتری) اجازه ورود به پنل دارد؛ دسترسی دقیق
     // هر بخش با RBAC در سطح صفحه/API و نوار کناری کنترل می‌شود.
-    // @ts-expect-error -- custom role field
     const role = req.auth.user?.role as string | undefined
     if (!role || role === 'customer') {
       return NextResponse.redirect(new URL('/', req.url))
