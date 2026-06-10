@@ -9,19 +9,28 @@ import type { CatRow }   from './_components/categories-client'
 export const metadata: Metadata = { title: 'دسته‌بندی‌ها' }
 
 export default async function CategoriesPage() {
-  const rows = await db
-    .select()
-    .from(categories)
-    .orderBy(asc(categories.sortOrder), asc(categories.nameFa))
+  let data: CatRow[] = []
+  let dbError: string | null = null
 
-  const data: CatRow[] = rows.map((r) => ({
-    id:        r.id,
-    nameFa:    r.nameFa,
-    slug:      r.slug,
-    parentId:  r.parentId ?? null,
-    icon:      r.icon ?? null,
-    sortOrder: r.sortOrder,
-  }))
+  try {
+    const rows = await db
+      .select()
+      .from(categories)
+      .orderBy(asc(categories.sortOrder), asc(categories.nameFa))
+
+    data = rows.map((r) => ({
+      id:        r.id,
+      nameFa:    r.nameFa,
+      slug:      r.slug,
+      parentId:  r.parentId ?? null,
+      icon:      r.icon ?? null,
+      sortOrder: r.sortOrder,
+    }))
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error('[CategoriesPage] DB error:', msg)
+    dbError = msg
+  }
 
   return (
     <div className="min-h-full bg-[#070711]">
@@ -38,10 +47,22 @@ export default async function CategoriesPage() {
           </Link>
           <div className="flex-1">
             <h1 className="text-white font-bold text-lg">دسته‌بندی‌ها</h1>
-            <p className="text-white/30 text-xs">{data.length} دسته‌بندی — ساختار درختی برای محصولات</p>
+            <p className="text-white/30 text-xs">
+              {dbError ? 'خطا در بارگذاری' : `${data.length} دسته‌بندی — ساختار درختی برای محصولات`}
+            </p>
           </div>
         </div>
       </div>
+
+      {/* ─── DB Error Banner ─────────────────────────────────────────────── */}
+      {dbError && (
+        <div className="max-w-3xl mx-auto px-6 pt-6">
+          <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-4 space-y-1">
+            <p className="text-red-400 font-bold text-sm">خطا در بارگذاری دسته‌بندی‌ها</p>
+            <p className="text-red-300/70 text-xs font-mono break-all">{dbError}</p>
+          </div>
+        </div>
+      )}
 
       {/* ─── Content ─────────────────────────────────────────────────────── */}
       <div className="max-w-3xl mx-auto px-6 py-6">

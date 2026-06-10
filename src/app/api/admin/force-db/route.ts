@@ -66,10 +66,9 @@ export async function GET() {
         "name_fa"    varchar(100) NOT NULL,
         "slug"       varchar(120) NOT NULL,
         "parent_id"  uuid REFERENCES "categories"("id") ON DELETE SET NULL,
-        "icon"       varchar(10),
+        "icon"       text,
         "sort_order" integer NOT NULL DEFAULT 0,
         "created_at" timestamp with time zone DEFAULT now() NOT NULL,
-        "updated_at" timestamp with time zone DEFAULT now() NOT NULL,
         CONSTRAINT "categories_slug_unique" UNIQUE("slug")
       )
     `)
