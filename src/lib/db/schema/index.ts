@@ -113,6 +113,12 @@ export {
   type SmsLog, type NewSmsLog, type SmsStatus, type SmsTrigger,
 } from './sms-logs'
 
+// ─── Returns (RMA) ────────────────────────────────────────────────────────────
+export {
+  returnReasonEnum, returnStatusEnum, returnRequests, returnRequestsRelations,
+  type ReturnRequest, type NewReturnRequest, type ReturnReason, type ReturnStatus,
+} from './returns'
+
 // ─── Order Billing Details ────────────────────────────────────────────────────
 export {
   orderBillingDetails, orderBillingDetailsRelations,

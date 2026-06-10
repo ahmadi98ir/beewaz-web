@@ -1,40 +1,102 @@
 import type { Metadata } from 'next'
-import Link from 'next/link'
+import Link             from 'next/link'
+import { db }           from '@/lib/db'
+import { returnRequests, orders, users, orderItems } from '@/lib/db/schema'
+import { eq, desc }     from 'drizzle-orm'
+import { ReturnsClient } from './_components/returns-client'
+import type { ReturnRow } from './_components/returns-client'
 
 export const metadata: Metadata = { title: 'مرجوعی‌ها' }
 
-export default function ReturnsPage() {
+export default async function ReturnsPage() {
+  const rows = await db
+    .select({
+      id:              returnRequests.id,
+      orderId:         returnRequests.orderId,
+      invoiceNumber:   orders.invoiceNumber,
+      status:          returnRequests.status,
+      reason:          returnRequests.reason,
+      reasonText:      returnRequests.reasonText,
+      adminNotes:      returnRequests.adminNotes,
+      requestedAt:     returnRequests.requestedAt,
+      resolvedAt:      returnRequests.resolvedAt,
+      userName:        users.fullName,
+      userPhone:       users.phone,
+      itemProductName: orderItems.productName,
+      itemVariantName: orderItems.variantName,
+      itemQuantity:    orderItems.quantity,
+    })
+    .from(returnRequests)
+    .leftJoin(orders,     eq(returnRequests.orderId,     orders.id))
+    .leftJoin(users,      eq(returnRequests.userId,      users.id))
+    .leftJoin(orderItems, eq(returnRequests.orderItemId, orderItems.id))
+    .orderBy(desc(returnRequests.requestedAt))
+    .limit(200)
+
+  const data: ReturnRow[] = rows.map((r) => ({
+    id:              r.id,
+    orderId:         r.orderId,
+    invoiceNumber:   r.invoiceNumber ?? null,
+    status:          r.status,
+    reason:          r.reason,
+    reasonText:      r.reasonText ?? null,
+    adminNotes:      r.adminNotes ?? null,
+    requestedAt:     r.requestedAt.toISOString(),
+    resolvedAt:      r.resolvedAt?.toISOString() ?? null,
+    userName:        r.userName ?? null,
+    userPhone:       r.userPhone ?? null,
+    itemProductName: r.itemProductName ?? null,
+    itemVariantName: r.itemVariantName ?? null,
+    itemQuantity:    r.itemQuantity ?? null,
+  }))
+
+  const pendingCount = data.filter((r) => r.status === 'pending').length
+
   return (
     <div className="min-h-full bg-[#070711]">
+
+      {/* ─── Header ──────────────────────────────────────────────────────── */}
       <div className="sticky top-0 z-10 bg-[#070711]/90 backdrop-blur-md border-b border-white/[0.06]">
-        <div className="max-w-4xl mx-auto px-6 py-4 flex items-center gap-4">
-          <Link href="/admin/dashboard"
-            className="w-8 h-8 rounded-lg bg-white/[0.06] hover:bg-white/[0.10] flex items-center justify-center text-white/50 hover:text-white transition-all">
+        <div className="max-w-5xl mx-auto px-6 py-4 flex items-center gap-4">
+          <Link
+            href="/admin/dashboard"
+            className="w-8 h-8 rounded-lg bg-white/[0.06] hover:bg-white/[0.10] flex items-center justify-center text-white/50 hover:text-white transition-all"
+          >
             <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
               <path fillRule="evenodd" d="M17 10a.75.75 0 01-.75.75H5.612l4.158 3.96a.75.75 0 11-1.04 1.08l-5.5-5.25a.75.75 0 010-1.08l5.5-5.25a.75.75 0 111.04 1.08L5.612 9.25H16.25A.75.75 0 0117 10z" clipRule="evenodd" />
             </svg>
           </Link>
-          <div>
-            <h1 className="text-white font-bold text-lg">مرجوعی‌ها</h1>
+
+          <div className="flex-1">
+            <div className="flex items-center gap-2.5">
+              <h1 className="text-white font-bold text-lg">مرجوعی‌ها</h1>
+              {pendingCount > 0 && (
+                <span className="px-2 py-0.5 rounded-md bg-amber-500/20 border border-amber-500/30 text-amber-300 text-[10px] font-bold">
+                  {pendingCount} در انتظار
+                </span>
+              )}
+            </div>
             <p className="text-white/30 text-xs">مدیریت درخواست‌های بازگشت کالا</p>
+          </div>
+
+          {/* آمار سریع */}
+          <div className="hidden sm:flex items-center gap-4 text-xs">
+            <div className="text-center">
+              <p className="text-white/70 font-bold text-base">{data.length}</p>
+              <p className="text-white/25">کل</p>
+            </div>
+            <div className="w-px h-8 bg-white/[0.06]" />
+            <div className="text-center">
+              <p className="text-amber-300 font-bold text-base">{pendingCount}</p>
+              <p className="text-white/25">معلق</p>
+            </div>
           </div>
         </div>
       </div>
-      <div className="max-w-4xl mx-auto px-6 py-16 flex flex-col items-center text-center gap-4">
-        <div className="w-20 h-20 rounded-3xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-10 h-10 text-white/20">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3" />
-          </svg>
-        </div>
-        <h2 className="text-white/60 font-semibold text-lg">این بخش در حال توسعه است</h2>
-        <p className="text-white/25 text-sm max-w-sm">
-          سیستم مدیریت مرجوعی‌ها در فاز بعدی توسعه پیاده‌سازی می‌شود.
-          در این مرحله می‌توانید از بخش سفارشات وضعیت را به «مسترد شده» تغییر دهید.
-        </p>
-        <Link href="/admin/orders"
-          className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold transition-all">
-          رفتن به سفارشات
-        </Link>
+
+      {/* ─── Content ─────────────────────────────────────────────────────── */}
+      <div className="max-w-5xl mx-auto px-6 py-6">
+        <ReturnsClient initialRows={data} />
       </div>
     </div>
   )
