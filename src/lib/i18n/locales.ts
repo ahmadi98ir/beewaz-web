@@ -1,6 +1,5 @@
 export const locales = ['fa', 'en', 'fr', 'ar'] as const
 export type Locale = (typeof locales)[number]
-
 export const defaultLocale: Locale = 'fa'
 
 export const localeConfig: Record<Locale, { label: string; dir: 'rtl' | 'ltr'; flag: string }> = {
@@ -11,5 +10,5 @@ export const localeConfig: Record<Locale, { label: string; dir: 'rtl' | 'ltr'; f
 }
 
 export function isValidLocale(v: unknown): v is Locale {
-  return locales.includes(v as Locale)
+  return typeof v === 'string' && (locales as readonly string[]).includes(v)
 }
