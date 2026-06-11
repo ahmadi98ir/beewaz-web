@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
+import { deleteOrder } from '../actions'
 
 interface OrderItem {
   id: string; productName: string; variantName: string | null
@@ -52,11 +53,14 @@ function fdate(d: string | null) {
 
 export default function OrderDetailPage() {
   const { id } = useParams<{ id: string }>()
+  const router = useRouter()
   const [order, setOrder] = useState<Order | null>(null)
   const [items, setItems] = useState<OrderItem[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState('')
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const [tracking, setTracking] = useState('')
   const [adminNote, setAdminNote] = useState('')
   const [notes, setNotes] = useState<OrderNote[]>([])
@@ -108,6 +112,19 @@ export default function OrderDetailPage() {
     setSaving(false); setToast('ذخیره شد'); setTimeout(() => setToast(''), 2500)
   }
 
+  const handleDelete = async () => {
+    setDeleting(true)
+    const result = await deleteOrder(id)
+    setDeleting(false)
+    if (result.success) {
+      router.push('/admin/orders')
+    } else {
+      setShowDeleteModal(false)
+      setToast(result.error)
+      setTimeout(() => setToast(''), 3000)
+    }
+  }
+
   const handleRefund = async () => {
     const reason = window.prompt('دلیل استرداد (اختیاری):')
     if (reason === null) return // cancelled
@@ -146,7 +163,42 @@ export default function OrderDetailPage() {
           <p className="text-xs text-surface-400 mt-0.5">{fdate(order.createdAt)}</p>
         </div>
         <span className={`px-3 py-1.5 rounded-xl border text-sm font-semibold ${cfg.cls}`}>{cfg.label}</span>
+        <button
+          onClick={() => setShowDeleteModal(true)}
+          className="px-3 py-2 rounded-xl border border-red-200 text-red-600 text-xs font-semibold hover:bg-red-50 transition-colors"
+        >
+          حذف سفارش
+        </button>
       </header>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full mx-4 space-y-4">
+            <h3 className="font-bold text-surface-900 text-lg">حذف سفارش</h3>
+            <p className="text-sm text-surface-600">
+              آیا مطمئن هستید که می‌خواهید سفارش <span className="font-bold text-surface-900">#{id.slice(0,8).toUpperCase()}</span> را حذف کنید؟
+              این عمل غیرقابل بازگشت است.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setShowDeleteModal(false)}
+                disabled={deleting}
+                className="px-4 py-2 rounded-xl border border-surface-200 text-sm font-semibold text-surface-600 hover:bg-surface-50 disabled:opacity-50"
+              >
+                انصراف
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={deleting}
+                className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-semibold disabled:opacity-50 transition-colors"
+              >
+                {deleting ? 'در حال حذف...' : 'بله، حذف شود'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="p-6 max-w-5xl mx-auto grid lg:grid-cols-3 gap-6">
         {/* Left */}
