@@ -10,9 +10,12 @@ import type { Dictionary } from '@/lib/i18n'
 
 export type ProductVariant = {
   id: string
-  name: string
+  nameFa: string
   price: number | null
+  comparePrice: number | null
   stock: number
+  imageUrl: string | null
+  isActive: boolean
 }
 
 export type ProductData = {
@@ -90,13 +93,14 @@ function VariantSelector({
   selected: string | null
   onSelect: (id: string) => void
 }) {
-  if (!variants.length) return null
+  const active = variants.filter((v) => v.isActive)
+  if (!active.length) return null
 
   return (
     <div className="space-y-2">
       <p className="text-sm text-white/50 font-medium">انتخاب مدل</p>
       <div className="flex flex-wrap gap-2">
-        {variants.map((v) => {
+        {active.map((v) => {
           const isSelected = selected === v.id
           const outOfStock = v.stock === 0
           return (
@@ -113,7 +117,7 @@ function VariantSelector({
                   : 'border-white/10 text-white/60 hover:border-white/30 hover:text-white',
               ].join(' ')}
             >
-              {v.name}
+              {v.nameFa}
               {outOfStock && <span className="ms-1 text-xs">(ناموجود)</span>}
             </button>
           )
@@ -132,18 +136,18 @@ export function ProductClient({
   product: ProductData
   dict: Dictionary
 }) {
-  const hasVariants = product.variants.length > 0
+  const hasVariants = product.variants.filter((v) => v.isActive).length > 0
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(
-    hasVariants ? (product.variants.find((v) => v.stock > 0)?.id ?? null) : null
+    hasVariants ? (product.variants.find((v) => v.isActive && v.stock > 0)?.id ?? null) : null
   )
 
   const selectedVariant = hasVariants
     ? product.variants.find((v) => v.id === selectedVariantId) ?? null
     : null
 
-  const activePrice        = selectedVariant?.price ?? product.price
-  const activeComparePrice = product.comparePrice
-  const activeStock        = selectedVariant?.stock ?? product.stock
+  const activePrice        = selectedVariant?.price        ?? product.price
+  const activeComparePrice = selectedVariant?.comparePrice ?? product.comparePrice
+  const activeStock        = selectedVariant?.stock        ?? product.stock
   const inStock            = activeStock > 0
 
   const discount = activeComparePrice ? discountPercent(activePrice, activeComparePrice) : 0
@@ -155,7 +159,7 @@ export function ProductClient({
   const handleAddToCart = useCallback(() => {
     addItem({
       id:              product.id + (selectedVariantId ?? ''),
-      nameFa:          product.nameFa + (selectedVariant ? ` — ${selectedVariant.name}` : ''),
+      nameFa:          product.nameFa + (selectedVariant ? ` — ${selectedVariant.nameFa}` : ''),
       price:           activePrice,
       slug:            product.slug,
       categorySlug:    product.categorySlug ?? 'products',

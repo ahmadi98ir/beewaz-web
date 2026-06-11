@@ -99,13 +99,17 @@ export default async function ProductPage({
 
     db
       .select({
-        id:    productVariants.id,
-        name:  productVariants.name,
-        price: productVariants.price,
-        stock: productVariants.stock,
+        id:           productVariants.id,
+        nameFa:       productVariants.nameFa,
+        price:        productVariants.price,
+        comparePrice: productVariants.comparePrice,
+        stock:        productVariants.stock,
+        imageUrl:     productVariants.imageUrl,
+        isActive:     productVariants.isActive,
       })
       .from(productVariants)
-      .where(eq(productVariants.productId, productRow.id)),
+      .where(eq(productVariants.productId, productRow.id))
+      .orderBy(productVariants.sortOrder),
   ])
 
   const product: ProductData = {
@@ -121,10 +125,7 @@ export default async function ProductPage({
     categorySlug:  productRow.categorySlug ?? null,
     images,
     specs,
-    variants: variants.map((v) => ({
-      ...v,
-      price: v.price !== null ? Number(v.price) : null,
-    })),
+    variants,
   }
 
   return <ProductClient product={product} dict={dict} />
