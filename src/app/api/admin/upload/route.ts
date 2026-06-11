@@ -52,6 +52,15 @@ export async function POST(req: Request) {
   const bytes = await file.arrayBuffer()
   const buffer = Buffer.from(bytes)
 
-  const url = await storeFile(buffer, filename, subPath)
-  return NextResponse.json({ url })
+  try {
+    const url = await storeFile(buffer, filename, subPath)
+    return NextResponse.json({ url })
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error('[upload] storeFile failed:', msg)
+    return NextResponse.json(
+      { error: `خطای ذخیره‌سازی فایل روی سرور: ${msg}` },
+      { status: 500 },
+    )
+  }
 }

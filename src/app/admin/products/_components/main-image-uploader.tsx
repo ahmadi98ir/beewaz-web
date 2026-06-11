@@ -58,7 +58,8 @@ export function MainImageUploader({ value, onChange }: Props) {
   }, [upload])
 
   // ── اگر تصویر آپلود شده ─────────────────────────────────────────────────
-  if (value) {
+  const isValidUrl = value.startsWith('/') || value.startsWith('http')
+  if (value && isValidUrl) {
     return (
       <div className="relative rounded-2xl overflow-hidden border border-white/[0.10] bg-white/[0.03] aspect-video max-h-64 group">
         {/* eslint-disable-next-line @next/next/no-img-element */}

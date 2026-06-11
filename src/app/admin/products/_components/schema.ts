@@ -43,8 +43,8 @@ export const productFormSchema = z.object({
   variants:      z.array(variantRowSchema).optional(),
 
   // ─── تصاویر ────────────────────────────────────────────────────────────────
-  mainImage:     z.string().url('آدرس تصویر معتبر نیست').optional().or(z.literal('')),
-  gallery:       z.array(z.string().url()).default([]),
+  mainImage:     z.string().min(1).optional().or(z.literal('')),
+  gallery:       z.array(z.string().min(1)).default([]),
 
   // ─── مشخصات فنی ────────────────────────────────────────────────────────────
   specs:         z.array(specRowSchema).default([]),
