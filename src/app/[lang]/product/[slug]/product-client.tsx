@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { useCart }  from '@/stores/cart'
 import { useToast } from '@/stores/toast'
 import { formatPrice, discountPercent } from '@/lib/utils'
@@ -146,12 +146,13 @@ export function ProductClient({
   const activeStock        = selectedVariant?.stock ?? product.stock
   const inStock            = activeStock > 0
 
-  const discount = activeComparePrice ? discountPercent(activeComparePrice, activePrice) : 0
+  const discount = activeComparePrice ? discountPercent(activePrice, activeComparePrice) : 0
 
-  const { addItem }  = useCart()
-  const toast        = useToast()
+  const { addItem, openCart } = useCart()
+  const toast                 = useToast()
+  const [added, setAdded]     = useState(false)
 
-  function handleAddToCart() {
+  const handleAddToCart = useCallback(() => {
     addItem({
       id:              product.id + (selectedVariantId ?? ''),
       nameFa:          product.nameFa + (selectedVariant ? ` — ${selectedVariant.name}` : ''),
@@ -159,11 +160,14 @@ export function ProductClient({
       slug:            product.slug,
       categorySlug:    product.categorySlug ?? 'products',
       sku:             product.sku,
-      placeholderFrom: product.slug,
-      placeholderTo:   product.slug,
+      placeholderFrom: '#4f46e5',
+      placeholderTo:   '#7c3aed',
     })
     toast.success(`${product.nameFa} به سبد اضافه شد`)
-  }
+    openCart()
+    setAdded(true)
+    setTimeout(() => setAdded(false), 2000)
+  }, [addItem, openCart, toast, product, selectedVariantId, selectedVariant, activePrice])
 
   return (
     <div className="min-h-screen bg-[#070711]" dir="rtl">
@@ -231,10 +235,19 @@ export function ProductClient({
             <div className="flex gap-3 pt-2">
               <button
                 onClick={handleAddToCart}
-                disabled={!inStock || (hasVariants && !selectedVariantId)}
-                className="flex-1 py-4 rounded-2xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold text-base transition-all shadow-lg shadow-indigo-600/25"
+                disabled={!inStock || (hasVariants && !selectedVariantId) || added}
+                className={[
+                  'flex-1 py-4 rounded-2xl font-bold text-base transition-all shadow-lg',
+                  added
+                    ? 'bg-emerald-600 shadow-emerald-600/25 text-white cursor-default'
+                    : 'bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white shadow-indigo-600/25',
+                ].join(' ')}
               >
-                {inStock ? dict.product.addToCart : dict.product.outOfStock}
+                {added
+                  ? '✓ به سبد اضافه شد'
+                  : inStock
+                  ? dict.product.addToCart
+                  : dict.product.outOfStock}
               </button>
             </div>
 
