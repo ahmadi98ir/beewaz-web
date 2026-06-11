@@ -11,6 +11,13 @@ export type Dictionary = {
     contact: string; cart: string; profile: string; login: string
     logout: string; dealers: string; knowledge: string
   }
+  home: {
+    heroTitle: string; heroSubtitle: string; heroCta: string
+    categoriesTitle: string; categoriesSubtitle: string
+    latestTitle: string; latestSubtitle: string
+    viewAll: string; noProducts: string; noCategories: string
+    trustBadges: string[]
+  }
   product: {
     addToCart: string; buyNow: string; outOfStock: string; price: string
     comparePrice: string; discount: string; sku: string; category: string
@@ -48,6 +55,19 @@ const fa: Dictionary = {
     home: 'خانه', shop: 'فروشگاه', blog: 'وبلاگ', about: 'درباره ما',
     contact: 'تماس با ما', cart: 'سبد خرید', profile: 'پروفایل', login: 'ورود',
     logout: 'خروج', dealers: 'نمایندگان', knowledge: 'راهنمای محصولات',
+  },
+  home: {
+    heroTitle:          'امنیت هوشمند، آرامش واقعی',
+    heroSubtitle:       'سیستم‌های اعلام سرقت، دوربین مداربسته و کنترل دسترسی — با بهترین برندهای جهان',
+    heroCta:            'مشاهده محصولات',
+    categoriesTitle:    'خرید بر اساس دسته‌بندی',
+    categoriesSubtitle: 'محصول مورد نیاز خود را سریع پیدا کنید',
+    latestTitle:        'جدیدترین محصولات',
+    latestSubtitle:     'تازه‌ترین محصولات اضافه‌شده به فروشگاه',
+    viewAll:            'مشاهده همه',
+    noProducts:         'محصولی یافت نشد',
+    noCategories:       'دسته‌بندی‌ای یافت نشد',
+    trustBadges:        ['نصب رایگان', 'ضمانت اصالت', 'پشتیبانی ۲۴/۷', 'گارانتی ۲۴ ماهه'],
   },
   product: {
     addToCart: 'افزودن به سبد خرید', buyNow: 'خرید فوری', outOfStock: 'ناموجود', price: 'قیمت',
