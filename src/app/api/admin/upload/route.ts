@@ -5,7 +5,11 @@ import { join } from 'path'
 import { randomUUID } from 'crypto'
 
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp']
-const MAX_SIZE = 2 * 1024 * 1024 // 2MB
+const MAX_SIZE = 5 * 1024 * 1024 // 5MB
+
+// در Docker: process.cwd() = /app (WORKDIR) → /app/public/uploads = volume mount
+// در dev:    process.cwd() = ریشه پروژه      → <root>/public/uploads
+const PUBLIC_DIR = join(process.cwd(), 'public')
 
 function datePath(): string {
   const now = new Date()
@@ -17,17 +21,9 @@ function datePath(): string {
 
 async function storeFile(buffer: Buffer, filename: string, subPath: string): Promise<string> {
   const rel = `uploads/${subPath}/${filename}`
-
-  for (const dir of [join('/app/public/uploads', subPath), join(process.cwd(), 'public/uploads', subPath)]) {
-    try { await mkdir(dir, { recursive: true }) } catch { /* ignore */ }
-  }
-
-  try {
-    await writeFile(`/app/public/${rel}`, buffer)
-  } catch {
-    await writeFile(join(process.cwd(), 'public', rel), buffer)
-  }
-
+  const dir = join(PUBLIC_DIR, 'uploads', subPath)
+  await mkdir(dir, { recursive: true })
+  await writeFile(join(PUBLIC_DIR, rel), buffer)
   return `/${rel}`
 }
 
@@ -43,7 +39,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'فقط فرمت‌های JPG، PNG و WebP مجاز هستند' }, { status: 400 })
 
   if (file.size > MAX_SIZE)
-    return NextResponse.json({ error: 'حجم فایل نباید بیشتر از ۲ مگابایت باشد' }, { status: 400 })
+    return NextResponse.json({ error: 'حجم فایل نباید بیشتر از ۵ مگابایت باشد' }, { status: 400 })
 
   const ext = file.name.split('.').pop()?.toLowerCase() ?? 'jpg'
   const filename = `${randomUUID()}.${ext}`
