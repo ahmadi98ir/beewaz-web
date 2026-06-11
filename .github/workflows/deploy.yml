@@ -36,6 +36,7 @@ jobs:
     if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/claude/ecstatic-galileo-cvmNQ') && github.event_name == 'push'
     permissions:
       contents: write
+      packages: write
 
     steps:
       - uses: actions/checkout@v4
@@ -53,7 +54,7 @@ jobs:
           NEXT_PUBLIC_APP_URL: https://beewaz.ir
         run: npm run build
 
-      - name: Assemble build tarball
+      - name: Assemble bundle
         run: |
           rm -rf bundle && mkdir -p bundle
           cp -r .next/standalone/. bundle/
@@ -61,8 +62,8 @@ jobs:
           cp -r .next/static bundle/.next/static
           [ -d public ] && cp -r public bundle/public || true
           [ -d src/lib/db/migrations ] && cp -r src/lib/db/migrations bundle/migrations || true
+          cp migrate.mjs bundle/migrate.mjs
           cp entrypoint.sh bundle/entrypoint.sh
-          # mini Dockerfile so server can docker build from this tarball (no leading spaces)
           printf '%s\n' \
             'FROM node:22-alpine' \
             'WORKDIR /app' \
@@ -76,16 +77,42 @@ jobs:
             'ENV NEXT_TELEMETRY_DISABLED=1' \
             'CMD ["./entrypoint.sh"]' \
             > bundle/Dockerfile
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Docker image to ghcr.io
+        run: |
+          SHA="${GITHUB_SHA}"
+          IMAGE="ghcr.io/ahmadi98ir/beewaz-web"
+          docker build -t "${IMAGE}:latest" -t "${IMAGE}:${SHA}" bundle/
+          docker push "${IMAGE}:latest"
+          docker push "${IMAGE}:${SHA}"
+          echo "IMAGE_SHA=${SHA}" >> $GITHUB_ENV
+          echo "## ✅ Docker image pushed: \`${IMAGE}:${SHA:0:8}\`" >> $GITHUB_STEP_SUMMARY
+
+      - name: Create deploy tarball and upload to R2
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          AWS_ENDPOINT_URL: https://780f1658226b1429c605646103baeb07.r2.cloudflarestorage.com
+        run: |
           tar -czf beewaz-build.tar.gz -C bundle .
           SIZE=$(du -sh beewaz-build.tar.gz | cut -f1)
-          echo "BUILD_SIZE=$SIZE" >> $GITHUB_ENV
-          echo "Tarball size: $SIZE"
+          echo "${GITHUB_SHA}" > sha.txt
+          aws s3 cp beewaz-build.tar.gz s3://beewaz-deploy/beewaz-build.tar.gz --no-progress
+          aws s3 cp sha.txt s3://beewaz-deploy/sha.txt
+          echo "## ✅ Uploaded to R2 — commit \`${GITHUB_SHA:0:8}\` | ${SIZE}" >> $GITHUB_STEP_SUMMARY
 
       - name: Upload to deploy-cache release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # حذف release قبلی و ساخت جدید — تا release ID عوض بشه و سرور تشخیص بده
           gh release delete deploy-cache --yes 2>/dev/null || true
           git push origin :refs/tags/deploy-cache 2>/dev/null || true
           sleep 2
@@ -93,16 +120,4 @@ jobs:
             --title "Deploy Cache (${GITHUB_SHA:0:8})" \
             --notes "Built from commit ${GITHUB_SHA} at $(date -u)" \
             --latest=false
-          echo "## ✅ Build uploaded — commit \`${GITHUB_SHA:0:8}\` | ${{ env.BUILD_SIZE }}" >> $GITHUB_STEP_SUMMARY
-
-      - name: Upload to Cloudflare R2
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: auto
-          AWS_ENDPOINT_URL: https://780f1658226b1429c605646103baeb07.r2.cloudflarestorage.com
-        run: |
-          echo "${GITHUB_SHA}" > sha.txt
-          aws s3 cp beewaz-build.tar.gz s3://beewaz-deploy/beewaz-build.tar.gz --no-progress
-          aws s3 cp sha.txt s3://beewaz-deploy/sha.txt
-          echo "## ✅ Uploaded to R2 — commit \`${GITHUB_SHA:0:8}\` | ${{ env.BUILD_SIZE }}" >> $GITHUB_STEP_SUMMARY
+          echo "## ✅ Release updated — commit \`${GITHUB_SHA:0:8}\`" >> $GITHUB_STEP_SUMMARY
