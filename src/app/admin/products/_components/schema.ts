@@ -49,6 +49,9 @@ export const productFormSchema = z.object({
   // ─── مشخصات فنی ────────────────────────────────────────────────────────────
   specs:         z.array(specRowSchema).default([]),
 
+  // ─── گارانتی ───────────────────────────────────────────────────────────────
+  warrantyDays:  z.coerce.number().int().min(0).default(0),
+
   // ─── SEO ───────────────────────────────────────────────────────────────────
   metaTitle:     z.string().max(70).optional().or(z.literal('')),
   metaDesc:      z.string().max(160).optional().or(z.literal('')),

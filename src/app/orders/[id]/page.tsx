@@ -57,6 +57,14 @@ const PAYMENT_LABELS: Record<string, string> = {
   cash_on_delivery: 'پرداخت در محل', installment: 'اقساطی',
 }
 
+const REASON_OPTIONS = [
+  { value: 'defective',        label: 'کالای معیوب / خراب' },
+  { value: 'wrong_item',       label: 'کالای اشتباه' },
+  { value: 'not_as_described', label: 'مطابق توضیحات نیست' },
+  { value: 'changed_mind',     label: 'انصراف از خرید' },
+  { value: 'other',            label: 'سایر' },
+]
+
 function fdate(d: string | null) {
   if (!d) return null
   return new Intl.DateTimeFormat('fa-IR', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(d))
@@ -72,6 +80,12 @@ export default function OrderDetailPage() {
   const [items, setItems] = useState<OrderItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [returnWindowDays, setReturnWindowDays] = useState(7)
+  const [rmaModal, setRmaModal] = useState<{ open: boolean; type: 'rma' | 'warranty' }>({ open: false, type: 'rma' })
+  const [rmaReason, setRmaReason] = useState('defective')
+  const [rmaText, setRmaText] = useState('')
+  const [rmaSubmitting, setRmaSubmitting] = useState(false)
+  const [rmaSuccess, setRmaSuccess] = useState(false)
 
   const fetchOrder = useCallback(async () => {
     setLoading(true)
@@ -88,7 +102,29 @@ export default function OrderDetailPage() {
     }
   }, [id])
 
-  useEffect(() => { void fetchOrder() }, [fetchOrder])
+  useEffect(() => {
+    void fetchOrder()
+    void fetch('/api/settings/public')
+      .then(r => r.json())
+      .then((j: Record<string, string>) => {
+        const v = parseInt(j['return_window_days'] ?? '7')
+        if (!isNaN(v)) setReturnWindowDays(v)
+      })
+      .catch(() => {/* use default */})
+  }, [fetchOrder])
+
+  const submitRma = async () => {
+    if (!rmaReason) return
+    setRmaSubmitting(true)
+    try {
+      const res = await fetch(`/api/orders/${id}/rma`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: rmaReason, reasonText: rmaText, type: rmaModal.type }),
+      })
+      if (res.ok) { setRmaSuccess(true) }
+    } finally { setRmaSubmitting(false) }
+  }
 
   if (loading) return (
     <div className="min-h-screen bg-surface-50 flex items-center justify-center">
@@ -292,6 +328,104 @@ export default function OrderDetailPage() {
 
         {['paid', 'processing', 'shipped', 'delivered'].includes(order.status) && (
           <InvoiceButtons orderId={order.id} />
+        )}
+
+        {/* RMA / Warranty section */}
+        {order.status === 'delivered' && (() => {
+          const daysSince = order.deliveredAt
+            ? Math.floor((Date.now() - new Date(order.deliveredAt).getTime()) / 86400000)
+            : null
+          const canRMA = daysSince !== null && daysSince <= returnWindowDays
+          const canWarranty = daysSince !== null && !canRMA
+          return (
+            <div className="bg-white rounded-2xl border border-surface-200 p-5 space-y-3">
+              <h2 className="font-bold text-surface-900 text-sm">مرجوعی و گارانتی</h2>
+              {canRMA && (
+                <div className="flex items-start gap-3">
+                  <div className="flex-1 text-xs text-surface-500 leading-relaxed">
+                    تا {toFaDigits(returnWindowDays - (daysSince ?? 0))} روز دیگر امکان درخواست مرجوعی نقدی دارید.
+                  </div>
+                  <button
+                    onClick={() => { setRmaModal({ open: true, type: 'rma' }); setRmaSuccess(false) }}
+                    className="btn btn-outline text-xs py-2 px-4 border-orange-300 text-orange-700 hover:bg-orange-50 flex-shrink-0"
+                  >
+                    📦 درخواست مرجوعی
+                  </button>
+                </div>
+              )}
+              {canWarranty && (
+                <div className="flex items-start gap-3">
+                  <div className="flex-1 text-xs text-surface-500 leading-relaxed">
+                    بازه مرجوعی پایان یافته — در صورت داشتن گارانتی فعال، می‌توانید درخواست خدمات گارانتی ارسال کنید.
+                  </div>
+                  <button
+                    onClick={() => { setRmaModal({ open: true, type: 'warranty' }); setRmaSuccess(false) }}
+                    className="btn btn-outline text-xs py-2 px-4 border-blue-300 text-blue-700 hover:bg-blue-50 flex-shrink-0"
+                  >
+                    🛡️ درخواست خدمات گارانتی
+                  </button>
+                </div>
+              )}
+            </div>
+          )
+        })()}
+
+        {/* RMA Modal */}
+        {rmaModal.open && (
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md space-y-4 p-6">
+              <h3 className="font-bold text-surface-900">
+                {rmaModal.type === 'rma' ? '📦 درخواست مرجوعی کالا' : '🛡️ درخواست خدمات گارانتی/تعمیر'}
+              </h3>
+              {rmaSuccess ? (
+                <div className="text-center space-y-3 py-4">
+                  <div className="text-5xl">✅</div>
+                  <p className="font-bold text-green-800">درخواست شما با موفقیت ثبت شد</p>
+                  <p className="text-sm text-surface-500">تیم پشتیبانی به زودی با شما تماس خواهد گرفت.</p>
+                  <button onClick={() => setRmaModal({ open: false, type: 'rma' })} className="btn btn-primary text-sm py-2.5 px-8">بستن</button>
+                </div>
+              ) : (
+                <>
+                  <div>
+                    <label className="block text-xs font-semibold text-surface-500 mb-2">دلیل</label>
+                    <select
+                      value={rmaReason}
+                      onChange={e => setRmaReason(e.target.value)}
+                      className="w-full px-3 py-2.5 text-sm border border-surface-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-300"
+                    >
+                      {REASON_OPTIONS.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-surface-500 mb-2">
+                      {rmaModal.type === 'warranty' ? 'شرح خرابی یا مشکل دستگاه' : 'توضیحات (اختیاری)'}
+                    </label>
+                    <textarea
+                      value={rmaText}
+                      onChange={e => setRmaText(e.target.value)}
+                      rows={3}
+                      placeholder={rmaModal.type === 'warranty' ? 'لطفاً مشکل دستگاه را به طور کامل شرح دهید...' : 'توضیحات بیشتر...'}
+                      className="w-full px-3 py-2.5 text-sm border border-surface-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-300 resize-none"
+                    />
+                  </div>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => setRmaModal({ open: false, type: 'rma' })}
+                      disabled={rmaSubmitting}
+                      className="flex-1 btn btn-outline text-sm py-2.5"
+                    >انصراف</button>
+                    <button
+                      onClick={() => void submitRma()}
+                      disabled={rmaSubmitting}
+                      className="flex-1 btn btn-primary text-sm py-2.5 disabled:opacity-50"
+                    >
+                      {rmaSubmitting ? 'در حال ارسال...' : 'ثبت درخواست'}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
         )}
 
         <div className="flex gap-3">

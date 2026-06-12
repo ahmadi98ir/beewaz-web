@@ -42,6 +42,7 @@ export const DEFAULT_SITE_SETTINGS: NewSiteSetting[] = [
   { key: 'bank_card_number', value: '',                          type: 'text',    label: 'شماره کارت بانکی',     group: 'commerce', hint: '16 رقم بدون فاصله' },
   { key: 'bank_card_holder', value: '',                          type: 'text',    label: 'نام صاحب حساب',        group: 'commerce' },
   { key: 'bank_card_bank',   value: '',                          type: 'text',    label: 'نام بانک',             group: 'commerce', hint: 'مثال: بانک ملت' },
+  { key: 'return_window_days', value: '7', type: 'number', label: 'بازه زمانی مرجوعی (روز)', group: 'commerce', hint: 'تعداد روزهایی که مشتری می‌تواند بعد از تحویل، درخواست مرجوعی دهد', isRequired: false, isEditable: true },
 
   // ── Notification ──
   { key: 'admin_order_notify_phone', value: '', type: 'text', label: 'شماره اطلاع‌رسانی سفارش جدید', group: 'notification', hint: 'SMS هنگام ثبت سفارش' },

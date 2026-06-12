@@ -1,171 +1,221 @@
-/**
- * صفحه گارانتی — متصل به CMS
- */
+'use client'
 
-import { getCmsContent } from '@/lib/cms'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
-import type { Metadata } from 'next'
+import { useSession } from 'next-auth/react'
+import { activateWarranty } from './actions'
+import { toFaDigits } from '@/lib/utils'
 
-export const dynamic = 'force-dynamic'
-
-export const metadata: Metadata = {
-  title: 'گارانتی و خدمات پس از فروش',
-  description: 'شرایط گارانتی ۲۴ ماهه محصولات بیواز، موارد تحت پوشش، خدمات پس از فروش و راهنمای گام‌به‌گام استفاده از گارانتی.',
+interface WarrantyRow {
+  id: string
+  serialNumber: string | null
+  productName: string | null
+  activatedAt: string
+  expiresAt: string
+  status: string
 }
 
-export default async function WarrantyPage() {
-  const cms = await getCmsContent('warranty', {
-    hero_title:      'گارانتی و خدمات پس از فروش',
-    hero_subtitle:   'پشتیبانی واقعی، نه شعار',
-    warranty_months: '۲۴',
-  })
+function fdate(d: string) {
+  return new Intl.DateTimeFormat('fa-IR', { dateStyle: 'medium' }).format(new Date(d))
+}
 
-  const highlights = [
-    { icon: '🛡️', title: `گارانتی ${cms.warranty_months} ماهه`, desc: 'پوشش کامل نقص فنی ناشی از تولید' },
-    { icon: '🔧', title: 'تعمیر تخصصی',   desc: 'تیم فنی مجرب و استفاده از قطعات اصل' },
-    { icon: '📞', title: 'پشتیبانی ۲۴/۷', desc: 'پاسخگویی در تمام ساعات شبانه‌روز' },
-    { icon: '🚚', title: 'خدمات سراسری',  desc: 'پوشش گارانتی در تمام استان‌های کشور' },
-  ]
+function daysLeft(expiresAt: string) {
+  return Math.ceil((new Date(expiresAt).getTime() - Date.now()) / 86400000)
+}
 
-  const covered = [
-    'نقص فنی قطعات الکترونیکی برد و پنل مرکزی',
-    'خرابی ناشی از فرآیند تولید و مونتاژ',
-    'اختلال در عملکرد حسگرها در شرایط استفاده عادی',
-    'ایراد در ماژول‌های ارتباطی (GSM / WiFi / RF)',
-    'خرابی منبع تغذیه و مدار شارژ باتری',
-  ]
+export default function WarrantyPage() {
+  const { status } = useSession()
+  const [serial, setSerial] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [result, setResult] = useState<{ ok: true; productName: string; expiresAt: string } | { ok: false; error: string } | null>(null)
+  const [warranties, setWarranties] = useState<WarrantyRow[]>([])
+  const [warrantyLoading, setWarrantyLoading] = useState(true)
 
-  const notCovered = [
-    'آسیب فیزیکی، شکستگی، ضربه یا نفوذ آب و رطوبت',
-    'نصب نادرست توسط افراد غیرمتخصص',
-    'دستکاری، باز کردن یا تعمیر توسط اشخاص غیرمجاز',
-    'آسیب ناشی از نوسان شدید برق یا صاعقه (بدون محافظ ولتاژ)',
-    'فرسودگی طبیعی باتری پس از پایان عمر مفید',
-  ]
+  const fetchWarranties = useCallback(async () => {
+    setWarrantyLoading(true)
+    try {
+      const res = await fetch('/api/user/warranties')
+      if (res.ok) {
+        const j = await res.json() as { warranties: WarrantyRow[] }
+        setWarranties(j.warranties ?? [])
+      }
+    } finally { setWarrantyLoading(false) }
+  }, [])
 
-  const steps = [
-    { n: '۱', title: 'تماس با پشتیبانی', desc: 'با شماره پشتیبانی تماس بگیرید یا درخواست خود را در صفحه تماس با ما ثبت کنید' },
-    { n: '۲', title: 'بررسی اولیه',      desc: 'کارشناس فنی مشکل را از راه دور بررسی و راهنمایی می‌کند' },
-    { n: '۳', title: 'ارجاع به تعمیر',   desc: 'در صورت نیاز، دستگاه به مرکز خدمات ارجاع یا تکنسین اعزام می‌شود' },
-    { n: '۴', title: 'تعمیر یا تعویض',   desc: 'مشکل به‌صورت رایگان رفع و دستگاه به شما بازگردانده می‌شود' },
-  ]
+  useEffect(() => {
+    if (status === 'authenticated') void fetchWarranties()
+  }, [status, fetchWarranties])
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!serial.trim()) return
+    setLoading(true)
+    setResult(null)
+    const res = await activateWarranty(serial.trim())
+    setResult(res)
+    setLoading(false)
+    if (res.ok) {
+      setSerial('')
+      void fetchWarranties()
+    }
+  }
+
+  if (status === 'loading') {
+    return (
+      <div className="min-h-screen bg-surface-50 flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-brand-600 border-t-transparent rounded-full animate-spin" />
+      </div>
+    )
+  }
+
+  if (status === 'unauthenticated') {
+    return (
+      <div className="min-h-screen bg-surface-50 flex flex-col items-center justify-center gap-4" dir="rtl">
+        <span className="text-5xl">🔒</span>
+        <p className="font-bold text-surface-700">برای ثبت گارانتی ابتدا وارد شوید</p>
+        <Link href="/login" className="btn btn-primary px-8">ورود به حساب</Link>
+      </div>
+    )
+  }
 
   return (
-    <main>
-      {/* Hero */}
-      <section className="bg-gradient-to-br from-brand-900 to-brand-700 py-16 sm:py-24 text-center">
-        <div className="container-page">
-          <h1 className="text-3xl sm:text-5xl font-black text-white mb-4">{cms.hero_title}</h1>
-          <p className="text-white/75 text-lg max-w-xl mx-auto">{cms.hero_subtitle}</p>
-        </div>
-      </section>
+    <div className="min-h-screen bg-surface-50 py-8" dir="rtl">
+      <div className="max-w-2xl mx-auto px-4 space-y-6">
 
-      {/* Highlights */}
-      <section className="py-12 bg-surface-50 border-b border-surface-100">
-        <div className="container-page">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
-            {highlights.map((h) => (
-              <div key={h.title} className="bg-white rounded-2xl p-6 border border-surface-100 text-center">
-                <div className="text-4xl mb-4">{h.icon}</div>
-                <h3 className="font-bold text-surface-900 mb-2">{h.title}</h3>
-                <p className="text-sm text-surface-500 leading-relaxed">{h.desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Intro */}
-      <section className="py-14 sm:py-20">
-        <div className="container-page max-w-3xl text-center">
-          <h2 className="text-2xl sm:text-3xl font-black text-surface-900 mb-5">
-            گارانتی {cms.warranty_months} ماهه بیواز
-          </h2>
-          <p className="text-surface-600 leading-8">
-            تمام محصولات بیواز با گارانتی {cms.warranty_months} ماهه عرضه می‌شوند. ما به کیفیت محصولاتمان
-            باور داریم؛ به همین دلیل در صورت بروز هرگونه نقص فنی ناشی از تولید، تعمیر یا تعویض به‌صورت
-            کاملاً رایگان انجام می‌شود. هدف ما این است که شما با خیال راحت از سیستم امنیتی خود استفاده کنید.
-          </p>
-        </div>
-      </section>
-
-      {/* Covered / Not covered */}
-      <section className="pb-16">
-        <div className="container-page">
-          <div className="grid md:grid-cols-2 gap-6">
-            {/* Covered */}
-            <div className="bg-white rounded-2xl p-7 border border-green-100">
-              <h3 className="flex items-center gap-2 text-lg font-black text-surface-900 mb-5">
-                <span className="w-8 h-8 rounded-lg bg-green-100 text-green-600 flex items-center justify-center">✓</span>
-                موارد تحت پوشش
-              </h3>
-              <ul className="space-y-3">
-                {covered.map((c) => (
-                  <li key={c} className="flex items-start gap-2.5 text-surface-700 leading-relaxed text-sm">
-                    <span className="mt-1 text-green-500">●</span>
-                    {c}
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            {/* Not covered */}
-            <div className="bg-white rounded-2xl p-7 border border-red-100">
-              <h3 className="flex items-center gap-2 text-lg font-black text-surface-900 mb-5">
-                <span className="w-8 h-8 rounded-lg bg-red-100 text-red-600 flex items-center justify-center">✕</span>
-                موارد خارج از پوشش
-              </h3>
-              <ul className="space-y-3">
-                {notCovered.map((c) => (
-                  <li key={c} className="flex items-start gap-2.5 text-surface-700 leading-relaxed text-sm">
-                    <span className="mt-1 text-red-400">●</span>
-                    {c}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Steps */}
-      <section className="py-14 bg-surface-50 border-y border-surface-100">
-        <div className="container-page">
-          <h2 className="text-2xl font-black text-surface-900 mb-10 text-center">
-            نحوه استفاده از گارانتی
-          </h2>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {steps.map((s) => (
-              <div key={s.n} className="bg-white rounded-2xl p-6 border border-surface-100">
-                <div className="w-11 h-11 rounded-xl bg-brand-700 text-white font-black text-lg flex items-center justify-center mb-4">
-                  {s.n}
-                </div>
-                <h3 className="font-bold text-surface-900 mb-2">{s.title}</h3>
-                <p className="text-sm text-surface-500 leading-relaxed">{s.desc}</p>
-              </div>
-            ))}
-          </div>
-          <p className="text-center text-sm text-surface-500 mt-8">
-            💡 لطفاً فاکتور خرید و کارت گارانتی را تا پایان دوره نزد خود نگه دارید.
-          </p>
-        </div>
-      </section>
-
-      {/* CTA */}
-      <section className="py-14">
-        <div className="container-page max-w-2xl text-center">
-          <h2 className="text-2xl font-black text-surface-900 mb-4">به کمک نیاز دارید؟</h2>
-          <p className="text-surface-600 leading-8 mb-8">
-            تیم خدمات پس از فروش بیواز آماده پاسخگویی به سوالات شما درباره گارانتی، تعمیر و نگهداری است.
-          </p>
-          <Link
-            href="/contact"
-            className="inline-flex items-center justify-center rounded-xl bg-brand-700 px-8 py-3.5 font-bold text-white hover:bg-brand-800 transition-colors"
-          >
-            ثبت درخواست خدمات
+        {/* Header */}
+        <div className="flex items-center gap-3">
+          <Link href="/profile" className="p-2 rounded-xl hover:bg-surface-100 text-surface-400 transition-colors">
+            <svg viewBox="0 0 20 20" className="w-4 h-4" fill="currentColor">
+              <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
+            </svg>
           </Link>
+          <div>
+            <h1 className="text-xl font-black text-surface-900">ثبت و مدیریت گارانتی</h1>
+            <p className="text-xs text-surface-400 mt-0.5">شماره سریال محصول خود را وارد کنید تا گارانتی فعال شود</p>
+          </div>
         </div>
-      </section>
-    </main>
+
+        {/* Registration Form */}
+        <div className="bg-white rounded-2xl border border-surface-200 p-6">
+          <div className="flex items-center gap-3 mb-5">
+            <div className="w-10 h-10 rounded-xl bg-brand-50 flex items-center justify-center text-xl">🔑</div>
+            <div>
+              <h2 className="font-bold text-surface-900">فعال‌سازی گارانتی</h2>
+              <p className="text-xs text-surface-500">شماره سریال روی برچسب محصول یا جعبه درج شده است</p>
+            </div>
+          </div>
+
+          <form onSubmit={e => { void handleSubmit(e) }} className="space-y-4">
+            <div>
+              <label className="block text-sm font-semibold text-surface-700 mb-2">شماره سریال محصول</label>
+              <input
+                type="text"
+                value={serial}
+                onChange={e => setSerial(e.target.value.toUpperCase())}
+                placeholder="مثال: BW-2024-XXXXX"
+                className="w-full px-4 py-3 border border-surface-200 rounded-xl text-sm font-mono tracking-widest focus:outline-none focus:ring-2 focus:ring-brand-300 bg-surface-50 uppercase"
+                dir="ltr"
+                maxLength={50}
+              />
+            </div>
+
+            {result && (
+              <div className={`rounded-xl p-4 text-sm font-semibold flex items-start gap-3 ${
+                result.ok
+                  ? 'bg-green-50 text-green-800 border border-green-200'
+                  : 'bg-red-50 text-red-700 border border-red-200'
+              }`}>
+                <span className="text-lg flex-shrink-0">{result.ok ? '✅' : '❌'}</span>
+                <div>
+                  {result.ok ? (
+                    <>
+                      <p>گارانتی <strong>{result.productName}</strong> با موفقیت فعال شد!</p>
+                      <p className="font-normal mt-1 text-green-700">تاریخ انقضا: {fdate(result.expiresAt)}</p>
+                    </>
+                  ) : (
+                    <p>{result.error}</p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={loading || !serial.trim()}
+              className="w-full btn btn-primary py-3 text-sm font-bold disabled:opacity-50"
+            >
+              {loading ? (
+                <span className="flex items-center justify-center gap-2">
+                  <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  در حال بررسی...
+                </span>
+              ) : 'فعال‌سازی گارانتی'}
+            </button>
+          </form>
+        </div>
+
+        {/* Warranties List */}
+        <div className="bg-white rounded-2xl border border-surface-200 overflow-hidden">
+          <div className="px-6 py-4 border-b border-surface-100">
+            <h2 className="font-bold text-surface-900">گارانتی‌های من</h2>
+          </div>
+
+          {warrantyLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="w-6 h-6 border-2 border-brand-600 border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : warranties.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 gap-3 text-surface-400">
+              <span className="text-4xl">🛡️</span>
+              <p className="text-sm">هنوز گارانتی‌ای ثبت نشده است</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-surface-50">
+              {warranties.map(w => {
+                const left = daysLeft(w.expiresAt)
+                const expired = left <= 0
+                const urgent = left > 0 && left <= 30
+                return (
+                  <div key={w.id} className="px-6 py-4 flex items-center gap-4">
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0 ${
+                      expired ? 'bg-red-50' : urgent ? 'bg-amber-50' : 'bg-green-50'
+                    }`}>
+                      🛡️
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-surface-900 text-sm">{w.productName ?? 'محصول'}</p>
+                      <p className="text-xs text-surface-400 font-mono mt-0.5" dir="ltr">{w.serialNumber}</p>
+                      <p className="text-xs text-surface-500 mt-1">
+                        فعال‌سازی: {fdate(w.activatedAt)} — انقضا: {fdate(w.expiresAt)}
+                      </p>
+                    </div>
+                    <div className="text-end flex-shrink-0">
+                      {expired ? (
+                        <span className="px-2.5 py-1 rounded-lg bg-red-50 text-red-600 border border-red-200 text-xs font-bold">منقضی</span>
+                      ) : (
+                        <span className={`px-2.5 py-1 rounded-lg border text-xs font-bold ${urgent ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-green-50 text-green-700 border-green-200'}`}>
+                          {toFaDigits(left)} روز مانده
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Link to public checker */}
+        <div className="bg-surface-100 rounded-2xl p-4 flex items-center gap-3 text-sm">
+          <span className="text-xl flex-shrink-0">🔍</span>
+          <div className="flex-1">
+            <p className="font-semibold text-surface-700">استعلام اصالت کالا</p>
+            <p className="text-surface-500 text-xs mt-0.5">بررسی اصالت کالا بدون نیاز به ورود</p>
+          </div>
+          <Link href="/fa/warranty-check" className="btn btn-outline text-xs py-2 px-3 flex-shrink-0">استعلام</Link>
+        </div>
+
+      </div>
+    </div>
   )
 }

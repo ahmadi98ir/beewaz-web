@@ -132,3 +132,10 @@ export {
   type ProductView, type CartAbandonmentSession, type NewCartAbandonmentSession,
   type AnalyticsDailySnapshot,
 } from './analytics'
+
+// ─── Warranties ───────────────────────────────────────────────────────────────
+export {
+  serialStatusEnum, warrantyStatusEnum, productSerials, warranties,
+  productSerialsRelations, warrantiesRelations,
+  type ProductSerial, type Warranty,
+} from './warranties'

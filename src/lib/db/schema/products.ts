@@ -25,6 +25,7 @@ export const products = pgTable('products', {
   stock:           integer('stock').default(0).notNull(),
   status:       productStatusEnum('status').default('draft').notNull(),
   isFeatured:   boolean('is_featured').default(false).notNull(),
+  warrantyDays: integer('warranty_days').notNull().default(0),
   ratingAvg:    numeric('rating_avg', { precision: 3, scale: 2 }).default('0'),
   ratingCount:  integer('rating_count').default(0).notNull(),
   metaTitle:    text('meta_title'),
