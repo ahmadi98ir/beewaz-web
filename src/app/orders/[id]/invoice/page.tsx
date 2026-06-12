@@ -6,13 +6,21 @@ import { orders, orderItems, users } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 import { loadInvoiceSettings } from '@/app/admin/invoices/actions'
 import { PrintableInvoice } from '@/app/admin/invoices/_components/printable-invoice'
+import { StoreInvoice } from './_store-invoice'
 import { PrintButton } from './_print-button'
 import type { InvoiceOrder } from '@/app/admin/invoices/types'
 
 const PAID_STATUSES = ['paid', 'processing', 'shipped', 'delivered'] as const
 
-export default async function CustomerInvoicePage({ params }: { params: Promise<{ id: string }> }) {
+export default async function CustomerInvoicePage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>
+  searchParams: Promise<{ type?: string }>
+}) {
   const { id } = await params
+  const { type } = await searchParams
   const session = await auth()
   if (!session?.user?.id) redirect('/login')
 
@@ -79,7 +87,11 @@ export default async function CustomerInvoicePage({ params }: { params: Promise<
         <PrintButton />
       </div>
 
-      <PrintableInvoice order={invoiceOrder} settings={settings} />
+      {type === 'store' ? (
+        <StoreInvoice order={invoiceOrder} settings={settings} />
+      ) : (
+        <PrintableInvoice order={invoiceOrder} settings={settings} />
+      )}
     </div>
   )
 }

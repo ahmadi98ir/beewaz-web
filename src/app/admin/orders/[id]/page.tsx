@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
-import { deleteOrder } from '../actions'
+import { deleteOrder, updateReturnStatus } from '../actions'
 
 interface OrderItem {
   id: string; productName: string; variantName: string | null
@@ -19,6 +19,26 @@ interface Order {
     street?: string; alley?: string; plaque?: string; unit?: string; postalCode?: string
   } | null
   createdAt: string; paidAt: string | null; shippedAt: string | null; deliveredAt: string | null
+}
+
+interface ReturnRequest {
+  id: string; productName: string | null; reason: string; reasonText: string | null
+  status: string; adminNotes: string | null; requestedAt: string; resolvedAt: string | null
+}
+
+const RETURN_STATUS_MAP: Record<string, { label: string; cls: string }> = {
+  pending:  { label: 'در انتظار بررسی', cls: 'bg-amber-50 text-amber-700 border-amber-200' },
+  approved: { label: 'تأیید شده',       cls: 'bg-blue-50 text-blue-700 border-blue-200' },
+  rejected: { label: 'رد شده',          cls: 'bg-red-50 text-red-600 border-red-200' },
+  refunded: { label: 'مبلغ برگشت داده شد', cls: 'bg-green-50 text-green-700 border-green-200' },
+}
+
+const RETURN_REASON_LABELS: Record<string, string> = {
+  defective:         'کالای معیوب',
+  wrong_item:        'کالای اشتباه',
+  not_as_described:  'مغایر با توضیحات',
+  changed_mind:      'انصراف از خرید',
+  other:             'سایر',
 }
 
 interface OrderNote {
@@ -59,6 +79,9 @@ export default function OrderDetailPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState('')
+  const [returns, setReturns] = useState<ReturnRequest[]>([])
+  const [returnNotes, setReturnNotes] = useState<Record<string, string>>({})
+  const [savingReturn, setSavingReturn] = useState<string | null>(null)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [tracking, setTracking] = useState('')
@@ -78,13 +101,26 @@ export default function OrderDetailPage() {
     } finally { setLoading(false) }
   }, [id])
 
+  const fetchReturns = useCallback(async () => {
+    const res = await fetch(`/api/admin/orders/${id}/returns`)
+    const j = await res.json() as { returns: ReturnRequest[] }
+    setReturns(j.returns ?? [])
+  }, [id])
+
   const fetchNotes = useCallback(async () => {
     const res = await fetch(`/api/admin/orders/${id}/notes`)
     const j = await res.json() as { notes: OrderNote[] }
     setNotes(j.notes ?? [])
   }, [id])
 
-  useEffect(() => { fetchOrder(); fetchNotes() }, [fetchOrder, fetchNotes])
+  const handleReturnStatus = async (returnId: string, status: 'approved' | 'rejected' | 'refunded') => {
+    setSavingReturn(returnId)
+    await updateReturnStatus(returnId, status, returnNotes[returnId])
+    await fetchReturns()
+    setSavingReturn(null)
+  }
+
+  useEffect(() => { fetchOrder(); fetchNotes(); fetchReturns() }, [fetchOrder, fetchNotes, fetchReturns])
 
   const addNote = async () => {
     if (!newNote.trim()) return
@@ -331,6 +367,71 @@ export default function OrderDetailPage() {
               </button>
             </div>
           </div>
+          {/* Returns / RMA */}
+          {returns.length > 0 && (
+            <div className="bg-white rounded-2xl border border-surface-200 p-6 space-y-4">
+              <h3 className="font-bold text-surface-900">مدیریت مرجوعی</h3>
+              <div className="space-y-4">
+                {returns.map(r => {
+                  const sc = RETURN_STATUS_MAP[r.status] ?? RETURN_STATUS_MAP['pending']!
+                  return (
+                    <div key={r.id} className="border border-surface-100 rounded-xl p-4 space-y-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="font-semibold text-surface-900 text-sm">{r.productName ?? '—'}</p>
+                          <p className="text-xs text-surface-500 mt-0.5">{RETURN_REASON_LABELS[r.reason] ?? r.reason}{r.reasonText ? ` — ${r.reasonText}` : ''}</p>
+                          <p className="text-xs text-surface-400 mt-0.5">{fdate(r.requestedAt)}</p>
+                        </div>
+                        <span className={`px-2.5 py-1 rounded-xl border text-xs font-semibold flex-shrink-0 ${sc.cls}`}>{sc.label}</span>
+                      </div>
+                      {r.adminNotes && (
+                        <p className="text-xs text-surface-600 bg-surface-50 rounded-lg px-3 py-2">{r.adminNotes}</p>
+                      )}
+                      {r.status === 'pending' || r.status === 'approved' ? (
+                        <div className="space-y-2 pt-2 border-t border-surface-100">
+                          <textarea
+                            value={returnNotes[r.id] ?? ''}
+                            onChange={e => setReturnNotes(prev => ({ ...prev, [r.id]: e.target.value }))}
+                            rows={2} placeholder="یادداشت ادمین (اختیاری)..."
+                            className="w-full px-3 py-2 text-xs border border-surface-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-300 resize-none"
+                          />
+                          <div className="flex gap-2">
+                            {r.status === 'pending' && (
+                              <>
+                                <button
+                                  onClick={() => handleReturnStatus(r.id, 'approved')}
+                                  disabled={savingReturn === r.id}
+                                  className="flex-1 px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold disabled:opacity-50 transition-colors"
+                                >
+                                  {savingReturn === r.id ? '...' : 'تأیید'}
+                                </button>
+                                <button
+                                  onClick={() => handleReturnStatus(r.id, 'rejected')}
+                                  disabled={savingReturn === r.id}
+                                  className="flex-1 px-3 py-2 rounded-xl border border-red-200 text-red-600 text-xs font-semibold hover:bg-red-50 disabled:opacity-50 transition-colors"
+                                >
+                                  رد کردن
+                                </button>
+                              </>
+                            )}
+                            {r.status === 'approved' && (
+                              <button
+                                onClick={() => handleReturnStatus(r.id, 'refunded')}
+                                disabled={savingReturn === r.id}
+                                className="flex-1 px-3 py-2 rounded-xl bg-green-600 hover:bg-green-700 text-white text-xs font-semibold disabled:opacity-50 transition-colors"
+                              >
+                                {savingReturn === r.id ? '...' : 'مبلغ برگشت داده شد'}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      ) : null}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Right sidebar */}

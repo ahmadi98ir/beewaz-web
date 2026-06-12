@@ -5,17 +5,18 @@ import { and, eq, sql } from 'drizzle-orm'
 import { getZarinpalConfig } from '@/lib/payment-config'
 
 export async function GET(req: Request) {
+  const SITE = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://beewaz.ir'
   const { searchParams } = new URL(req.url)
   const orderId = searchParams.get('orderId')
   const authority = searchParams.get('Authority')
   const status = searchParams.get('Status')
 
   if (!orderId || !authority) {
-    return NextResponse.redirect(new URL('/shop', req.url))
+    return NextResponse.redirect(`${SITE}/shop`)
   }
 
   if (status !== 'OK') {
-    return NextResponse.redirect(new URL(`/checkout?error=cancelled`, req.url))
+    return NextResponse.redirect(`${SITE}/checkout?error=cancelled`)
   }
 
   const [order] = await db
@@ -25,11 +26,11 @@ export async function GET(req: Request) {
     .limit(1)
 
   if (!order || order.transactionId !== authority) {
-    return NextResponse.redirect(new URL('/shop', req.url))
+    return NextResponse.redirect(`${SITE}/shop`)
   }
 
   if (order.status === 'paid') {
-    return NextResponse.redirect(new URL(`/orders/${order.id}/confirmation`, req.url))
+    return NextResponse.redirect(`${SITE}/orders/${order.id}/confirmation`)
   }
 
   const config = await getZarinpalConfig()
@@ -47,7 +48,7 @@ export async function GET(req: Request) {
 
   if (!zpRes.ok || (zpData.data?.code !== 100 && zpData.data?.code !== 101)) {
     console.error('[zarinpal/verify]', zpData)
-    return NextResponse.redirect(new URL(`/checkout?error=payment_failed`, req.url))
+    return NextResponse.redirect(`${SITE}/checkout?error=payment_failed`)
   }
 
   await db.transaction(async (tx) => {
@@ -77,5 +78,5 @@ export async function GET(req: Request) {
     }
   })
 
-  return NextResponse.redirect(new URL(`/orders/${order.id}/confirmation`, req.url))
+  return NextResponse.redirect(`${SITE}/orders/${order.id}/confirmation`)
 }

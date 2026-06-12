@@ -11,7 +11,7 @@ export function InvoiceButtons({ orderId }: { orderId: string }) {
     <>
       <div className="flex gap-3 mb-3">
         <Link
-          href={`/orders/${orderId}/invoice`}
+          href={`/orders/${orderId}/invoice?type=store`}
           className="btn btn-outline flex-1 text-sm py-2.5 flex items-center justify-center gap-2"
         >
           📄 دریافت فاکتور فروشگاهی
