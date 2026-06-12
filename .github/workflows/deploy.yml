@@ -2,7 +2,7 @@ name: CI / CD
 
 on:
   push:
-    branches: [main, claude/ecstatic-galileo-cvmNQ]
+    branches: [main]
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -28,69 +28,80 @@ jobs:
       - name: Unit tests
         run: npm test
 
-  # ── مرحله ۲: Build Docker image + Push to ghcr.io ─────────────────────────
+  # ── مرحله ۲: Build standalone + Upload to deploy-cache (فقط main) ─────────
   deploy:
     name: Deploy
     runs-on: ubuntu-latest
     needs: test
-    if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/claude/ecstatic-galileo-cvmNQ') && github.event_name == 'push'
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     permissions:
       contents: write
-      packages: write
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
+      - uses: actions/setup-node@v4
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          node-version: '22'
+          cache: 'npm'
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+      - name: Install dependencies
+        run: npm ci
 
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          push: true
-          tags: |
-            ghcr.io/ahmadi98ir/beewaz-web:latest
-            ghcr.io/ahmadi98ir/beewaz-web:${{ github.sha }}
-          build-args: |
-            NEXT_PUBLIC_APP_URL=https://beewaz.ir
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+      - name: Build (standalone)
+        env:
+          NEXT_PUBLIC_APP_URL: https://beewaz.ir
+        run: npm run build
 
-      - name: Trigger Coolify redeploy
-        continue-on-error: true
+      - name: Assemble build tarball
         run: |
-          RESPONSE=$(curl -s -o /tmp/coolify_resp.txt -w "%{http_code}" \
-            --max-time 15 \
-            -X POST "http://78.157.51.14:8000/api/v1/applications/jw4kpfn8utdybrmwkr80fm8f/deploy" \
-            -H "Authorization: Bearer 5|beewaz-deploy-fix-2026" \
-            -H "Content-Type: application/json") || RESPONSE="timeout"
-          echo "Coolify response: $RESPONSE"
-          cat /tmp/coolify_resp.txt 2>/dev/null || true
-          if [[ "$RESPONSE" =~ ^2 ]]; then
-            echo "## ✅ Coolify deploy triggered — commit \`${GITHUB_SHA:0:8}\`" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "## ⚠️ Coolify unreachable ($RESPONSE) — pull image manually: ghcr.io/ahmadi98ir/beewaz-web:latest" >> $GITHUB_STEP_SUMMARY
-          fi
+          rm -rf bundle && mkdir -p bundle
+          cp -r .next/standalone/. bundle/
+          mkdir -p bundle/.next
+          cp -r .next/static bundle/.next/static
+          [ -d public ] && cp -r public bundle/public || true
+          [ -d src/lib/db/migrations ] && cp -r src/lib/db/migrations bundle/migrations || true
+          cp entrypoint.sh bundle/entrypoint.sh
+          # mini Dockerfile so server can docker build from this tarball (no leading spaces)
+          printf '%s\n' \
+            'FROM node:22-alpine' \
+            'WORKDIR /app' \
+            'RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 nextjs' \
+            'COPY --chown=nextjs:nodejs . .' \
+            'RUN chmod +x ./entrypoint.sh' \
+            'EXPOSE 3000' \
+            'ENV PORT=3000' \
+            'ENV HOSTNAME="0.0.0.0"' \
+            'ENV NODE_ENV=production' \
+            'ENV NEXT_TELEMETRY_DISABLED=1' \
+            'CMD ["./entrypoint.sh"]' \
+            > bundle/Dockerfile
+          tar -czf beewaz-build.tar.gz -C bundle .
+          SIZE=$(du -sh beewaz-build.tar.gz | cut -f1)
+          echo "BUILD_SIZE=$SIZE" >> $GITHUB_ENV
+          echo "Tarball size: $SIZE"
 
-      - name: Upload tarball to deploy-cache release (fallback)
+      - name: Upload to deploy-cache release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          docker save ghcr.io/ahmadi98ir/beewaz-web:latest | gzip > beewaz-image.tar.gz
-          SIZE=$(du -sh beewaz-image.tar.gz | cut -f1)
           gh release delete deploy-cache --yes 2>/dev/null || true
           git push origin :refs/tags/deploy-cache 2>/dev/null || true
           sleep 2
-          gh release create deploy-cache beewaz-image.tar.gz \
+          gh release create deploy-cache beewaz-build.tar.gz \
             --title "Deploy Cache (${GITHUB_SHA:0:8})" \
             --notes "Built from commit ${GITHUB_SHA} at $(date -u)" \
             --latest=false
-          echo "## ✅ Image tarball uploaded — commit \`${GITHUB_SHA:0:8}\` | $SIZE" >> $GITHUB_STEP_SUMMARY
+          echo "## ✅ Build uploaded — commit \`${GITHUB_SHA:0:8}\` | ${{ env.BUILD_SIZE }}" >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload to Cloudflare R2
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          AWS_ENDPOINT_URL: https://780f1658226b1429c605646103baeb07.r2.cloudflarestorage.com
+        run: |
+          echo "${GITHUB_SHA}" > sha.txt
+          aws s3 cp beewaz-build.tar.gz s3://beewaz-deploy/beewaz-build.tar.gz --no-progress
+          aws s3 cp sha.txt s3://beewaz-deploy/sha.txt
+          echo "## ✅ Uploaded to R2 — commit \`${GITHUB_SHA:0:8}\` | ${{ env.BUILD_SIZE }}" >> $GITHUB_STEP_SUMMARY
