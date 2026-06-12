@@ -64,13 +64,27 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      - name: Trigger Coolify redeploy
+        run: |
+          RESPONSE=$(curl -s -o /tmp/coolify_resp.txt -w "%{http_code}" \
+            -X POST "http://78.157.51.14:8000/api/v1/applications/jw4kpfn8utdybrmwkr80fm8f/deploy" \
+            -H "Authorization: Bearer 5|beewaz-deploy-fix-2026" \
+            -H "Content-Type: application/json")
+          echo "Coolify response: $RESPONSE"
+          cat /tmp/coolify_resp.txt || true
+          if [ "$RESPONSE" -ge 200 ] && [ "$RESPONSE" -lt 300 ]; then
+            echo "## ✅ Coolify deploy triggered — commit \`${GITHUB_SHA:0:8}\`" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "## ⚠️ Coolify trigger returned HTTP $RESPONSE — check server manually" >> $GITHUB_STEP_SUMMARY
+            echo "Response body:" && cat /tmp/coolify_resp.txt
+          fi
+
       - name: Upload tarball to deploy-cache release (fallback)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           docker save ghcr.io/ahmadi98ir/beewaz-web:latest | gzip > beewaz-image.tar.gz
           SIZE=$(du -sh beewaz-image.tar.gz | cut -f1)
-          echo "IMAGE_SIZE=$SIZE" >> $GITHUB_ENV
           gh release delete deploy-cache --yes 2>/dev/null || true
           git push origin :refs/tags/deploy-cache 2>/dev/null || true
           sleep 2
@@ -78,4 +92,4 @@ jobs:
             --title "Deploy Cache (${GITHUB_SHA:0:8})" \
             --notes "Built from commit ${GITHUB_SHA} at $(date -u)" \
             --latest=false
-          echo "## ✅ Image pushed to ghcr.io — commit \`${GITHUB_SHA:0:8}\` | $SIZE" >> $GITHUB_STEP_SUMMARY
+          echo "## ✅ Image tarball uploaded — commit \`${GITHUB_SHA:0:8}\` | $SIZE" >> $GITHUB_STEP_SUMMARY
