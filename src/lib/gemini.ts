@@ -1,11 +1,20 @@
-// AvalAI — OpenAI-compatible API that works from Iranian servers
-// Docs: https://avalai.ir
+// OpenAI-compatible LLM client (supports AvalAI, OpenAI, and any compatible endpoint)
+// Configure via: AI_BASE_URL, AI_API_KEY, AI_MODEL
 
-const BASE_URL = process.env.AVALAI_BASE_URL ?? 'https://api.avalai.ir/v1'
-const API_KEY  = process.env.AVALAI_API_KEY ?? process.env.GEMINI_API_KEY ?? ''
-const MODEL    = process.env.AI_MODEL ?? 'gemini-2.0-flash'
+const BASE_URL =
+  process.env.AI_BASE_URL ??
+  process.env.AVALAI_BASE_URL ??
+  'https://api.avalai.ir/v1'
 
-if (!API_KEY) console.warn('[ai] No API key configured (AVALAI_API_KEY)')
+const API_KEY =
+  process.env.AI_API_KEY ??
+  process.env.AVALAI_API_KEY ??
+  process.env.GEMINI_API_KEY ??
+  ''
+
+const MODEL = process.env.AI_MODEL ?? 'gemini-2.0-flash'
+
+if (!API_KEY) console.warn('[ai] No API key configured — set AI_API_KEY')
 
 interface Message {
   role: 'system' | 'user' | 'assistant'
