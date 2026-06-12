@@ -65,18 +65,19 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Trigger Coolify redeploy
+        continue-on-error: true
         run: |
           RESPONSE=$(curl -s -o /tmp/coolify_resp.txt -w "%{http_code}" \
+            --max-time 15 \
             -X POST "http://78.157.51.14:8000/api/v1/applications/jw4kpfn8utdybrmwkr80fm8f/deploy" \
             -H "Authorization: Bearer 5|beewaz-deploy-fix-2026" \
-            -H "Content-Type: application/json")
+            -H "Content-Type: application/json") || RESPONSE="timeout"
           echo "Coolify response: $RESPONSE"
-          cat /tmp/coolify_resp.txt || true
-          if [ "$RESPONSE" -ge 200 ] && [ "$RESPONSE" -lt 300 ]; then
+          cat /tmp/coolify_resp.txt 2>/dev/null || true
+          if [[ "$RESPONSE" =~ ^2 ]]; then
             echo "## ✅ Coolify deploy triggered — commit \`${GITHUB_SHA:0:8}\`" >> $GITHUB_STEP_SUMMARY
           else
-            echo "## ⚠️ Coolify trigger returned HTTP $RESPONSE — check server manually" >> $GITHUB_STEP_SUMMARY
-            echo "Response body:" && cat /tmp/coolify_resp.txt
+            echo "## ⚠️ Coolify unreachable ($RESPONSE) — pull image manually: ghcr.io/ahmadi98ir/beewaz-web:latest" >> $GITHUB_STEP_SUMMARY
           fi
 
       - name: Upload tarball to deploy-cache release (fallback)
