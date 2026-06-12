@@ -61,9 +61,12 @@ export function ChatWidget() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const visitorToken = useRef('')
+  const sessionId = useRef<string | undefined>(undefined)
 
   useEffect(() => {
     visitorToken.current = makeVisitorToken()
+    const stored = typeof window !== 'undefined' ? localStorage.getItem('beewaz_sid') : null
+    if (stored) sessionId.current = stored
     fetch('/api/chat/config')
       .then((r) => r.json())
       .then((data: ChatConfig) => setConfig(data))
@@ -118,14 +121,24 @@ export function ChatWidget() {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: newHistory }),
+        body: JSON.stringify({
+          messages: newHistory,
+          session_id: sessionId.current,
+          visitorToken: visitorToken.current,
+        }),
       })
 
       const data = await res.json() as {
         message: string
+        session_id?: string
         leadCaptured?: boolean
         phone?: string
         error?: string
+      }
+
+      if (data.session_id) {
+        sessionId.current = data.session_id
+        if (typeof window !== 'undefined') localStorage.setItem('beewaz_sid', data.session_id)
       }
 
       setIsTyping(false)
