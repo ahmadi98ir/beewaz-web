@@ -49,6 +49,7 @@ export async function saveProduct(
           stock:         totalStock,
           status:        data.status,
           isFeatured:    data.isFeatured,
+          warrantyDays:  data.warrantyDays,
           metaTitle:     data.metaTitle || null,
           metaDesc:      data.metaDesc || null,
         })

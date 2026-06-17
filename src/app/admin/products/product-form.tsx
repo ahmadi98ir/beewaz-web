@@ -24,6 +24,7 @@ export interface ProductFormData {
   salePriceFrom?: string | null
   salePriceTo?: string | null
   stock: number
+  warrantyDays?: number
   status: 'draft' | 'active' | 'archived' | 'out_of_stock'
   isFeatured: boolean
   metaTitle?: string | null
@@ -73,6 +74,7 @@ export function ProductForm({ initial, mode }: Props) {
     salePriceFrom: null,
     salePriceTo: null,
     stock: 0,
+    warrantyDays: 0,
     relatedProductIds: [],
     status: 'draft',
     isFeatured: false,
@@ -333,6 +335,16 @@ export function ProductForm({ initial, mode }: Props) {
                 min={0}
                 value={form.stock}
                 onChange={(e) => update('stock', Number(e.target.value))}
+                className="input w-full"
+              />
+            </Field>
+
+            <Field label="مدت گارانتی (روز)">
+              <input
+                type="number"
+                min={0}
+                value={form.warrantyDays ?? 0}
+                onChange={(e) => update('warrantyDays', Number(e.target.value))}
                 className="input w-full"
               />
             </Field>

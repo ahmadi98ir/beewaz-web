@@ -105,6 +105,7 @@ export function ProductFormV2() {
       hasVariants: false, variants: [],
       mainImage: '', gallery: [],
       specs: [],
+      warrantyDays: 0,
       metaTitle: '', metaDesc: '',
     },
   })
@@ -332,6 +333,9 @@ export function ProductFormV2() {
             </Field>
             <Field label="موجودی انبار" error={errors.stock?.message}>
               <input {...register('stock')} type="number" placeholder="0" className={errors.stock ? errorInputCls : inputCls} dir="ltr" />
+            </Field>
+            <Field label="مدت گارانتی (روز)" hint="۰ یعنی بدون گارانتی" error={errors.warrantyDays?.message}>
+              <input {...register('warrantyDays')} type="number" placeholder="0" className={errors.warrantyDays ? errorInputCls : inputCls} dir="ltr" />
             </Field>
           </div>
         </FormCard>

@@ -36,6 +36,7 @@ export async function GET(req: NextRequest, { params }: Params) {
         basePrice: String(product.price ?? 0),
         compareAtPrice: product.comparePrice ? String(product.comparePrice) : null,
         isFeatured: product.isFeatured,
+        warrantyDays: product.warrantyDays,
         warrantyMonths: 18,
         metaTitle: product.metaTitle,
         metaDescription: product.metaDesc,
@@ -73,6 +74,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
     if (typeof body.basePrice === 'number')     update.price        = body.basePrice as number
     if (typeof body.comparePrice === 'number')  update.comparePrice = body.comparePrice as number
     if (typeof body.stock === 'number')         update.stock        = body.stock as number
+    if (typeof body.warrantyDays === 'number')  update.warrantyDays = body.warrantyDays as number
     if (typeof body.status === 'string')        update.status       = body.status as typeof products.$inferInsert['status']
     if (typeof body.isFeatured === 'boolean')   update.isFeatured   = body.isFeatured as boolean
     if (typeof body.categoryId === 'string')    update.categoryId   = body.categoryId as string
@@ -116,6 +118,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
         basePrice: String(updated.price ?? 0),
         compareAtPrice: updated.comparePrice ? String(updated.comparePrice) : null,
         isFeatured: updated.isFeatured,
+        warrantyDays: updated.warrantyDays,
         warrantyMonths: 18,
         metaTitle: updated.metaTitle,
         metaDescription: updated.metaDesc,

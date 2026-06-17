@@ -81,6 +81,7 @@ export async function POST(req: NextRequest) {
       name: string; slug: string; modelCode?: string
       shortDescription?: string; basePrice?: number
       status?: string; isFeatured?: boolean; categoryId?: string
+      warrantyDays?: number
     }
     if (!body.name || !body.slug)
       return NextResponse.json({ error: 'نام و slug الزامی است' }, { status: 400 })
@@ -94,6 +95,7 @@ export async function POST(req: NextRequest) {
       status: (body.status as 'draft'|'active') ?? 'draft',
       isFeatured: body.isFeatured ?? false,
       categoryId: body.categoryId ?? null,
+      warrantyDays: body.warrantyDays ?? 0,
     }).returning()
 
     return NextResponse.json({ product }, { status: 201 })
