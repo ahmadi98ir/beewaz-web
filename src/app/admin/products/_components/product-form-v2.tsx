@@ -334,8 +334,21 @@ export function ProductFormV2() {
             <Field label="موجودی انبار" error={errors.stock?.message}>
               <input {...register('stock')} type="number" placeholder="0" className={errors.stock ? errorInputCls : inputCls} dir="ltr" />
             </Field>
-            <Field label="مدت گارانتی (روز)" hint="۰ یعنی بدون گارانتی" error={errors.warrantyDays?.message}>
-              <input {...register('warrantyDays')} type="number" placeholder="0" className={errors.warrantyDays ? errorInputCls : inputCls} dir="ltr" />
+            <Field label="مدت گارانتی (ماه)" hint="۰ یعنی بدون گارانتی" error={errors.warrantyDays?.message}>
+              <Controller
+                control={control}
+                name="warrantyDays"
+                render={({ field }) => (
+                  <input
+                    type="number"
+                    placeholder="0"
+                    dir="ltr"
+                    className={errors.warrantyDays ? errorInputCls : inputCls}
+                    value={field.value ? Math.round(field.value / 30) : 0}
+                    onChange={(e) => field.onChange(Number(e.target.value) * 30)}
+                  />
+                )}
+              />
             </Field>
           </div>
         </FormCard>

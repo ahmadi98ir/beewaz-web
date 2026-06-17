@@ -339,12 +339,12 @@ export function ProductForm({ initial, mode }: Props) {
               />
             </Field>
 
-            <Field label="مدت گارانتی (روز)">
+            <Field label="مدت گارانتی (ماه)">
               <input
                 type="number"
                 min={0}
-                value={form.warrantyDays ?? 0}
-                onChange={(e) => update('warrantyDays', Number(e.target.value))}
+                value={form.warrantyDays ? Math.round(form.warrantyDays / 30) : 0}
+                onChange={(e) => update('warrantyDays', Number(e.target.value) * 30)}
                 className="input w-full"
               />
             </Field>
