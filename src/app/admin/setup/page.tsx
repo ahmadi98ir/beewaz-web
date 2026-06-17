@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { migrateDefaultVariants } from '@/app/admin/actions/migrate-variants'
 import { seedAnalyticsSnapshots } from '@/app/admin/actions/seed-analytics'
+import { fixWarrantySchema } from '@/app/admin/actions/fix-warranty-schema'
 
 type Result = { ok: boolean; message: string; detail?: string }
 
@@ -82,6 +83,16 @@ export default function SetupPage() {
             message: `بررسی شده: ${r.checked} محصول\nVariant جدید ساخته شد: ${r.created}\nقبلاً Variant داشتند: ${r.skipped}`,
             detail: r.errors.length > 0 ? 'خطاها:\n' + r.errors.join('\n') : undefined,
           }
+        }}
+      />
+
+      <ActionCard
+        title="رفع ستون warranty_days / جداول گارانتی"
+        description="اگر صفحه ایجاد/ویرایش محصول خطای 'column warranty_days does not exist' می‌دهد، یعنی migration روی سرور اجرا نشده. این دکمه مستقیماً ستون و جداول لازم را می‌سازد."
+        buttonLabel="ساخت ستون و جداول گارانتی"
+        onRun={async () => {
+          const r = await fixWarrantySchema()
+          return { ok: r.ok, message: r.message }
         }}
       />
 
