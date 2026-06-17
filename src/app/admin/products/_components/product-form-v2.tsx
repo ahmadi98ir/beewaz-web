@@ -164,13 +164,25 @@ export function ProductFormV2() {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  // ─── AI Placeholder ──────────────────────────────────────────────────────────
+  // ─── AI: تولید محتوای توضیحات ─────────────────────────────────────────────────
 
-  function handleAiGenerate() {
+  async function handleAiGenerate() {
     if (!nameFa) return
     setAiLoading(true)
-    // TODO: connect to AI API
-    setTimeout(() => setAiLoading(false), 1500)
+    try {
+      const specs = methods.getValues('specs')
+      const res = await fetch('/api/admin/products/generate-content', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: nameFa, specs }),
+      })
+      const data = await res.json() as { descriptionFa?: string; error?: string }
+      if (res.ok && data.descriptionFa) {
+        setValue('descriptionFa', data.descriptionFa, { shouldValidate: true })
+      }
+    } finally {
+      setAiLoading(false)
+    }
   }
 
   return (
@@ -294,7 +306,6 @@ export function ProductFormV2() {
                       <>
                         <span className="text-sm">✨</span>
                         تولید محتوا با هوش مصنوعی
-                        <span className="px-1.5 py-0.5 rounded-md bg-violet-500/20 text-[9px] font-bold text-violet-300/70">به زودی</span>
                       </>
                     )}
                   </button>
