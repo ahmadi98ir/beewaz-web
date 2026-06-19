@@ -3,7 +3,7 @@ import { chat } from '@/lib/gemini'
 import { db } from '@/lib/db'
 import { products, categories } from '@/lib/db/schema'
 import { chatSessions, chatMessages } from '@/lib/db/schema/chat'
-import { eq, and } from 'drizzle-orm'
+import { eq, and, desc } from 'drizzle-orm'
 
 // ── Product context for system prompt ─────────────────────────────────────────
 
@@ -19,8 +19,8 @@ async function getProductContext(): Promise<string> {
       .from(products)
       .leftJoin(categories, eq(products.categoryId, categories.id))
       .where(and(eq(products.status, 'active')))
-      .orderBy(products.isFeatured)
-      .limit(10)
+      .orderBy(desc(products.createdAt))
+      .limit(30)
 
     if (rows.length === 0) return ''
 
@@ -55,9 +55,9 @@ function buildSystemPrompt(productContext: string): string {
 
 اطلاعات شرکت:
 - بیواز طراح و سازنده سیستم‌های هوشمند و حفاظتی اماکن (دزدگیر اماکن) است
-- محصولات اصلی: دزدگیر BH11 (نمایشگر رنگی فارسی، اتصال خط تلفن و سیم‌کارت) و BH10 (اقتصادی، فقط سیم‌کارت)
 - گارانتی طلایی ۲۴ ماهه روی تمام محصولات
 - پشتیبانی ۲۴/۷ — تلفن: ۰۲۱-۴۷۹۵۶ — ایمیل: info@beewaz-co.com
+- فقط محصولاتی که در لیست زیر آمده را معرفی کن؛ محصول یا مدلی که در این لیست نیست را به مشتری پیشنهاد نده
 
 ${productContext}
 
