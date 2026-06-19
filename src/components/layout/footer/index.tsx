@@ -10,9 +10,8 @@ import {
   ShieldIcon,
   CheckIcon,
 } from '@/components/ui/icons'
-import { footerLinks } from '@/config/navigation'
 import { NewsletterForm } from './newsletter-form'
-import { getSiteSettings } from '@/lib/cms'
+import { getSiteSettings, getFooterLinks } from '@/lib/cms'
 
 // Server Component
 
@@ -24,7 +23,7 @@ const trustSignals = [
 ]
 
 export async function Footer() {
-  const settings    = await getSiteSettings()
+  const [settings, footerLinks] = await Promise.all([getSiteSettings(), getFooterLinks()])
   const currentYear = new Date().getFullYear()
   const persianYear = currentYear - 621
 

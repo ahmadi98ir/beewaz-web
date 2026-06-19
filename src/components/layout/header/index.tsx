@@ -1,22 +1,22 @@
 import Link from 'next/link'
 import { BeewazLogo } from '@/components/ui/logo'
-import { navigation } from '@/config/navigation'
 import { DesktopNav } from './desktop-nav'
 import { MobileMenu } from './mobile-menu'
 import { SearchBar } from './search-bar'
 import { CartButton } from './cart-button'
 import { AnnouncementBar } from './announcement-bar'
 import { UserButton } from './user-button'
-import { getSiteSettings, getCmsContent } from '@/lib/cms'
+import { getSiteSettings, getCmsContent, getHeaderNav } from '@/lib/cms'
 import { auth } from '@/lib/auth'
 
 // Server Component — بدون 'use client'
 
 export async function Header() {
-  const [settings, globalContent, session] = await Promise.all([
+  const [settings, globalContent, session, navigation] = await Promise.all([
     getSiteSettings(),
     getCmsContent('global'),
     auth(),
+    getHeaderNav(),
   ])
 
   // Merge pageContent 'global' (announcement settings) into siteSettings

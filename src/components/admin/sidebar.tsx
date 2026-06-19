@@ -74,6 +74,7 @@ const navSections: NavSection[] = [
     title: 'محتوا (CMS)', emoji: '✏️',
     items: [
       { href: '/admin/pages',    label: 'صفحات سایت',    permission: 'content:write',  icon: 'M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10' },
+      { href: '/admin/menu',     label: 'منوی سایت',     permission: 'content:write',  icon: 'M4 6h16M4 12h16M4 18h16' },
       { href: '/admin/articles', label: 'مقالات / بلاگ',  permission: 'articles:write', icon: 'M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z' },
       { href: '/admin/seo',      label: 'دستیار سئو ✨',   permission: 'content:write',  icon: 'M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z' },
       { href: '/admin/content',  label: 'محتوای ثابت',    permission: 'content:write',  icon: 'M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z' },

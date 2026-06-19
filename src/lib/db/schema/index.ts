@@ -139,3 +139,9 @@ export {
   productSerialsRelations, warrantiesRelations,
   type ProductSerial, type Warranty,
 } from './warranties'
+
+// ─── Menu (CMS) ───────────────────────────────────────────────────────────────
+export {
+  menuItems,
+  type MenuItem, type NewMenuItem,
+} from './menu'

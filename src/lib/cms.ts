@@ -3,8 +3,9 @@
  */
 
 import { db } from '@/lib/db'
-import { pageContent, siteSettings } from '@/lib/db/schema'
-import { eq } from 'drizzle-orm'
+import { pageContent, siteSettings, menuItems } from '@/lib/db/schema'
+import { eq, asc } from 'drizzle-orm'
+import { navigation as staticNavigation, footerLinks as staticFooterLinks, type NavItem } from '@/config/navigation'
 
 export type CmsContent = Record<string, string>
 
@@ -79,4 +80,57 @@ export async function getCmsPages(
   }
 
   return result
+}
+
+/** دریافت منوی ناوبری هدر — اگر در دیتابیس آیتمی نباشد، fallback به config/navigation.ts */
+export async function getHeaderNav(): Promise<NavItem[]> {
+  try {
+    const rows = await db
+      .select()
+      .from(menuItems)
+      .where(eq(menuItems.location, 'header'))
+      .orderBy(asc(menuItems.sortOrder))
+
+    const active = rows.filter((r) => r.active)
+    if (active.length === 0) return staticNavigation
+
+    const top = active.filter((r) => r.parentId === null)
+    return top.map((item) => ({
+      label: item.label,
+      href: item.href,
+      children: active
+        .filter((c) => c.parentId === item.id)
+        .map((c) => ({ label: c.label, href: c.href, description: c.description ?? undefined })),
+    })).map((item) => ({ ...item, children: item.children.length ? item.children : undefined }))
+  } catch {
+    return staticNavigation
+  }
+}
+
+/** دریافت لینک‌های فوتر — اگر در دیتابیس آیتمی نباشد، fallback به config/navigation.ts */
+export async function getFooterLinks(): Promise<typeof staticFooterLinks> {
+  try {
+    const allRows = await db
+      .select()
+      .from(menuItems)
+      .orderBy(asc(menuItems.sortOrder))
+
+    const shop      = allRows.filter((r) => r.location === 'footer_shop' && r.active)
+    const knowledge = allRows.filter((r) => r.location === 'footer_knowledge' && r.active)
+    const company   = allRows.filter((r) => r.location === 'footer_company' && r.active)
+
+    if (shop.length === 0 && knowledge.length === 0 && company.length === 0) {
+      return staticFooterLinks
+    }
+
+    const map = (list: typeof shop) => list.map((r) => ({ label: r.label, href: r.href }))
+
+    return {
+      shop:      shop.length      ? map(shop)      : staticFooterLinks.shop,
+      knowledge: knowledge.length ? map(knowledge) : staticFooterLinks.knowledge,
+      company:   company.length   ? map(company)   : staticFooterLinks.company,
+    }
+  } catch {
+    return staticFooterLinks
+  }
 }
