@@ -38,28 +38,30 @@
 | IP سرور | `78.157.51.14` |
 | پنل Coolify | `http://78.157.51.14:8000` |
 | Coolify Token | `5\|beewaz-deploy-fix-2026` |
-| App UUID | `jw4kpfn8utdybrmwkr80fm8f` |
+| App UUID | `bz54pou1vckvrybptzau3o3j` |
 | FQDN سایت | `https://beewaz.ir` |
 | Image | `ghcr.io/ahmadi98ir/beewaz-web:latest` |
 
 ### فرآیند دیپلوی (اجباری — ghcr.io روی سرور ایران بلاک است)
 
-1. **Push به GitHub** → GitHub Actions بیلد Docker image و آپلود به Release `deploy-cache`
-2. **بررسی وضعیت بیلد:** از HTML صفحه `https://github.com/ahmadi98ir/beewaz-web/actions` بخوان (نه API — rate limit دارد)
-3. **دانلود image:**
-   ```
-   https://github.com/ahmadi98ir/beewaz-web/releases/download/deploy-cache/beewaz-image.tar.gz
-   ```
-4. **آپلود به سرور** با اسکریپت:
-   ```
-   C:\Users\user\AppData\Local\Temp\upload-chunks.ps1
-   ```
-   (chunk 5MB — دور زدن DPI)
-5. اسکریپت خودکار: docker load → Coolify rolling restart
+دیپلوی کاملاً خودکار است — نیازی به آپلود دستی نیست:
+
+1. **Push به `main`** → GitHub Actions بیلد Docker image و آپلود به Release `deploy-cache`
+2. **`deploy-watcher.timer`** (systemd, هر ۲ دقیقه) روی سرور ایران، `releases/tags/deploy-cache` را poll می‌کند
+3. اگر release ID جدید بود، با `POST /api/upload/pull` به **image-receiver** محلی، دانلود image را تریگر می‌کند
+4. image-receiver فایل را دانلود می‌کند و `docker load` می‌کند
+5. `deploy-watcher` با موفقیت `docker load`، Coolify را برای رولینگ ری‌استارت صدا می‌زند
+
+سرویس‌های مرتبط روی سرور:
+- `/opt/deploy-watcher/poll.sh` + `deploy-watcher.timer` (systemd) — پولینگ ریلیز
+- `/opt/image-receiver/server.py` + `image-receiver.service` (systemd, `Restart=always`) — دانلود و `docker load`
+- ⚠️ `/opt/beewaz-autodeploy.sh` از crontab **حذف شده** (مکانیزم تکراری/منسوخ بود — هرگز دوباره اضافه نکن)
 
 #### Image Receiver روی سرور
 - آدرس: `http://78.157.51.14:5001`
 - Token: `fb16cb5761ce143879dce87e69d551a0cca50e33`
+- مدیریت با: `systemctl restart image-receiver` (نه nohup دستی — env token از `image-receiver.service.d/token.conf` می‌آید)
+- ⚠️ curl دانلود در `pull_and_load()` باید فلگ `-f`/`--fail` داشته باشد، وگرنه روی خطای HTTP یک فایل کوچک/خراب می‌نویسد که باعث `docker load: unexpected EOF` می‌شود
 
 #### نکات مهم دیپلوی
 - وضعیت `running:unknown` در Coolify API **نرمال است** — سایت آنلاین است
@@ -129,6 +131,8 @@
 6. **آدرس checkout:** از یک textarea به ۶ فیلد ساختاریافته
 7. **شماره تلفن تکراری در checkout:** حذف — از session می‌آید
 8. **اعداد فارسی:** همه اعداد نمایشی با `toFaDigits()` یا `toLocaleString('fa-IR')`
+9. **چت‌بات محصولات جدید را نمی‌دید:** `getProductContext()` بر اساس `isFeatured` مرتب می‌شد نه تاریخ — به `orderBy(desc(createdAt))` با `limit(30)` تغییر کرد
+10. **auto-deploy کار نمی‌کرد:** App UUID قدیمی (`jw4kpfn8utdybrmwkr80fm8f`) در اسکریپت‌های سرور stale بود؛ و curl در `image-receiver/server.py` فلگ `-f` نداشت که باعث `docker load: unexpected EOF` می‌شد — هر دو فیکس شد
 
 ---
 
