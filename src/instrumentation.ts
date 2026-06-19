@@ -233,6 +233,20 @@ export async function register() {
         ALTER TABLE "orders" ADD COLUMN IF NOT EXISTS "assigned_installer_id" uuid REFERENCES "users"("id") ON DELETE SET NULL;
         ALTER TABLE "orders" ADD COLUMN IF NOT EXISTS "installation_note" text;
         ALTER TABLE "orders" ADD COLUMN IF NOT EXISTS "installed_at" timestamp with time zone;
+
+        -- ── منوی هدر و فوتر (CMS) ──
+        CREATE TABLE IF NOT EXISTS "menu_items" (
+          "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+          "location" varchar(32) NOT NULL,
+          "parent_id" uuid,
+          "label" varchar(200) NOT NULL,
+          "href" varchar(300) NOT NULL,
+          "description" text,
+          "sort_order" integer DEFAULT 0 NOT NULL,
+          "active" boolean DEFAULT true NOT NULL,
+          "created_at" timestamp with time zone DEFAULT now() NOT NULL,
+          "updated_at" timestamp with time zone DEFAULT now() NOT NULL
+        );
       `)
       console.log('[migration] ✅ all tables ensured')
 
