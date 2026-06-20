@@ -23,6 +23,7 @@ export default function MenuPage() {
   const [loading, setLoading] = useState(true)
   const [tab,     setTab]     = useState<string>('header')
   const [showNew, setShowNew] = useState(false)
+  const [editId,  setEditId]  = useState<string | null>(null)
   const [saving,  setSaving]  = useState(false)
   const [form,    setForm]    = useState(emptyForm)
   const [error,   setError]   = useState<string | null>(null)
@@ -51,19 +52,32 @@ export default function MenuPage() {
   const childrenOf = (parentId: string) => tabItems.filter((i) => i.parentId === parentId)
 
   const openNew = (parentId?: string) => {
+    setEditId(null)
     setForm({ ...emptyForm, location: tab, parentId: parentId ?? '' })
+    setShowNew(true)
+  }
+
+  const openEdit = (item: MenuItemRow) => {
+    setEditId(item.id)
+    setForm({
+      location: item.location,
+      parentId: item.parentId ?? '',
+      label: item.label,
+      href: item.href,
+      description: item.description ?? '',
+      sortOrder: item.sortOrder,
+    })
     setShowNew(true)
   }
 
   const create = async () => {
     if (!form.label || !form.href || saving) return
     setSaving(true)
-    const r = await fetch('/api/admin/menu', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...form, parentId: form.parentId || null }),
-    })
-    if (r.ok) { await load(); setShowNew(false); setForm(emptyForm) }
+    const body = JSON.stringify({ ...form, parentId: form.parentId || null })
+    const r = editId
+      ? await fetch(`/api/admin/menu/${editId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body })
+      : await fetch('/api/admin/menu', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body })
+    if (r.ok) { await load(); setShowNew(false); setEditId(null); setForm(emptyForm) }
     setSaving(false)
   }
 
@@ -161,6 +175,7 @@ export default function MenuPage() {
                     {tab === 'header' && (
                       <button onClick={() => openNew(item.id)} className="text-xs font-semibold text-brand-400 hover:text-brand-300 px-2">+ زیرمنو</button>
                     )}
+                    <button onClick={() => openEdit(item)} className="text-xs font-semibold text-white/50 hover:text-white px-2">ویرایش</button>
                     <button
                       onClick={() => void toggle(item.id, !item.active)}
                       className={`text-xs font-semibold py-1.5 px-3 rounded-lg transition-colors ${item.active ? 'bg-green-500/10 text-green-400 hover:bg-green-500/20' : 'bg-white/[0.06] text-white/40 hover:bg-white/[0.10]'}`}
@@ -181,6 +196,7 @@ export default function MenuPage() {
                           <p className="text-xs text-white/30 font-mono" dir="ltr">{child.href}</p>
                         </div>
                         <div className="flex items-center gap-2">
+                          <button onClick={() => openEdit(child)} className="text-xs text-white/40 hover:text-white/80">ویرایش</button>
                           <button onClick={() => void toggle(child.id, !child.active)} className="text-xs text-white/40 hover:text-white/80">
                             {child.active ? '✅' : '⏸️'}
                           </button>
@@ -202,7 +218,7 @@ export default function MenuPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
           <div className="bg-[#0d0d1a] border border-white/[0.08] rounded-2xl shadow-2xl w-full max-w-md p-6">
             <h2 className="font-black text-white mb-5">
-              {form.parentId ? 'زیرمنوی جدید' : 'آیتم جدید'} — {LOCATIONS[form.location]}
+              {editId ? 'ویرایش آیتم' : form.parentId ? 'زیرمنوی جدید' : 'آیتم جدید'} — {LOCATIONS[form.location]}
             </h2>
             <div className="space-y-4">
               <div>
@@ -246,7 +262,7 @@ export default function MenuPage() {
               </div>
             </div>
             <div className="flex gap-3 mt-6">
-              <button onClick={() => setShowNew(false)} className="flex-1 py-2.5 rounded-xl border border-white/[0.08] text-white/70 hover:bg-white/[0.05] font-semibold transition-colors">
+              <button onClick={() => { setShowNew(false); setEditId(null) }} className="flex-1 py-2.5 rounded-xl border border-white/[0.08] text-white/70 hover:bg-white/[0.05] font-semibold transition-colors">
                 انصراف
               </button>
               <button
@@ -254,7 +270,7 @@ export default function MenuPage() {
                 disabled={saving || !form.label || !form.href}
                 className="flex-1 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-500 disabled:opacity-40 text-white font-bold transition-colors"
               >
-                {saving ? 'در حال ذخیره...' : 'افزودن'}
+                {saving ? 'در حال ذخیره...' : editId ? 'ذخیره تغییرات' : 'افزودن'}
               </button>
             </div>
           </div>
