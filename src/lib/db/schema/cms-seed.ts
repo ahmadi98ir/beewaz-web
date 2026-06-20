@@ -54,6 +54,12 @@ export const DEFAULT_SITE_SETTINGS: NewSiteSetting[] = [
   { key: 'idpay_enabled',        value: 'false',  type: 'boolean', label: 'آیدی‌پی فعال',               group: 'payment' },
   { key: 'idpay_api_key',        value: '',       type: 'text',    label: 'API Key آیدی‌پی',            group: 'payment', hint: 'از داشبورد idpay.ir' },
   { key: 'idpay_sandbox',        value: 'false',  type: 'boolean', label: 'حالت آزمایشی آیدی‌پی',       group: 'payment' },
+
+  // ── Analytics ──
+  { key: 'ga4_enabled',              value: 'false', type: 'boolean', label: 'گوگل آنالیتکس فعال',        group: 'analytics' },
+  { key: 'ga4_measurement_id',       value: '',      type: 'text',    label: 'Measurement ID',            group: 'analytics', hint: 'مثال: G-XXXXXXXXXX — از پنل Google Analytics بخش Admin > Data Streams' },
+  { key: 'google_site_verification', value: '',      type: 'text',    label: 'کد تأیید Search Console',  group: 'analytics', hint: 'محتوای متاتگ google-site-verification — از Google Search Console بخش Settings > Ownership verification' },
+  { key: 'gtm_container_id',         value: '',      type: 'text',    label: 'Google Tag Manager ID',     group: 'analytics', hint: 'اختیاری — مثال: GTM-XXXXXXX' },
 ]
 
 // ─── Page Content defaults ────────────────────────────────────────────────────

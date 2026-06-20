@@ -23,6 +23,8 @@ const GROUP_LABELS: Record<string, string> = {
   social: 'شبکه‌های اجتماعی',
   commerce: 'تجارت و فروشگاه',
   notification: 'اطلاع‌رسانی',
+  analytics: 'گوگل آنالیتکس و سرچ کنسول',
+  payment: 'درگاه‌های پرداخت',
 }
 
 const GROUP_ICONS: Record<string, string> = {
@@ -32,6 +34,8 @@ const GROUP_ICONS: Record<string, string> = {
   social: '📱',
   commerce: '🛒',
   notification: '🔔',
+  analytics: '📈',
+  payment: '💳',
 }
 
 // ── Field Component ───────────────────────────────────────────────────────────

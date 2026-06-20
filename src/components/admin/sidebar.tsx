@@ -31,6 +31,7 @@ const navSections: NavSection[] = [
     items: [
       { href: '/admin',           label: 'داشبورد',        permission: 'dashboard:view', icon: 'M3 10L10 3l7 7M5 8v8h4v-5h2v5h4V8' },
       { href: '/admin/analytics', label: 'آمار و تحلیل‌ها', permission: 'analytics:view', icon: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z' },
+      { href: '/admin/integrations/analytics', label: 'اتصال گوگل آنالیتکس', permission: 'settings:read', icon: 'M3 3v18h18M7 16l4-6 3 3 5-7' },
     ],
   },
   {

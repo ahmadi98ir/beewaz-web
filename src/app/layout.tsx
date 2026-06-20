@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import { headers } from 'next/headers'
+import Script from 'next/script'
+import { getSiteSettings } from '@/lib/cms'
 import { Header } from '@/components/layout/header'
 import { Footer } from '@/components/layout/footer'
 import { ChatWidget } from '@/components/chat/chat-widget'
@@ -51,6 +53,11 @@ export default async function RootLayout({
   const pathname = headersList.get('x-pathname') ?? ''
   const isAdmin = pathname.startsWith('/admin')
 
+  const settings = isAdmin ? {} : await getSiteSettings()
+  const gaEnabled = settings.ga4_enabled === 'true' && !!settings.ga4_measurement_id
+  const gtmId = settings.gtm_container_id
+  const siteVerification = settings.google_site_verification
+
   return (
     <html lang="fa" dir="rtl">
       <head>
@@ -63,6 +70,29 @@ export default async function RootLayout({
           rel="stylesheet"
           href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css"
         />
+        {siteVerification && (
+          <meta name="google-site-verification" content={siteVerification} />
+        )}
+        {gaEnabled && (
+          <>
+            <Script
+              async
+              src={`https://www.googletagmanager.com/gtag/js?id=${settings.ga4_measurement_id}`}
+              strategy="afterInteractive"
+            />
+            <Script id="ga4-init" strategy="afterInteractive">
+              {`window.dataLayer = window.dataLayer || [];
+                function gtag(){dataLayer.push(arguments);}
+                gtag('js', new Date());
+                gtag('config', '${settings.ga4_measurement_id}');`}
+            </Script>
+          </>
+        )}
+        {gaEnabled && gtmId && (
+          <Script id="gtm-init" strategy="afterInteractive">
+            {`(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','${gtmId}');`}
+          </Script>
+        )}
       </head>
       <body className={`antialiased font-sans ${isAdmin ? 'bg-surface-50' : 'min-h-screen flex flex-col bg-surface-50'}`}>
         {isAdmin ? (
