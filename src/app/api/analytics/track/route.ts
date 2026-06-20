@@ -6,6 +6,7 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { pageViews } from '@/lib/db/schema'
+import { UAParser } from 'ua-parser-js'
 
 export async function POST(req: Request) {
   try {
@@ -20,17 +21,19 @@ export async function POST(req: Request) {
     }
 
     const ua = req.headers.get('user-agent') ?? ''
-    const device = /mobile|android|iphone|ipad/i.test(ua)
-      ? 'mobile'
-      : /tablet/i.test(ua)
-        ? 'tablet'
-        : 'desktop'
+    const parsed = UAParser(ua)
+    const deviceType = parsed.device.type
+    const device = deviceType === 'mobile' ? 'mobile' : deviceType === 'tablet' ? 'tablet' : 'desktop'
+    const browser = parsed.browser.name?.slice(0, 32)
+    const os = parsed.os.name?.slice(0, 32)
 
     await db.insert(pageViews).values({
       path: body.path.slice(0, 500),
       referrer: body.referrer?.slice(0, 500),
       userAgent: ua.slice(0, 300),
       device,
+      browser,
+      os,
       sessionId: body.sessionId?.slice(0, 64),
     })
 

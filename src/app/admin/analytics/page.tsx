@@ -7,10 +7,55 @@ import type { Metadata } from 'next'
 
 interface AnalyticsData {
   period: { days: number; since: string }
-  summary: { totalViews: number; uniqueVisitors: number }
+  summary: { totalViews: number; uniqueVisitors: number; viewsGrowth: number; visitorsGrowth: number }
   topPages: { path: string; views: number }[]
   viewsByDay: { date: string; views: number; unique: number }[]
   deviceBreakdown: { device: string | null; count: number }[]
+  browserBreakdown: { browser: string | null; count: number }[]
+  osBreakdown: { os: string | null; count: number }[]
+  referrerBreakdown: { referrer: string | null; count: number }[]
+  hourlyBreakdown: { hour: number; count: number }[]
+}
+
+// ── Generic ranked-bar list (برای مرورگر/سیستم‌عامل/منابع ورودی) ───────────────
+
+function RankedBars({ items, labelFor }: { items: { label: string; count: number }[]; labelFor?: (l: string) => string }) {
+  const max = Math.max(...items.map((i) => i.count), 1)
+  return (
+    <div className="space-y-3">
+      {items.map((i) => (
+        <div key={i.label}>
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-sm text-surface-700">{labelFor ? labelFor(i.label) : i.label}</span>
+            <span className="text-xs font-bold text-surface-900">{i.count.toLocaleString('fa-IR')}</span>
+          </div>
+          <div className="h-2 bg-surface-100 rounded-full overflow-hidden">
+            <div className="h-full rounded-full bg-brand-400" style={{ width: `${Math.round((i.count / max) * 100)}%` }} />
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// ── Hourly distribution chart ───────────────────────────────────────────────────
+
+function HourlyChart({ data }: { data: { hour: number; count: number }[] }) {
+  const full = Array.from({ length: 24 }, (_, h) => data.find((d) => d.hour === h)?.count ?? 0)
+  const max = Math.max(...full, 1)
+  return (
+    <div className="flex items-end gap-0.5 h-20 w-full" role="img" aria-label="الگوی ترافیک ساعتی">
+      {full.map((count, h) => (
+        <div key={h} className="relative flex-1 flex flex-col justify-end group">
+          <div
+            className="w-full rounded-t bg-blue-400 group-hover:bg-blue-600 transition-colors"
+            style={{ height: `${Math.max((count / max) * 100, count > 0 ? 4 : 1)}%` }}
+            title={`ساعت ${h.toLocaleString('fa-IR')}: ${count.toLocaleString('fa-IR')} بازدید`}
+          />
+        </div>
+      ))}
+    </div>
+  )
 }
 
 // ── Mini Bar Chart ─────────────────────────────────────────────────────────────
@@ -125,19 +170,26 @@ export default function AnalyticsPage() {
         {/* Summary Cards */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           {[
-            { label: 'کل بازدیدها',       value: data?.summary.totalViews,     color: 'brand',  suffix: '' },
-            { label: 'بازدیدکنندگان یکتا', value: data?.summary.uniqueVisitors, color: 'blue',   suffix: '' },
-            { label: 'میانگین روزانه',      value: data ? Math.round(data.summary.totalViews / days) : undefined, color: 'green', suffix: '' },
-            { label: 'دوره انتخابی',        value: days, color: 'amber', suffix: ' روز' },
+            { label: 'کل بازدیدها',       value: data?.summary.totalViews,     suffix: '', growth: data?.summary.viewsGrowth },
+            { label: 'بازدیدکنندگان یکتا', value: data?.summary.uniqueVisitors, suffix: '', growth: data?.summary.visitorsGrowth },
+            { label: 'میانگین روزانه',      value: data ? Math.round(data.summary.totalViews / days) : undefined, suffix: '' },
+            { label: 'دوره انتخابی',        value: days, suffix: ' روز' },
           ].map((card) => (
             <div key={card.label} className="bg-white rounded-2xl border border-surface-100 p-5">
               <p className="text-xs text-surface-400 mb-2">{card.label}</p>
               {loading ? (
                 <div className="h-8 w-16 bg-surface-100 rounded animate-pulse" />
               ) : (
-                <p className="text-2xl font-black text-surface-900">
-                  {(card.value ?? 0).toLocaleString('fa-IR')}{card.suffix}
-                </p>
+                <div className="flex items-baseline gap-2">
+                  <p className="text-2xl font-black text-surface-900">
+                    {(card.value ?? 0).toLocaleString('fa-IR')}{card.suffix}
+                  </p>
+                  {card.growth !== undefined && (
+                    <span className={`text-xs font-bold ${card.growth >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                      {card.growth >= 0 ? '▲' : '▼'} {Math.abs(card.growth).toLocaleString('fa-IR')}٪
+                    </span>
+                  )}
+                </div>
               )}
             </div>
           ))}
@@ -172,6 +224,51 @@ export default function AnalyticsPage() {
             </>
           ) : (
             <p className="text-sm text-surface-400 text-center py-6">هنوز داده‌ای ثبت نشده</p>
+          )}
+
+          {/* جدول تفکیک روزانه */}
+          {!loading && data && data.viewsByDay.length > 0 && (
+            <div className="mt-5 border-t border-surface-100 pt-4 max-h-64 overflow-y-auto">
+              <table className="w-full text-sm" dir="rtl">
+                <thead>
+                  <tr className="text-xs text-surface-400 border-b border-surface-100">
+                    <th className="text-start font-semibold py-2">تاریخ</th>
+                    <th className="text-start font-semibold py-2">بازدید</th>
+                    <th className="text-start font-semibold py-2">بازدیدکننده یکتا</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[...data.viewsByDay].reverse().map((d) => (
+                    <tr key={d.date} className="border-b border-surface-50">
+                      <td className="py-1.5 text-surface-700">
+                        {new Intl.DateTimeFormat('fa-IR', { weekday: 'short', month: 'short', day: 'numeric' }).format(new Date(d.date))}
+                      </td>
+                      <td className="py-1.5 font-bold text-surface-900">{d.views.toLocaleString('fa-IR')}</td>
+                      <td className="py-1.5 text-surface-600">{d.unique.toLocaleString('fa-IR')}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        {/* Hourly Traffic Pattern */}
+        <div className="bg-white rounded-2xl border border-surface-100 p-6">
+          <h3 className="font-bold text-surface-900 mb-4">الگوی ترافیک ساعتی (به وقت تهران)</h3>
+          {loading ? (
+            <div className="h-20 bg-surface-50 rounded-xl animate-pulse" />
+          ) : data && data.hourlyBreakdown.length > 0 ? (
+            <>
+              <HourlyChart data={data.hourlyBreakdown} />
+              <div className="flex justify-between mt-2 text-xs text-surface-400">
+                <span>۰۰:۰۰</span>
+                <span>۱۲:۰۰</span>
+                <span>۲۳:۰۰</span>
+              </div>
+            </>
+          ) : (
+            <p className="text-sm text-surface-400 text-center py-6">داده‌ای موجود نیست</p>
           )}
         </div>
 
@@ -251,6 +348,65 @@ export default function AnalyticsPage() {
                   )
                 })}
               </div>
+            ) : (
+              <p className="text-sm text-surface-400 text-center py-6">داده‌ای موجود نیست</p>
+            )}
+          </div>
+        </div>
+
+        {/* Browser + OS + Referrer Grid */}
+        <div className="grid lg:grid-cols-3 gap-6">
+          {/* Browser Breakdown */}
+          <div className="bg-white rounded-2xl border border-surface-100 p-6">
+            <h3 className="font-bold text-surface-900 mb-4">تفکیک مرورگر</h3>
+            {loading ? (
+              <div className="space-y-3">
+                {[...Array(4)].map((_, i) => (
+                  <div key={i} className="h-5 bg-surface-50 rounded animate-pulse" />
+                ))}
+              </div>
+            ) : data && data.browserBreakdown.length > 0 ? (
+              <RankedBars
+                items={data.browserBreakdown.map((b) => ({ label: b.browser ?? 'unknown', count: b.count }))}
+                labelFor={(l) => (l === 'unknown' ? 'نامشخص' : l)}
+              />
+            ) : (
+              <p className="text-sm text-surface-400 text-center py-6">داده‌ای موجود نیست</p>
+            )}
+          </div>
+
+          {/* OS Breakdown */}
+          <div className="bg-white rounded-2xl border border-surface-100 p-6">
+            <h3 className="font-bold text-surface-900 mb-4">تفکیک سیستم‌عامل</h3>
+            {loading ? (
+              <div className="space-y-3">
+                {[...Array(4)].map((_, i) => (
+                  <div key={i} className="h-5 bg-surface-50 rounded animate-pulse" />
+                ))}
+              </div>
+            ) : data && data.osBreakdown.length > 0 ? (
+              <RankedBars
+                items={data.osBreakdown.map((o) => ({ label: o.os ?? 'unknown', count: o.count }))}
+                labelFor={(l) => (l === 'unknown' ? 'نامشخص' : l)}
+              />
+            ) : (
+              <p className="text-sm text-surface-400 text-center py-6">داده‌ای موجود نیست</p>
+            )}
+          </div>
+
+          {/* Referrer Breakdown */}
+          <div className="bg-white rounded-2xl border border-surface-100 p-6">
+            <h3 className="font-bold text-surface-900 mb-4">منابع ورودی</h3>
+            {loading ? (
+              <div className="space-y-3">
+                {[...Array(4)].map((_, i) => (
+                  <div key={i} className="h-5 bg-surface-50 rounded animate-pulse" />
+                ))}
+              </div>
+            ) : data && data.referrerBreakdown.length > 0 ? (
+              <RankedBars
+                items={data.referrerBreakdown.map((r) => ({ label: r.referrer ?? 'مستقیم', count: r.count }))}
+              />
             ) : (
               <p className="text-sm text-surface-400 text-center py-6">داده‌ای موجود نیست</p>
             )}

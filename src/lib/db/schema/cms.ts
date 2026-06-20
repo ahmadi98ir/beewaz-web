@@ -127,6 +127,12 @@ export const pageViews = pgTable('page_views', {
   /** نوع دستگاه: desktop | mobile | tablet */
   device: varchar('device', { length: 16 }),
 
+  /** نام مرورگر: Chrome, Safari, Firefox, ... */
+  browser: varchar('browser', { length: 32 }),
+
+  /** سیستم‌عامل: Windows, iOS, Android, ... */
+  os: varchar('os', { length: 32 }),
+
   /** Session شناسه تصادفی (cookie) برای تشخیص کاربر یکتا */
   sessionId: varchar('session_id', { length: 64 }),
 
