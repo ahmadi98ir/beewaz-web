@@ -22,6 +22,17 @@ export async function GET(req: NextRequest) {
   const prevSince = new Date(since)
   prevSince.setDate(prevSince.getDate() - days)
 
+  // هر query به‌صورت مجزا اجرا می‌شود — اگر یکی خطا داد (مثلاً قبل از اعمال
+  // کامل migration ستون‌های جدید)، کل صفحه از کار نمی‌افتد، فقط همان بخش خالی می‌ماند
+  async function safe<T>(label: string, fallback: T, fn: () => Promise<T>): Promise<T> {
+    try {
+      return await fn()
+    } catch (err) {
+      console.error(`[analytics GET] ${label} failed:`, err)
+      return fallback
+    }
+  }
+
   try {
     const [
       totalViews,
@@ -36,19 +47,19 @@ export async function GET(req: NextRequest) {
       prevTotals,
     ] = await Promise.all([
       // کل بازدیدها
-      db
+      safe('totalViews', [{ count: 0 }], () => db
         .select({ count: sql<number>`count(*)::int` })
         .from(pageViews)
-        .where(gte(pageViews.createdAt, since)),
+        .where(gte(pageViews.createdAt, since))),
 
       // بازدیدکنندگان یکتا (session)
-      db
+      safe('uniqueSessions', [{ count: 0 }], () => db
         .select({ count: sql<number>`count(distinct ${pageViews.sessionId})::int` })
         .from(pageViews)
-        .where(gte(pageViews.createdAt, since)),
+        .where(gte(pageViews.createdAt, since))),
 
       // صفحات پربازدید
-      db
+      safe('topPages', [] as { path: string; views: number }[], () => db
         .select({
           path: pageViews.path,
           views: sql<number>`count(*)::int`,
@@ -57,10 +68,10 @@ export async function GET(req: NextRequest) {
         .where(gte(pageViews.createdAt, since))
         .groupBy(pageViews.path)
         .orderBy(desc(sql`count(*)`))
-        .limit(10),
+        .limit(10)),
 
       // بازدید روزانه
-      db
+      safe('viewsByDay', [] as { date: string; views: number; unique: number }[], () => db
         .select({
           date: sql<string>`date(${pageViews.createdAt} AT TIME ZONE 'Asia/Tehran')`,
           views: sql<number>`count(*)::int`,
@@ -69,20 +80,20 @@ export async function GET(req: NextRequest) {
         .from(pageViews)
         .where(gte(pageViews.createdAt, since))
         .groupBy(sql`date(${pageViews.createdAt} AT TIME ZONE 'Asia/Tehran')`)
-        .orderBy(sql`date(${pageViews.createdAt} AT TIME ZONE 'Asia/Tehran')`),
+        .orderBy(sql`date(${pageViews.createdAt} AT TIME ZONE 'Asia/Tehran')`)),
 
       // دستگاه
-      db
+      safe('deviceBreakdown', [] as { device: string | null; count: number }[], () => db
         .select({
           device: pageViews.device,
           count: sql<number>`count(*)::int`,
         })
         .from(pageViews)
         .where(gte(pageViews.createdAt, since))
-        .groupBy(pageViews.device),
+        .groupBy(pageViews.device)),
 
       // مرورگر
-      db
+      safe('browserBreakdown', [] as { browser: string | null; count: number }[], () => db
         .select({
           browser: pageViews.browser,
           count: sql<number>`count(*)::int`,
@@ -91,10 +102,10 @@ export async function GET(req: NextRequest) {
         .where(gte(pageViews.createdAt, since))
         .groupBy(pageViews.browser)
         .orderBy(desc(sql`count(*)`))
-        .limit(8),
+        .limit(8)),
 
       // سیستم‌عامل
-      db
+      safe('osBreakdown', [] as { os: string | null; count: number }[], () => db
         .select({
           os: pageViews.os,
           count: sql<number>`count(*)::int`,
@@ -103,10 +114,10 @@ export async function GET(req: NextRequest) {
         .where(gte(pageViews.createdAt, since))
         .groupBy(pageViews.os)
         .orderBy(desc(sql`count(*)`))
-        .limit(8),
+        .limit(8)),
 
       // منابع ورودی (referrer) — بر اساس دامنه
-      db
+      safe('referrerBreakdown', [] as { referrer: string | null; count: number }[], () => db
         .select({
           referrer: sql<string>`
             CASE
@@ -120,10 +131,10 @@ export async function GET(req: NextRequest) {
         .where(gte(pageViews.createdAt, since))
         .groupBy(sql`1`)
         .orderBy(desc(sql`count(*)`))
-        .limit(8),
+        .limit(8)),
 
       // تفکیک ساعت روز (الگوی ترافیک)
-      db
+      safe('hourlyBreakdown', [] as { hour: number; count: number }[], () => db
         .select({
           hour: sql<number>`extract(hour from ${pageViews.createdAt} AT TIME ZONE 'Asia/Tehran')::int`,
           count: sql<number>`count(*)::int`,
@@ -131,16 +142,16 @@ export async function GET(req: NextRequest) {
         .from(pageViews)
         .where(gte(pageViews.createdAt, since))
         .groupBy(sql`1`)
-        .orderBy(sql`1`),
+        .orderBy(sql`1`)),
 
       // دوره قبلی برای محاسبه رشد
-      db
+      safe('prevTotals', [{ count: 0, unique: 0 }], () => db
         .select({
           count: sql<number>`count(*)::int`,
           unique: sql<number>`count(distinct ${pageViews.sessionId})::int`,
         })
         .from(pageViews)
-        .where(and(gte(pageViews.createdAt, prevSince), lt(pageViews.createdAt, since))),
+        .where(and(gte(pageViews.createdAt, prevSince), lt(pageViews.createdAt, since)))),
     ])
 
     const prevViews = prevTotals[0]?.count ?? 0
