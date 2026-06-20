@@ -104,13 +104,30 @@ export default function PagesListPage() {
                       </span>
                     </td>
                     <td className="px-5 py-4 text-surface-400 text-xs">{fa(page.updatedAt)}</td>
-                    <td className="px-5 py-4">
+                    <td className="px-5 py-4 flex items-center gap-3">
                       <Link
                         href={`/admin/pages/${page.id}`}
                         className="text-brand-600 hover:text-brand-700 text-xs font-semibold"
                       >
                         ویرایش
                       </Link>
+                      {page.status === 'published' ? (
+                        <Link
+                          href={`/p/${page.slug}`}
+                          target="_blank"
+                          className="text-surface-400 hover:text-surface-600 text-xs font-semibold"
+                        >
+                          مشاهده
+                        </Link>
+                      ) : (
+                        <Link
+                          href={`/admin/pages/${page.id}/preview`}
+                          target="_blank"
+                          className="text-surface-400 hover:text-surface-600 text-xs font-semibold"
+                        >
+                          پیش‌نمایش
+                        </Link>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -142,7 +159,7 @@ export default function PagesListPage() {
               <div>
                 <label className="block text-sm font-semibold text-surface-700 mb-1.5">آدرس (slug)</label>
                 <div className="flex items-center gap-1">
-                  <span className="text-surface-400 text-sm">beewaz.ir/</span>
+                  <span className="text-surface-400 text-sm">beewaz.ir/p/</span>
                   <input
                     value={newSlug}
                     onChange={(e) => setNewSlug(slugify(e.target.value))}

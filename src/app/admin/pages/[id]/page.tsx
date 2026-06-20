@@ -11,13 +11,18 @@ const BLOCK_TYPES: { type: BlockType; label: string; icon: string; defaults: Rec
   { type: 'hero',     label: 'Hero',       icon: '🦸', defaults: { title: '', subtitle: '', ctaText: '', ctaUrl: '' } },
   { type: 'text',     label: 'متن',        icon: '📝', defaults: { content: '' } },
   { type: 'image',    label: 'تصویر',      icon: '🖼️', defaults: { src: '', alt: '', caption: '' } },
+  { type: 'gallery',  label: 'گالری',      icon: '🖼️', defaults: { images: [{ src: '', alt: '' }] } },
   { type: 'cta',      label: 'دکمه CTA',  icon: '🔗', defaults: { title: '', subtitle: '', btnText: '', btnUrl: '' } },
-  { type: 'faq',      label: 'FAQ',        icon: '❓', defaults: { items: [{ q: '', a: '' }] } },
+  { type: 'faq',      label: 'FAQ',        icon: '❓', defaults: { title: '', items: [{ q: '', a: '' }] } },
   { type: 'features', label: 'ویژگی‌ها',  icon: '⭐', defaults: { title: '', items: [{ icon: '✅', title: '', desc: '' }] } },
   { type: 'divider',  label: 'خط جداکننده', icon: '➖', defaults: {} },
 ]
 
-function nanoid() { return Math.random().toString(36).slice(2, 10) }
+function nanoid() {
+  return typeof crypto !== 'undefined' && crypto.randomUUID
+    ? crypto.randomUUID().slice(0, 8)
+    : Math.random().toString(36).slice(2, 10)
+}
 
 // ── Block Editors ──────────────────────────────────────────────────────────────
 
@@ -73,6 +78,65 @@ function CtaEditor({ props, onChange }: { props: Record<string, unknown>; onChan
   )
 }
 
+function GalleryEditor({ props, onChange }: { props: Record<string, unknown>; onChange: (p: Record<string, unknown>) => void }) {
+  const p = props as { images?: { src: string; alt?: string }[] }
+  const images = p.images ?? []
+  const setImages = (next: { src: string; alt?: string }[]) => onChange({ ...props, images: next })
+  return (
+    <div className="space-y-3">
+      {images.map((img, i) => (
+        <div key={i} className="flex items-center gap-2">
+          <input className="input flex-1 text-sm font-mono" placeholder="آدرس تصویر (URL)" value={img.src} onChange={(e) => setImages(images.map((it, j) => (j === i ? { ...it, src: e.target.value } : it)))} />
+          <input className="input flex-1 text-sm" placeholder="alt" value={img.alt ?? ''} onChange={(e) => setImages(images.map((it, j) => (j === i ? { ...it, alt: e.target.value } : it)))} />
+          <button onClick={() => setImages(images.filter((_, j) => j !== i))} className="text-red-400 hover:text-red-600 px-2">✕</button>
+        </div>
+      ))}
+      <button onClick={() => setImages([...images, { src: '', alt: '' }])} className="text-xs text-brand-600 hover:text-brand-700 font-semibold">+ افزودن تصویر</button>
+    </div>
+  )
+}
+
+function FaqEditor({ props, onChange }: { props: Record<string, unknown>; onChange: (p: Record<string, unknown>) => void }) {
+  const p = props as { title?: string; items?: { q: string; a: string }[] }
+  const items = p.items ?? []
+  const setItems = (next: { q: string; a: string }[]) => onChange({ ...props, items: next })
+  return (
+    <div className="space-y-3">
+      <input className="input w-full text-sm" placeholder="عنوان بخش (اختیاری)" value={p.title ?? ''} onChange={(e) => onChange({ ...props, title: e.target.value })} />
+      {items.map((item, i) => (
+        <div key={i} className="border border-surface-100 rounded-xl p-3 space-y-2">
+          <div className="flex items-center gap-2">
+            <input className="input flex-1 text-sm" placeholder="سؤال" value={item.q} onChange={(e) => setItems(items.map((it, j) => (j === i ? { ...it, q: e.target.value } : it)))} />
+            <button onClick={() => setItems(items.filter((_, j) => j !== i))} className="text-red-400 hover:text-red-600 px-2">✕</button>
+          </div>
+          <textarea className="input w-full text-sm resize-none" rows={2} placeholder="پاسخ" value={item.a} onChange={(e) => setItems(items.map((it, j) => (j === i ? { ...it, a: e.target.value } : it)))} />
+        </div>
+      ))}
+      <button onClick={() => setItems([...items, { q: '', a: '' }])} className="text-xs text-brand-600 hover:text-brand-700 font-semibold">+ افزودن سؤال</button>
+    </div>
+  )
+}
+
+function FeaturesEditor({ props, onChange }: { props: Record<string, unknown>; onChange: (p: Record<string, unknown>) => void }) {
+  const p = props as { title?: string; items?: { icon?: string; title: string; desc?: string }[] }
+  const items = p.items ?? []
+  const setItems = (next: { icon?: string; title: string; desc?: string }[]) => onChange({ ...props, items: next })
+  return (
+    <div className="space-y-3">
+      <input className="input w-full text-sm" placeholder="عنوان بخش (اختیاری)" value={p.title ?? ''} onChange={(e) => onChange({ ...props, title: e.target.value })} />
+      {items.map((item, i) => (
+        <div key={i} className="flex items-center gap-2">
+          <input className="input w-14 text-sm text-center" placeholder="🔧" value={item.icon ?? ''} onChange={(e) => setItems(items.map((it, j) => (j === i ? { ...it, icon: e.target.value } : it)))} />
+          <input className="input flex-1 text-sm" placeholder="عنوان" value={item.title} onChange={(e) => setItems(items.map((it, j) => (j === i ? { ...it, title: e.target.value } : it)))} />
+          <input className="input flex-1 text-sm" placeholder="توضیح" value={item.desc ?? ''} onChange={(e) => setItems(items.map((it, j) => (j === i ? { ...it, desc: e.target.value } : it)))} />
+          <button onClick={() => setItems(items.filter((_, j) => j !== i))} className="text-red-400 hover:text-red-600 px-2">✕</button>
+        </div>
+      ))}
+      <button onClick={() => setItems([...items, { icon: '✅', title: '', desc: '' }])} className="text-xs text-brand-600 hover:text-brand-700 font-semibold">+ افزودن ویژگی</button>
+    </div>
+  )
+}
+
 function BlockEditor({ block, onChange, onDelete, onMove, isFirst, isLast }: {
   block: Block
   onChange: (b: Block) => void
@@ -87,10 +151,13 @@ function BlockEditor({ block, onChange, onDelete, onMove, isFirst, isLast }: {
     switch (block.type) {
       case 'hero':    return <HeroEditor  props={block.props} onChange={(p) => onChange({ ...block, props: p })} />
       case 'text':    return <TextEditor  props={block.props} onChange={(p) => onChange({ ...block, props: p })} />
-      case 'image':   return <ImageEditor props={block.props} onChange={(p) => onChange({ ...block, props: p })} />
-      case 'cta':     return <CtaEditor   props={block.props} onChange={(p) => onChange({ ...block, props: p })} />
-      case 'divider': return <p className="text-sm text-surface-400 text-center py-2">─── خط جداکننده ───</p>
-      default:        return <p className="text-xs text-surface-400">ویرایشگر این بلاک در دست ساخت است</p>
+      case 'image':    return <ImageEditor    props={block.props} onChange={(p) => onChange({ ...block, props: p })} />
+      case 'gallery':  return <GalleryEditor  props={block.props} onChange={(p) => onChange({ ...block, props: p })} />
+      case 'cta':      return <CtaEditor      props={block.props} onChange={(p) => onChange({ ...block, props: p })} />
+      case 'faq':      return <FaqEditor      props={block.props} onChange={(p) => onChange({ ...block, props: p })} />
+      case 'features': return <FeaturesEditor props={block.props} onChange={(p) => onChange({ ...block, props: p })} />
+      case 'divider':  return <p className="text-sm text-surface-400 text-center py-2">─── خط جداکننده ───</p>
+      default:         return <p className="text-xs text-surface-400">ویرایشگر این بلاک در دست ساخت است</p>
     }
   }
 
@@ -136,10 +203,15 @@ export default function PageEditorPage() {
   const [slug,    setSlug]    = useState('')
   const [metaTitle, setMetaTitle] = useState('')
   const [metaDesc,  setMetaDesc]  = useState('')
+  const [ogImage,   setOgImage]   = useState('')
   const [saving,    setSaving]    = useState(false)
   const [saved,     setSaved]     = useState(false)
   const [tab,       setTab]       = useState<'content' | 'seo'>('content')
   const [showAdd,   setShowAdd]   = useState(false)
+  const [showAi,    setShowAi]    = useState(false)
+  const [aiTopic,   setAiTopic]   = useState('')
+  const [aiLoading, setAiLoading] = useState(false)
+  const [aiError,   setAiError]   = useState('')
 
   useEffect(() => {
     fetch(`/api/admin/pages/${id}`)
@@ -152,6 +224,7 @@ export default function PageEditorPage() {
         setSlug(d.page.slug)
         setMetaTitle(d.page.metaTitle ?? '')
         setMetaDesc(d.page.metaDesc ?? '')
+        setOgImage(d.page.ogImage ?? '')
       })
   }, [id, router])
 
@@ -165,11 +238,36 @@ export default function PageEditorPage() {
         titleFa: title, slug, blocks,
         metaTitle: metaTitle || undefined,
         metaDesc:  metaDesc  || undefined,
+        ogImage:   ogImage   || undefined,
         ...(status && { status }),
       }),
     })
     if (r.ok) { setSaved(true); setTimeout(() => setSaved(false), 2000) }
     setSaving(false)
+  }
+
+  const generateWithAi = async () => {
+    if (!aiTopic.trim() || aiLoading) return
+    setAiLoading(true)
+    setAiError('')
+    try {
+      const r = await fetch(`/api/admin/pages/${id}/generate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic: aiTopic.trim() }),
+      })
+      const d = await r.json() as { blocks?: Block[]; metaTitle?: string; metaDesc?: string; error?: string }
+      if (!r.ok || !d.blocks) { setAiError(d.error ?? 'خطا در تولید محتوا'); return }
+      setBlocks((prev) => [...prev, ...d.blocks as Block[]])
+      if (d.metaTitle && !metaTitle) setMetaTitle(d.metaTitle)
+      if (d.metaDesc && !metaDesc) setMetaDesc(d.metaDesc)
+      setShowAi(false)
+      setAiTopic('')
+    } catch {
+      setAiError('خطا در ارتباط با سرور')
+    } finally {
+      setAiLoading(false)
+    }
   }
 
   const addBlock = (type: BlockType) => {
@@ -216,7 +314,7 @@ export default function PageEditorPage() {
             placeholder="عنوان صفحه..."
           />
           <div className="flex items-center gap-1 text-xs text-surface-400">
-            <span>beewaz.ir/</span>
+            <span>beewaz.ir/p/</span>
             <input
               value={slug}
               onChange={(e) => setSlug(e.target.value)}
@@ -229,6 +327,9 @@ export default function PageEditorPage() {
           {page.status === 'published' ? 'منتشرشده' : 'پیش‌نویس'}
         </span>
         {saved && <span className="text-xs text-green-600 font-semibold">✅ ذخیره شد</span>}
+        <Link href={`/admin/pages/${id}/preview`} target="_blank" className="btn btn-outline text-sm py-2 px-4">
+          پیش‌نمایش
+        </Link>
         <button onClick={() => void save()} disabled={saving} className="btn btn-outline text-sm py-2 px-4">
           {saving ? 'ذخیره...' : 'ذخیره پیش‌نویس'}
         </button>
@@ -253,6 +354,34 @@ export default function PageEditorPage() {
 
         {tab === 'content' && (
           <>
+            {/* تولید محتوا با هوش مصنوعی */}
+            {showAi ? (
+              <div className="bg-gradient-to-br from-brand-50 to-white border-2 border-brand-200 rounded-2xl p-5 space-y-3">
+                <p className="text-sm font-semibold text-surface-800">✨ موضوع صفحه را بنویس تا هوش مصنوعی محتوا را برایت بسازد:</p>
+                <textarea
+                  className="input w-full text-sm resize-none"
+                  rows={2}
+                  placeholder="مثلاً: راهنمای انتخاب دزدگیر مرکزی برای آپارتمان"
+                  value={aiTopic}
+                  onChange={(e) => setAiTopic(e.target.value)}
+                />
+                {aiError && <p className="text-xs text-red-600">{aiError}</p>}
+                <div className="flex items-center gap-2">
+                  <button onClick={() => void generateWithAi()} disabled={aiLoading || !aiTopic.trim()} className="btn btn-accent text-sm py-2 px-4">
+                    {aiLoading ? 'در حال تولید...' : 'تولید محتوا'}
+                  </button>
+                  <button onClick={() => { setShowAi(false); setAiError('') }} className="text-xs text-surface-400 hover:text-surface-600">انصراف</button>
+                </div>
+              </div>
+            ) : (
+              <button
+                onClick={() => setShowAi(true)}
+                className="w-full border-2 border-dashed border-brand-300 bg-brand-50/40 rounded-2xl py-4 text-brand-600 hover:bg-brand-50 transition-all flex items-center justify-center gap-2 text-sm font-semibold"
+              >
+                ✨ تولید محتوا با هوش مصنوعی
+              </button>
+            )}
+
             {/* بلاک‌ها */}
             <div className="space-y-3">
               {blocks.map((block, idx) => (
@@ -310,6 +439,11 @@ export default function PageEditorPage() {
               <label className="block text-sm font-semibold text-surface-700 mb-1.5">توضیحات متا (meta description)</label>
               <textarea value={metaDesc} onChange={(e) => setMetaDesc(e.target.value)} className="input w-full text-sm resize-none" rows={3} placeholder="توضیح کوتاه صفحه برای موتورهای جستجو" maxLength={160} />
               <p className="text-xs text-surface-400 mt-1">{metaDesc.length}/160 کاراکتر</p>
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-surface-700 mb-1.5">تصویر Open Graph (og:image)</label>
+              <input value={ogImage} onChange={(e) => setOgImage(e.target.value)} className="input w-full text-sm font-mono" dir="ltr" placeholder="https://cdn.beewaz.ir/..." />
+              <p className="text-xs text-surface-400 mt-1">تصویری که هنگام اشتراک‌گذاری لینک در شبکه‌های اجتماعی نمایش داده می‌شود</p>
             </div>
             <button onClick={() => void save()} disabled={saving} className="btn btn-primary w-full">ذخیره SEO</button>
           </div>
