@@ -44,6 +44,7 @@ export async function POST(req: Request) {
       void sendBulkSms(
         adminPhone,
         `بیـواز | لید جدید\nنام: ${body.fullName.trim()}\nشماره: ${cleanPhone.startsWith('0') ? cleanPhone : `0${cleanPhone}`}\nموضوع: ${body.subject ?? '-'}`,
+        { trigger: 'manual', relatedType: 'lead' },
       )
     }
 

@@ -56,7 +56,7 @@ export async function POST(req: Request) {
 
     await db.insert(phoneOtps).values({ phone, code, expiresAt })
 
-    const sent = await sendVerifySms(phone, SMS_TEMPLATES.OTP, { OTP: code })
+    const sent = await sendVerifySms(phone, SMS_TEMPLATES.OTP, { OTP: code }, { trigger: 'otp' })
     if (!sent) {
       return NextResponse.json({ error: 'خطا در ارسال پیامک. لطفاً دوباره تلاش کنید' }, { status: 500 })
     }

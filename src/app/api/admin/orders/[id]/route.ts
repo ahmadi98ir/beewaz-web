@@ -78,24 +78,25 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     const customerPhone = addr?.phone
     if (customerPhone && body.status) {
       const shortId = id.slice(0, 8).toUpperCase()
+      const smsMeta = { trigger: 'order_status_change' as const, relatedType: 'order', relatedId: id }
       if (body.status === 'shipped') {
         const trackMsg = update.trackingCode
           ? `کد پیگیری: ${update.trackingCode}`
           : 'برای پیگیری با پشتیبانی تماس بگیرید'
         void sendBulkSms(customerPhone,
-          `بیواز: سفارش #${shortId} ارسال شد. ${trackMsg}`)
+          `بیواز: سفارش #${shortId} ارسال شد. ${trackMsg}`, smsMeta)
       } else if (body.status === 'delivered') {
         void sendBulkSms(customerPhone,
-          `بیواز: سفارش #${shortId} تحویل داده شد. ممنون از خرید شما 🙏`)
+          `بیواز: سفارش #${shortId} تحویل داده شد. ممنون از خرید شما 🙏`, smsMeta)
       } else if (body.status === 'processing') {
         void sendBulkSms(customerPhone,
-          `بیواز: سفارش #${shortId} در حال آماده‌سازی است.`)
+          `بیواز: سفارش #${shortId} در حال آماده‌سازی است.`, smsMeta)
       } else if (body.status === 'cancelled') {
         void sendBulkSms(customerPhone,
-          `بیواز: سفارش #${shortId} لغو شد. برای پیگیری با پشتیبانی تماس بگیرید.`)
+          `بیواز: سفارش #${shortId} لغو شد. برای پیگیری با پشتیبانی تماس بگیرید.`, smsMeta)
       } else if (body.status === 'refunded') {
         void sendBulkSms(customerPhone,
-          `بیواز: مبلغ سفارش #${shortId} مسترد شد.`)
+          `بیواز: مبلغ سفارش #${shortId} مسترد شد.`, smsMeta)
       }
     }
 

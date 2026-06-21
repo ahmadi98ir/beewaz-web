@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { BeewazLogo } from '@/components/ui/logo'
 import { MenuIcon, XIcon } from '@/components/ui/icons'
+import { FULL_VERSION } from '@/lib/version'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -32,6 +33,7 @@ const navSections: NavSection[] = [
       { href: '/admin',           label: 'داشبورد',        permission: 'dashboard:view', icon: 'M3 10L10 3l7 7M5 8v8h4v-5h2v5h4V8' },
       { href: '/admin/analytics', label: 'آمار و تحلیل‌ها', permission: 'analytics:view', icon: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z' },
       { href: '/admin/integrations/analytics', label: 'اتصال گوگل آنالیتکس', permission: 'settings:read', icon: 'M3 3v18h18M7 16l4-6 3 3 5-7' },
+      { href: '/admin/changelog', label: 'تازه‌های نسخه', icon: 'M9 12h6m-3-3v6m-7 4h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z' },
     ],
   },
   {
@@ -222,8 +224,9 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
         })}
       </nav>
 
-      <div className="px-3 pb-3 pt-2 border-t border-white/[0.06] flex-shrink-0">
+      <div className="px-3 pb-3 pt-2 border-t border-white/[0.06] flex-shrink-0 space-y-2">
         <UserCard />
+        <p className="text-[10px] text-white/20 text-center font-mono">{FULL_VERSION}</p>
       </div>
     </div>
   )

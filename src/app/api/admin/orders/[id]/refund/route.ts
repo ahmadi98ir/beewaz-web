@@ -69,6 +69,7 @@ export async function POST(req: NextRequest, { params }: Params) {
     if (addr?.phone) {
       void sendBulkSms(addr.phone,
         `بیواز: مبلغ سفارش #${id.slice(0, 8).toUpperCase()} مسترد شد. برای پیگیری با پشتیبانی تماس بگیرید.`,
+        { trigger: 'order_status_change', relatedType: 'order', relatedId: id },
       ).catch(() => {})
     }
 

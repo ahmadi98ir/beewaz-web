@@ -282,7 +282,8 @@ export async function POST(req: Request) {
   void sendVerifySms(address.phone, SMS_TEMPLATES.ORDER_CONFIRM, {
     ORDERID: shortId,
     PRICE: tomanStr,
-  }).catch((e) => console.error('[orders] customer SMS failed', e))
+  }, { trigger: 'order_status_change', relatedType: 'order', relatedId: order.id })
+    .catch((e) => console.error('[orders] customer SMS failed', e))
 
   // پیامک اطلاع‌رسانی به ادمین (اگر شماره ثبت شده باشد)
   void (async () => {
@@ -294,7 +295,8 @@ export async function POST(req: Request) {
       const adminPhone = setting?.value?.trim()
       if (adminPhone && /^09\d{9}$/.test(adminPhone)) {
         await sendBulkSms(adminPhone,
-          `بیواز: سفارش جدید #${shortId} — ${tomanStr} تومان — ${address.fullName}`)
+          `بیواز: سفارش جدید #${shortId} — ${tomanStr} تومان — ${address.fullName}`,
+          { trigger: 'manual', relatedType: 'order', relatedId: order.id })
       }
     } catch { /* نادیده گرفتن خطای اطلاع‌رسانی ادمین */ }
   })()

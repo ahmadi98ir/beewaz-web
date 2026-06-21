@@ -52,6 +52,8 @@ jobs:
       - name: Build (standalone)
         env:
           NEXT_PUBLIC_APP_URL: https://beewaz.ir
+          NEXT_PUBLIC_BUILD_SHA: ${{ github.sha }}
+          NEXT_PUBLIC_BUILD_TIME: ${{ github.event.head_commit.timestamp }}
         run: npm run build
 
       - name: Assemble bundle
