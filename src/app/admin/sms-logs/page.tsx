@@ -23,15 +23,31 @@ const TRIGGER_MAP: Record<string, string> = {
 }
 
 export default async function SmsLogsPage() {
-  const logs = await db
-    .select()
-    .from(smsLogs)
-    .orderBy(desc(smsLogs.createdAt))
-    .limit(100)
+  let logs: (typeof smsLogs.$inferSelect)[] = []
+  let dbError: string | null = null
+
+  try {
+    logs = await db
+      .select()
+      .from(smsLogs)
+      .orderBy(desc(smsLogs.createdAt))
+      .limit(100)
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error('[SmsLogsPage] DB error:', msg)
+    dbError = msg
+  }
 
   return (
     <div className="p-6 space-y-6" dir="rtl">
       <h1 className="text-xl font-bold text-surface-900">لاگ پیامک‌ها</h1>
+
+      {dbError && (
+        <div className="rounded-2xl border border-red-200 bg-red-50 p-4 space-y-1">
+          <p className="text-red-600 font-bold text-sm">خطا در بارگذاری لاگ پیامک‌ها</p>
+          <p className="text-red-500/80 text-xs font-mono break-all">{dbError}</p>
+        </div>
+      )}
 
       <div className="bg-white rounded-2xl border border-surface-200 overflow-hidden">
         <div className="overflow-x-auto">
