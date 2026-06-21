@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import type { Block, BlockType } from '@/lib/db/schema'
@@ -53,11 +53,105 @@ function TextEditor({ props, onChange }: { props: Record<string, unknown>; onCha
   )
 }
 
+function BlockImageUploader({ value, onChange }: { value: string; onChange: (url: string) => void }) {
+  const inputRef = useRef<HTMLInputElement>(null)
+  const [dragging, setDragging] = useState(false)
+  const [progress, setProgress] = useState<number | null>(null)
+  const [errMsg, setErrMsg] = useState('')
+
+  const upload = useCallback((file: File) => {
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) { setErrMsg('فقط JPG، PNG یا WebP مجاز است'); return }
+    if (file.size > 5 * 1024 * 1024) { setErrMsg('حجم فایل نباید بیشتر از ۵ مگابایت باشد'); return }
+    setErrMsg('')
+    setProgress(5)
+
+    const fd = new FormData()
+    fd.append('file', file)
+
+    const xhr = new XMLHttpRequest()
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) setProgress(Math.round((e.loaded / e.total) * 90))
+    }
+    xhr.onload = () => {
+      if (xhr.status === 200) {
+        const { url } = JSON.parse(xhr.responseText) as { url: string }
+        setProgress(100)
+        setTimeout(() => { setProgress(null); onChange(url) }, 300)
+      } else {
+        const err = JSON.parse(xhr.responseText) as { error?: string }
+        setErrMsg(err.error ?? 'خطا در آپلود')
+        setProgress(null)
+      }
+    }
+    xhr.onerror = () => { setErrMsg('خطا در اتصال'); setProgress(null) }
+    xhr.open('POST', '/api/admin/upload')
+    xhr.send(fd)
+  }, [onChange])
+
+  const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) upload(file)
+    e.target.value = ''
+  }
+
+  const hasImage = value && (value.startsWith('/') || value.startsWith('http'))
+
+  return (
+    <div className="space-y-2">
+      {hasImage ? (
+        <div className="relative rounded-xl overflow-hidden border border-surface-200 bg-surface-50 aspect-video max-h-44 group">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={value} alt="" className="w-full h-full object-cover" />
+          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors" />
+          <div className="absolute bottom-2 inset-x-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+            <button type="button" onClick={() => inputRef.current?.click()} className="flex-1 px-3 py-1.5 rounded-lg bg-white/90 hover:bg-white text-surface-800 text-xs font-semibold transition-colors">
+              تغییر تصویر
+            </button>
+            <button type="button" onClick={() => onChange('')} className="px-3 py-1.5 rounded-lg bg-red-500/90 hover:bg-red-500 text-white text-xs font-semibold transition-colors">
+              حذف
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div
+          onDragEnter={(e) => { e.preventDefault(); setDragging(true) }}
+          onDragOver={(e) => { e.preventDefault(); setDragging(true) }}
+          onDragLeave={() => setDragging(false)}
+          onDrop={(e) => { e.preventDefault(); setDragging(false); const file = e.dataTransfer.files[0]; if (file) upload(file) }}
+          onClick={() => !progress && inputRef.current?.click()}
+          className={`relative flex flex-col items-center justify-center gap-1.5 rounded-xl border-2 border-dashed cursor-pointer transition-all py-6 px-4 select-none ${
+            dragging ? 'border-brand-400 bg-brand-50' : 'border-surface-200 bg-surface-50 hover:border-brand-300 hover:bg-brand-50/40'
+          }`}
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className={`w-6 h-6 ${dragging ? 'text-brand-600' : 'text-surface-400'}`}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+          </svg>
+          <p className={`text-xs font-semibold ${dragging ? 'text-brand-700' : 'text-surface-500'}`}>
+            {dragging ? 'رها کنید...' : 'برای آپلود کلیک کنید یا فایل را بکشید'}
+          </p>
+          <p className="text-[11px] text-surface-400">JPG، PNG، WebP — حداکثر ۵ مگابایت</p>
+          {progress !== null && (
+            <div className="absolute inset-x-3 bottom-2">
+              <div className="h-1 rounded-full bg-surface-200 overflow-hidden">
+                <div className="h-full rounded-full bg-brand-600 transition-all duration-300" style={{ width: `${progress}%` }} />
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      <input ref={inputRef} type="file" accept=".jpg,.jpeg,.png,.webp" className="hidden" onChange={onFileChange} />
+      {errMsg && <p className="text-xs text-red-600">{errMsg}</p>}
+      <input className="input w-full text-xs font-mono" dir="ltr" placeholder="یا آدرس تصویر (URL) را وارد کنید" value={value} onChange={(e) => onChange(e.target.value)} />
+    </div>
+  )
+}
+
 function ImageEditor({ props, onChange }: { props: Record<string, unknown>; onChange: (p: Record<string, unknown>) => void }) {
   const p = props as { src?: string; alt?: string; caption?: string }
   return (
     <div className="space-y-3">
-      <input className="input w-full text-sm font-mono" placeholder="آدرس تصویر (URL)" value={p.src ?? ''} onChange={(e) => onChange({ ...props, src: e.target.value })} />
+      <BlockImageUploader value={p.src ?? ''} onChange={(url) => onChange({ ...props, src: url })} />
       <input className="input w-full text-sm" placeholder="متن جایگزین (alt)" value={p.alt ?? ''} onChange={(e) => onChange({ ...props, alt: e.target.value })} />
       <input className="input w-full text-sm" placeholder="کپشن (اختیاری)" value={p.caption ?? ''} onChange={(e) => onChange({ ...props, caption: e.target.value })} />
     </div>
@@ -85,10 +179,14 @@ function GalleryEditor({ props, onChange }: { props: Record<string, unknown>; on
   return (
     <div className="space-y-3">
       {images.map((img, i) => (
-        <div key={i} className="flex items-center gap-2">
-          <input className="input flex-1 text-sm font-mono" placeholder="آدرس تصویر (URL)" value={img.src} onChange={(e) => setImages(images.map((it, j) => (j === i ? { ...it, src: e.target.value } : it)))} />
-          <input className="input flex-1 text-sm" placeholder="alt" value={img.alt ?? ''} onChange={(e) => setImages(images.map((it, j) => (j === i ? { ...it, alt: e.target.value } : it)))} />
-          <button onClick={() => setImages(images.filter((_, j) => j !== i))} className="text-red-400 hover:text-red-600 px-2">✕</button>
+        <div key={i} className="border border-surface-100 rounded-xl p-3 space-y-2">
+          <div className="flex items-start gap-2">
+            <div className="flex-1">
+              <BlockImageUploader value={img.src} onChange={(url) => setImages(images.map((it, j) => (j === i ? { ...it, src: url } : it)))} />
+            </div>
+            <button onClick={() => setImages(images.filter((_, j) => j !== i))} className="text-red-400 hover:text-red-600 px-2 pt-2">✕</button>
+          </div>
+          <input className="input w-full text-sm" placeholder="alt" value={img.alt ?? ''} onChange={(e) => setImages(images.map((it, j) => (j === i ? { ...it, alt: e.target.value } : it)))} />
         </div>
       ))}
       <button onClick={() => setImages([...images, { src: '', alt: '' }])} className="text-xs text-brand-600 hover:text-brand-700 font-semibold">+ افزودن تصویر</button>
