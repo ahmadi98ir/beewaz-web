@@ -29,7 +29,7 @@ ALTER TYPE "public"."payment_method" ADD VALUE IF NOT EXISTS 'cash_on_delivery';
 ALTER TYPE "public"."payment_method" ADD VALUE IF NOT EXISTS 'installment';--> statement-breakpoint
 
 -- ── order_items: ستون‌های جدید ───────────────────────────────────────────────
-ALTER TABLE "order_items" ADD COLUMN IF NOT EXISTS "variant_id" uuid REFERENCES "product_variants"("id") ON DELETE SET NULL;--> statement-breakpoint
+ALTER TABLE "order_items" ADD COLUMN IF NOT EXISTS "variant_id" uuid;--> statement-breakpoint
 ALTER TABLE "order_items" ADD COLUMN IF NOT EXISTS "product_name" varchar(200) DEFAULT '' NOT NULL;--> statement-breakpoint
 ALTER TABLE "order_items" ADD COLUMN IF NOT EXISTS "variant_name" varchar(128);--> statement-breakpoint
 ALTER TABLE "order_items" ADD COLUMN IF NOT EXISTS "sku" varchar(64);--> statement-breakpoint

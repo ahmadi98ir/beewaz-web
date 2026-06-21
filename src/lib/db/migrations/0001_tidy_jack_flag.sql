@@ -1,5 +1,8 @@
-CREATE TYPE "public"."content_type" AS ENUM('text', 'richtext', 'image', 'url', 'boolean', 'json', 'number', 'color');--> statement-breakpoint
-CREATE TABLE "page_content" (
+DO $$ BEGIN
+  CREATE TYPE "public"."content_type" AS ENUM('text', 'richtext', 'image', 'url', 'boolean', 'json', 'number', 'color');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS "page_content" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"page" varchar(64) NOT NULL,
 	"key" varchar(100) NOT NULL,
@@ -14,7 +17,7 @@ CREATE TABLE "page_content" (
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "page_views" (
+CREATE TABLE IF NOT EXISTS "page_views" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"path" varchar(500) NOT NULL,
 	"referrer" text,
@@ -25,7 +28,7 @@ CREATE TABLE "page_views" (
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "site_settings" (
+CREATE TABLE IF NOT EXISTS "site_settings" (
 	"key" varchar(100) PRIMARY KEY NOT NULL,
 	"value" text,
 	"type" "content_type" DEFAULT 'text' NOT NULL,
