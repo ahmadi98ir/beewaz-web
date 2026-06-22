@@ -1,11 +1,13 @@
 'use client'
 
 import Link from 'next/link'
+import { useSession } from 'next-auth/react'
 import { ShoppingCartIcon, HeartIcon } from '@/components/ui/icons'
 import { formatPrice, discountPercent, toFaDigits } from '@/lib/utils'
 import { useCart } from '@/stores/cart'
 import { useToast } from '@/stores/toast'
 import { useQuickView } from '@/stores/quick-view'
+import { useWishlist } from '@/stores/wishlist'
 import { ProductSvgIcon } from '@/components/shop/product-svg-icon'
 import type { ShopProduct } from '@/lib/shop-product'
 
@@ -36,10 +38,37 @@ export function ProductCard({ product, view = 'grid' }: Props) {
   const addItem = useCart((s) => s.addItem)
   const toast = useToast()
   const showQuickView = useQuickView((s) => s.show)
+  const { status } = useSession()
+  const wishlisted = useWishlist((s) => s.ids.has(product.id))
+  const addWish = useWishlist((s) => s.add)
+  const removeWish = useWishlist((s) => s.remove)
 
   const hasDiscount = !!product.comparePrice
   const discount = hasDiscount ? discountPercent(product.price, product.comparePrice!) : 0
   const isLowStock = product.stock > 0 && product.stock <= 5
+
+  const handleToggleWishlist = (e: React.MouseEvent) => {
+    e.preventDefault()
+    if (status !== 'authenticated') {
+      window.location.href = `/login?callbackUrl=${encodeURIComponent(window.location.pathname)}`
+      return
+    }
+    if (wishlisted) {
+      removeWish(product.id)
+      fetch(`/api/wishlist?productId=${product.id}`, { method: 'DELETE' }).catch(() => {})
+    } else {
+      addWish(product.id)
+      toast.success(`${product.nameFa} به علاقه‌مندی‌ها اضافه شد`, {
+        label: 'مشاهده لیست ←',
+        onClick: () => { window.location.href = '/profile?tab=wishlist' },
+      })
+      fetch('/api/wishlist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ productId: product.id }),
+      }).catch(() => {})
+    }
+  }
 
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault()
@@ -87,7 +116,18 @@ export function ProductCard({ product, view = 'grid' }: Props) {
                 </h3>
               </Link>
             </div>
-            <span className="text-xs text-surface-400 font-mono flex-shrink-0">{product.sku}</span>
+            <div className="flex items-center gap-2.5 flex-shrink-0">
+              <span className="text-xs text-surface-400 font-mono">{product.sku}</span>
+              <button
+                onClick={handleToggleWishlist}
+                className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors ${
+                  wishlisted ? 'text-red-500' : 'text-surface-300 hover:text-brand-600'
+                }`}
+                aria-label={wishlisted ? 'حذف از علاقه‌مندی‌ها' : 'افزودن به علاقه‌مندی‌ها'}
+              >
+                <HeartIcon size={16} fill={wishlisted ? 'currentColor' : 'none'} />
+              </button>
+            </div>
           </div>
 
           {product.descriptionFa && (
@@ -164,10 +204,15 @@ export function ProductCard({ product, view = 'grid' }: Props) {
         {/* دکمه‌های hover */}
         <div className="absolute top-3 end-3 flex flex-col gap-1.5">
           <button
-            className="w-8 h-8 rounded-xl bg-white/90 backdrop-blur-sm flex items-center justify-center text-surface-400 hover:text-brand-600 opacity-0 group-hover:opacity-100 transition-all duration-200 hover:scale-110"
-            aria-label="افزودن به علاقه‌مندی‌ها"
+            onClick={handleToggleWishlist}
+            className={`w-8 h-8 rounded-xl bg-white/90 backdrop-blur-sm flex items-center justify-center transition-all duration-200 hover:scale-110 ${
+              wishlisted
+                ? 'text-red-500 opacity-100'
+                : 'text-surface-400 hover:text-brand-600 opacity-0 group-hover:opacity-100'
+            }`}
+            aria-label={wishlisted ? 'حذف از علاقه‌مندی‌ها' : 'افزودن به علاقه‌مندی‌ها'}
           >
-            <HeartIcon size={16} />
+            <HeartIcon size={16} fill={wishlisted ? 'currentColor' : 'none'} />
           </button>
           <button
             onClick={handleQuickView}

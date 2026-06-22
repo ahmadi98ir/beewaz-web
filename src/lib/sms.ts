@@ -25,6 +25,7 @@ export type SmsTrigger =
   | 'low_stock_alert'
   | 'manual'
   | 'invoice_request'
+  | 'cart_abandonment'
 
 export interface SmsLogMeta {
   trigger: SmsTrigger

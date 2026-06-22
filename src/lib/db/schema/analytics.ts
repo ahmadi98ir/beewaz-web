@@ -42,6 +42,7 @@ export const cartAbandonmentSessions = pgTable('cart_abandonment_sessions', {
   recoveredOrderId: uuid('recovered_order_id'),
   lastSeenAt:  timestamp('last_seen_at', { withTimezone: true }).notNull(),
   recoveredAt: timestamp('recovered_at', { withTimezone: true }),
+  reminderSentAt: timestamp('reminder_sent_at', { withTimezone: true }),
   createdAt:   timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 }, (t) => [
   index('cart_ab_user_idx').on(t.userId),

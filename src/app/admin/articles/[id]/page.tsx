@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { RichTextEditor } from '@/components/admin/rich-text-editor'
 
 interface Article {
   id: string; titleFa: string; slug: string; excerptFa: string | null
@@ -244,12 +245,10 @@ export default function ArticleEditorPage() {
                   <label className="text-xs font-semibold text-surface-500">متن مقاله</label>
                   <span className="text-xs text-surface-400">~{estimateReadTime(body)} دقیقه مطالعه</span>
                 </div>
-                <textarea
+                <RichTextEditor
                   value={body}
-                  onChange={(e) => setBody(e.target.value)}
-                  className="input w-full text-sm resize-none font-mono leading-relaxed"
-                  rows={24}
-                  placeholder="محتوای مقاله را اینجا بنویسید... (HTML پشتیبانی می‌شود)"
+                  onChange={setBody}
+                  placeholder="محتوای مقاله را اینجا بنویسید..."
                 />
               </div>
             </>
