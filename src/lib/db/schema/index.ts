@@ -145,3 +145,9 @@ export {
   menuItems,
   type MenuItem, type NewMenuItem,
 } from './menu'
+
+// ─── Wishlist ─────────────────────────────────────────────────────────────────
+export {
+  wishlistItems, wishlistItemsRelations,
+  type WishlistItem, type NewWishlistItem,
+} from './wishlist'

@@ -1,8 +1,9 @@
 'use client'
 
 import { useEffect, useState, useCallback, useRef } from 'react'
+import { RichTextEditor } from '@/components/admin/rich-text-editor'
 
-type FieldType = 'text' | 'textarea' | 'url' | 'image' | 'boolean' | 'json' | 'number' | 'color' | 'phone'
+type FieldType = 'text' | 'textarea' | 'url' | 'image' | 'boolean' | 'json' | 'number' | 'color' | 'phone' | 'richtext'
 
 interface CmsField {
   key: string; label: string; type: FieldType
@@ -99,6 +100,34 @@ const FIELD_SECTIONS: { id: string; label: string; icon: string; fields: CmsFiel
       { key: 'admin_order_notify_phone', label: 'تلفن اطلاع‌رسانی سفارش',type: 'phone',    group: 'settings' },
     ],
   },
+  {
+    id: 'about', label: 'صفحه درباره ما', icon: '\u{1F4D6}',
+    fields: [
+      { key: 'hero_title',       label: 'عنوان هیرو',        type: 'text',     group: 'page', page: 'about' },
+      { key: 'hero_subtitle',    label: 'زیرعنوان هیرو',     type: 'textarea', group: 'page', page: 'about', rows: 2 },
+      { key: 'story_title',      label: 'عنوان بخش داستان', type: 'text',     group: 'page', page: 'about' },
+      { key: 'story_text',       label: 'متن داستان',        type: 'richtext', group: 'page', page: 'about' },
+      { key: 'customers_count',  label: 'تعداد مشتریان',     type: 'text',     group: 'page', page: 'about', placeholder: '+۱۵,۰۰۰' },
+      { key: 'experience_years', label: 'سال‌های تجربه',     type: 'text',     group: 'page', page: 'about', placeholder: '+۱۰' },
+      { key: 'founded_year',     label: 'سال تأسیس',         type: 'text',     group: 'page', page: 'about', placeholder: '۱۳۹۳' },
+    ],
+  },
+  {
+    id: 'privacy', label: 'حریم خصوصی', icon: '\u{1F512}',
+    fields: [
+      { key: 'hero_title',    label: 'عنوان هیرو',    type: 'text',     group: 'page', page: 'privacy' },
+      { key: 'hero_subtitle', label: 'زیرعنوان هیرو', type: 'textarea', group: 'page', page: 'privacy', rows: 2 },
+      { key: 'body',          label: 'متن سیاست حریم خصوصی', type: 'richtext', group: 'page', page: 'privacy' },
+    ],
+  },
+  {
+    id: 'terms', label: 'شرایط استفاده', icon: '\u{1F4DC}',
+    fields: [
+      { key: 'hero_title',    label: 'عنوان هیرو',    type: 'text',     group: 'page', page: 'terms' },
+      { key: 'hero_subtitle', label: 'زیرعنوان هیرو', type: 'textarea', group: 'page', page: 'terms', rows: 2 },
+      { key: 'body',          label: 'متن شرایط استفاده', type: 'richtext', group: 'page', page: 'terms' },
+    ],
+  },
 ]
 
 function CmsInput({ field, value, onChange }: { field: CmsField; value: string; onChange: (v: string) => void }) {
@@ -142,6 +171,10 @@ function CmsInput({ field, value, onChange }: { field: CmsField; value: string; 
         ) : null}
       </div>
     )
+  }
+
+  if (field.type === 'richtext') {
+    return <RichTextEditor value={value} onChange={onChange} placeholder={field.placeholder} />
   }
 
   if (field.type === 'textarea' || field.type === 'json') {

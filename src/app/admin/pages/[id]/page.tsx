@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import type { Block, BlockType } from '@/lib/db/schema'
+import { RichTextEditor } from '@/components/admin/rich-text-editor'
 
 // ── Block definitions ──────────────────────────────────────────────────────────
 
@@ -43,12 +44,10 @@ function HeroEditor({ props, onChange }: { props: Record<string, unknown>; onCha
 function TextEditor({ props, onChange }: { props: Record<string, unknown>; onChange: (p: Record<string, unknown>) => void }) {
   const p = props as { content?: string }
   return (
-    <textarea
-      className="input w-full text-sm resize-none font-mono"
-      rows={6}
-      placeholder="متن صفحه (HTML پشتیبانی می‌شود)"
+    <RichTextEditor
       value={p.content ?? ''}
-      onChange={(e) => onChange({ ...props, content: e.target.value })}
+      onChange={(content) => onChange({ ...props, content })}
+      placeholder="متن صفحه را اینجا بنویسید..."
     />
   )
 }

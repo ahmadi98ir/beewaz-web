@@ -4,6 +4,7 @@ import { unstable_cache } from 'next/cache'
 import { db } from '@/lib/db'
 import { orders, products, users, analyticsDailySnapshots } from '@/lib/db/schema'
 import { eq, desc, gte, sql, isNull, and, lte, inArray } from 'drizzle-orm'
+import { ensureDailySnapshots } from '@/lib/analytics/daily-snapshot'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -84,6 +85,8 @@ export const getDashboardData = unstable_cache(
     const monthStart    = startOfMonth()
     const lastMonthStart = startOfLastMonth()
     const lastMonthEnd  = endOfLastMonth()
+
+    await ensureDailySnapshots()
 
     const [statsRow, lowStockRows, recentOrderRows, sparkData, snapshotRows] = await Promise.all([
       // ─── آمار کلی ────────────────────────────────────────────────────────

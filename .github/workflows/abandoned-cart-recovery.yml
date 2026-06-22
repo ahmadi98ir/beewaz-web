@@ -1,0 +1,16 @@
+name: Abandoned Cart Recovery
+
+on:
+  schedule:
+    - cron: '0 * * * *'
+  workflow_dispatch:
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call recovery endpoint
+        run: |
+          curl -sf -X POST "https://beewaz.ir/api/cron/abandoned-cart-recovery" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json"

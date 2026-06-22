@@ -4,7 +4,10 @@ import { useState, useEffect } from 'react'
 import { useSession, signOut } from 'next-auth/react'
 import Link from 'next/link'
 import { formatPrice, toFaDigits } from '@/lib/utils'
-import { UserIcon, MailIcon, PhoneIcon, MapPinIcon, ShoppingCartIcon, CheckIcon } from '@/components/ui/icons'
+import { UserIcon, MailIcon, PhoneIcon, MapPinIcon, ShoppingCartIcon, CheckIcon, HeartIcon } from '@/components/ui/icons'
+import { ProductCard } from '@/components/shop/product-card'
+import { useWishlist } from '@/stores/wishlist'
+import type { ShopProduct } from '@/lib/shop-product'
 
 type ProfileData = {
   id: string
@@ -55,9 +58,10 @@ function getLoyaltyTier(totalSpent: number) {
 }
 
 const tabs = [
-  { key: 'orders',   label: 'سفارشات',      icon: ShoppingCartIcon },
-  { key: 'profile',  label: 'اطلاعات حساب', icon: UserIcon },
-  { key: 'address',  label: 'آدرس‌ها',       icon: MapPinIcon },
+  { key: 'orders',    label: 'سفارشات',        icon: ShoppingCartIcon },
+  { key: 'wishlist',  label: 'علاقه‌مندی‌ها',  icon: HeartIcon },
+  { key: 'profile',   label: 'اطلاعات حساب',   icon: UserIcon },
+  { key: 'address',   label: 'آدرس‌ها',         icon: MapPinIcon },
 ]
 
 export default function ProfilePage() {
@@ -85,6 +89,27 @@ export default function ProfilePage() {
         if (d.address) { setAddress(d.address); setAddrForm(d.address) }
       })
       .catch(() => {})
+  }, [])
+
+  // ── علاقه‌مندی‌ها ───────────────────────────────────────────────────────
+  const wishlistIds = useWishlist((s) => s.ids)
+  const [wishlistItems, setWishlistItems] = useState<ShopProduct[]>([])
+  const [wishlistLoading, setWishlistLoading] = useState(true)
+
+  useEffect(() => {
+    fetch('/api/wishlist')
+      .then((r) => r.json())
+      .then((d: { items?: ShopProduct[] }) => setWishlistItems(d.items ?? []))
+      .catch(() => {})
+      .finally(() => setWishlistLoading(false))
+  }, [])
+
+  const visibleWishlist = wishlistItems.filter((p) => wishlistIds.has(p.id))
+
+  // باز کردن مستقیم یک تب بر اساس ?tab= در URL (مثلاً از toast «مشاهده لیست»)
+  useEffect(() => {
+    const tab = new URLSearchParams(window.location.search).get('tab')
+    if (tab && tabs.some((t) => t.key === tab)) setActiveTab(tab)
   }, [])
 
   const onSaveAddress = async (e: React.FormEvent) => {
@@ -341,6 +366,34 @@ export default function ProfilePage() {
                     })}
                   </tbody>
                 </table>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ─── تب علاقه‌مندی‌ها ────────────────────────────────────── */}
+        {activeTab === 'wishlist' && (
+          <div>
+            {wishlistLoading ? (
+              <div className="bg-white rounded-2xl border border-surface-200 py-16 text-center text-surface-400 text-sm">
+                در حال بارگذاری...
+              </div>
+            ) : visibleWishlist.length === 0 ? (
+              <div className="bg-white rounded-2xl border border-surface-200 text-center py-16 px-4">
+                <div className="w-16 h-16 rounded-2xl bg-surface-100 flex items-center justify-center mx-auto mb-4">
+                  <HeartIcon size={28} className="text-surface-300" />
+                </div>
+                <p className="text-surface-500 font-semibold mb-1">لیست علاقه‌مندی‌های شما خالی است</p>
+                <p className="text-surface-400 text-sm mb-6">محصولات مورد علاقه خود را با ضربه روی آیکون قلب ذخیره کنید</p>
+                <Link href="/shop" className="btn btn-accent py-2.5 px-7 text-sm">
+                  رفتن به فروشگاه
+                </Link>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                {visibleWishlist.map((product) => (
+                  <ProductCard key={product.id} product={product} />
+                ))}
               </div>
             )}
           </div>

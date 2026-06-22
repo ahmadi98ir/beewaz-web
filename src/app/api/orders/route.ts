@@ -5,6 +5,7 @@ import { db } from '@/lib/db'
 import { orders, orderItems, products, coupons, couponUsages, siteSettings, users } from '@/lib/db/schema'
 import { eq, inArray, and, count, sql } from 'drizzle-orm'
 import { sendVerifySms, sendBulkSms, SMS_TEMPLATES } from '@/lib/sms'
+import { markCartRecovered } from '@/lib/analytics/cart-recovery'
 import { calcShipping, calcCouponDiscount, calcOrderTotal, calcVat } from '@/lib/pricing'
 import { isValidNationalId, isValidCompanyId, toEnDigits } from '@/lib/utils'
 import { logger } from '@/lib/logger'
@@ -277,6 +278,11 @@ export async function POST(req: Request) {
 
   const shortId = order.id.slice(0, 8).toUpperCase()
   const tomanStr = Math.floor(totalAmount / 10).toLocaleString('fa-IR')
+
+  // علامت‌گذاری سبد رهاشده (در صورت وجود) به عنوان بازیابی‌شده
+  if (userId) {
+    void markCartRecovered(userId, order.id).catch(() => {})
+  }
 
   // پیامک تایید به مشتری (fire-and-forget)
   void sendVerifySms(address.phone, SMS_TEMPLATES.ORDER_CONFIRM, {

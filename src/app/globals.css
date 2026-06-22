@@ -295,6 +295,16 @@
       box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-brand-600) 15%, transparent);
     }
   }
+
+  /* placeholder ویرایشگر Tiptap — کلاس is-editor-empty را خود افزونه Placeholder تزریق می‌کند */
+  .tiptap-content p.is-editor-empty:first-child::before {
+    content: attr(data-placeholder);
+    color: var(--color-surface-700);
+    opacity: 0.6;
+    float: inline-start;
+    height: 0;
+    pointer-events: none;
+  }
 }
 
 /* ─── Utilities ──────────────────────────────────────────────────────────────── */

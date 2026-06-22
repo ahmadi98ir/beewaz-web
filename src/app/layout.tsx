@@ -12,6 +12,8 @@ import { FloatingCart } from '@/components/layout/floating-cart'
 import { FloatingCartButton } from '@/components/layout/floating-cart-button'
 import { AppSessionProvider } from '@/components/providers/session-provider'
 import { PageTracker } from '@/components/analytics/page-tracker'
+import { CartTracker } from '@/components/analytics/cart-tracker'
+import { WishlistSync } from '@/components/shop/wishlist-sync'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -121,6 +123,8 @@ export default async function RootLayout({
             <FloatingCartButton />
             <ToastContainer />
             <PageTracker />
+            <CartTracker />
+            <WishlistSync />
           </AppSessionProvider>
         )}
       </body>
