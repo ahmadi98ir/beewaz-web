@@ -1,4 +1,4 @@
-CREATE TABLE "phone_otps" (
+CREATE TABLE IF NOT EXISTS "phone_otps" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"phone" varchar(15) NOT NULL,
 	"code" varchar(6) NOT NULL,

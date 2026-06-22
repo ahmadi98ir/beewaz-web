@@ -48,6 +48,46 @@ CREATE TABLE IF NOT EXISTS "product_attribute_values" (
 
 CREATE INDEX IF NOT EXISTS "attr_value_type_idx" ON "product_attribute_values"("type_id");
 
+-- ─── 3b. Product Variants (پیش‌نیاز جدول junction پایین) ────────────────────
+-- باید قبل از product_variant_options ساخته شود؛ قبلاً در 0016 (بعدتر) ساخته
+-- می‌شد که باعث fail شدن کل این فایل و رول‌بک همه چیز از جمله sms_logs می‌شد.
+
+CREATE TABLE IF NOT EXISTS "product_variants" (
+  "id"            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  "product_id"    UUID NOT NULL REFERENCES "products"("id") ON DELETE CASCADE,
+  "name_fa"       VARCHAR(120) NOT NULL,
+  "sku"           VARCHAR(60) UNIQUE,
+  "price"         BIGINT,
+  "compare_price" BIGINT,
+  "stock"         INTEGER NOT NULL DEFAULT 0,
+  "weight"        INTEGER,
+  "is_active"     BOOLEAN NOT NULL DEFAULT true,
+  "image_url"     TEXT,
+  "sort_order"    INTEGER NOT NULL DEFAULT 0,
+  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS "pv_product_id_idx" ON "product_variants"("product_id");
+CREATE INDEX IF NOT EXISTS "pv_is_active_idx"  ON "product_variants"("is_active");
+CREATE INDEX IF NOT EXISTS "pv_sku_idx"        ON "product_variants"("sku") WHERE "sku" IS NOT NULL;
+
+-- order_items.variant_id در 0004 بدون FK اضافه شد (چون product_variants هنوز
+-- وجود نداشت)؛ حالا که جدول ساخته شد، constraint را اضافه می‌کنیم.
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.table_constraints tc
+    JOIN information_schema.key_column_usage kcu USING (constraint_name)
+    WHERE tc.constraint_type = 'FOREIGN KEY'
+      AND tc.table_name = 'order_items'
+      AND kcu.column_name = 'variant_id'
+  ) THEN
+    ALTER TABLE "order_items"
+      ADD CONSTRAINT "order_items_variant_id_fk"
+        FOREIGN KEY ("variant_id") REFERENCES "product_variants"("id") ON DELETE SET NULL;
+  END IF;
+END $$;
+
 -- ─── 4. Variant ↔ Attribute Value junction ───────────────────────────────────
 
 CREATE TABLE IF NOT EXISTS "product_variant_options" (
