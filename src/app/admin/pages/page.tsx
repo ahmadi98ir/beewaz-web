@@ -49,6 +49,18 @@ export default function PagesListPage() {
     setCreating(false)
   }
 
+  const deletePage = async (id: string) => {
+    if (!confirm('آیا از حذف این صفحه مطمئنید؟')) return
+    const prev = pages
+    setPages((p) => p.filter((x) => x.id !== id))
+    try {
+      const res = await fetch(`/api/admin/pages/${id}`, { method: 'DELETE' })
+      if (!res.ok) setPages(prev)
+    } catch {
+      setPages(prev)
+    }
+  }
+
   return (
     <div className="flex-1 overflow-y-auto">
       <header className="bg-white border-b border-surface-200 px-6 py-4 flex items-center justify-between">
@@ -128,6 +140,12 @@ export default function PagesListPage() {
                           پیش‌نمایش
                         </Link>
                       )}
+                      <button
+                        onClick={() => deletePage(page.id)}
+                        className="text-red-500 hover:text-red-700 text-xs font-semibold"
+                      >
+                        حذف
+                      </button>
                     </td>
                   </tr>
                 ))}

@@ -40,6 +40,12 @@ export default function ArticleEditorPage() {
   const [metaTitle, setMetaTitle] = useState('')
   const [metaDesc,  setMetaDesc]  = useState('')
 
+  // دستیار هوش مصنوعی
+  const [showAi,    setShowAi]    = useState(false)
+  const [aiTopic,   setAiTopic]   = useState('')
+  const [aiLoading, setAiLoading] = useState(false)
+  const [aiError,   setAiError]   = useState('')
+
   useEffect(() => {
     if (id === 'new') { setArticle({ id: 'new', titleFa: '', slug: '', excerptFa: '', bodyFa: '', category: 'blog', status: 'draft', metaTitle: null, metaDesc: null, tags: [], readingTime: null, publishedAt: null }); return }
     fetch(`/api/admin/articles/${id}`)
@@ -104,6 +110,36 @@ export default function ArticleEditorPage() {
     setTagInput('')
   }
 
+  const generateWithAi = async () => {
+    if (!aiTopic.trim() || aiLoading) return
+    setAiLoading(true); setAiError('')
+    try {
+      const r = await fetch('/api/admin/articles/generate', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic: aiTopic.trim(), category }),
+      })
+      const d = await r.json() as {
+        titleFa?: string; slug?: string; excerptFa?: string; bodyFa?: string
+        tags?: string[]; metaTitle?: string; metaDesc?: string; error?: string
+      }
+      if (!r.ok || !d.bodyFa) { setAiError(d.error ?? 'خطا در تولید محتوا'); return }
+
+      if (!title.trim() && d.titleFa) setTitle(d.titleFa)
+      if (!slug.trim() && d.slug) setSlug(d.slug)
+      if (!excerpt.trim() && d.excerptFa) setExcerpt(d.excerptFa)
+      setBody((prev) => (prev.trim() ? `${prev}\n\n${d.bodyFa}` : d.bodyFa ?? ''))
+      if (d.tags?.length) setTags((prev) => [...prev, ...d.tags!.filter((t) => !prev.includes(t))])
+      if (!metaTitle.trim() && d.metaTitle) setMetaTitle(d.metaTitle)
+      if (!metaDesc.trim() && d.metaDesc) setMetaDesc(d.metaDesc)
+
+      setShowAi(false); setAiTopic('')
+    } catch {
+      setAiError('خطا در ارتباط با سرور')
+    } finally {
+      setAiLoading(false)
+    }
+  }
+
   if (!article) return (
     <div className="flex-1 flex items-center justify-center">
       <div className="w-8 h-8 border-4 border-brand-600 border-t-transparent rounded-full animate-spin" />
@@ -161,6 +197,34 @@ export default function ArticleEditorPage() {
 
           {tab === 'write' && (
             <>
+              {/* دستیار هوش مصنوعی */}
+              {showAi ? (
+                <div className="bg-gradient-to-br from-brand-50 to-white border-2 border-brand-200 rounded-2xl p-5 space-y-3">
+                  <p className="text-sm font-semibold text-surface-800">✨ موضوع مقاله را بنویس تا هوش مصنوعی محتوا و سئو را برایت بسازد:</p>
+                  <textarea
+                    className="input w-full text-sm resize-none"
+                    rows={2}
+                    placeholder="مثلاً: تفاوت دزدگیر سیمی و بی‌سیم کدام بهتر است؟"
+                    value={aiTopic}
+                    onChange={(e) => setAiTopic(e.target.value)}
+                  />
+                  {aiError && <p className="text-xs text-red-600">{aiError}</p>}
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => void generateWithAi()} disabled={aiLoading || !aiTopic.trim()} className="btn btn-accent text-sm py-2 px-4">
+                      {aiLoading ? 'در حال تولید...' : 'تولید مقاله'}
+                    </button>
+                    <button onClick={() => { setShowAi(false); setAiError('') }} className="text-xs text-surface-400 hover:text-surface-600">انصراف</button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setShowAi(true)}
+                  className="w-full border-2 border-dashed border-brand-300 bg-brand-50/40 rounded-2xl py-4 text-brand-600 hover:bg-brand-50 transition-all flex items-center justify-center gap-2 text-sm font-semibold"
+                >
+                  ✨ تولید محتوا و سئو با هوش مصنوعی
+                </button>
+              )}
+
               {/* خلاصه */}
               <div>
                 <label className="block text-xs font-semibold text-surface-500 mb-1.5">خلاصه مقاله</label>
