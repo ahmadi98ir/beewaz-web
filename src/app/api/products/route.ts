@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { eq, and, ilike, desc } from 'drizzle-orm'
+import { eq, and, or, ilike, desc } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { products, categories, productImages } from '@/lib/db/schema'
 import { dbProductToShop } from '@/lib/shop-product'
@@ -18,7 +18,15 @@ export async function GET(req: NextRequest) {
     }
 
     if (search.trim().length >= 2) {
-      conditions.push(ilike(products.nameFa, `%${search.trim()}%`))
+      // جستجو در نام محصول، کد/مدل (SKU) و نام دسته‌بندی
+      const term = `%${search.trim()}%`
+      conditions.push(
+        or(
+          ilike(products.nameFa, term),
+          ilike(products.sku, term),
+          ilike(categories.nameFa, term),
+        )!,
+      )
     }
 
     const [rows, imageRows] = await Promise.all([
