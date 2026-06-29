@@ -151,3 +151,9 @@ export {
   wishlistItems, wishlistItemsRelations,
   type WishlistItem, type NewWishlistItem,
 } from './wishlist'
+
+// ─── دفترچه آدرس ───────────────────────────────────────────────────────────────
+export {
+  userAddresses, userAddressesRelations,
+  type UserAddress, type NewUserAddress,
+} from './addresses'

@@ -124,32 +124,53 @@ export default function CheckoutClient({ bankCard, phone: sessionPhone, userName
   const [economicCode, setEconomicCode] = useState('')
   const [registrationNumber, setRegistrationNumber] = useState('')
 
-  // ── آدرس ذخیره‌شده ────────────────────────────────────────────────────
+  // ── آدرس ذخیره‌شده (دفترچه آدرس) ──────────────────────────────────────
   type SavedAddress = {
+    id?: string; title?: string | null; isDefault?: boolean
     fullName?: string; province?: string; city?: string
     street?: string; alley?: string; plaque?: string; unit?: string; postalCode?: string
   }
   const [savedAddress, setSavedAddress] = useState<SavedAddress | null>(null)
+  const [savedList, setSavedList] = useState<SavedAddress[]>([])
   const [addressMode, setAddressMode] = useState<'saved' | 'new' | 'loading'>('loading')
 
+  const fillAddress = (a: SavedAddress) => {
+    setProvince(a.province ?? '')
+    setCity(a.city ?? '')
+    setStreet(a.street ?? '')
+    setAlley(a.alley ?? '')
+    setPlaque(a.plaque ?? '')
+    setUnit(a.unit ?? '')
+    setPostalCode(a.postalCode ?? '')
+    if (a.fullName) setFullName(a.fullName)
+  }
+
   useEffect(() => {
-    fetch('/api/profile/last-address')
+    fetch('/api/profile/addresses')
       .then(r => r.json())
-      .then((d: { address: SavedAddress | null }) => {
-        if (d.address?.street) {
-          setSavedAddress(d.address)
+      .then((d: { addresses?: SavedAddress[] }) => {
+        const list = (d.addresses ?? []).filter(a => a.street)
+        if (list.length > 0) {
+          const def = list.find(a => a.isDefault) ?? list[0]!
+          setSavedList(list)
+          setSavedAddress(def)
           setAddressMode('saved')
-          setProvince(d.address.province ?? '')
-          setCity(d.address.city ?? '')
-          setStreet(d.address.street ?? '')
-          setAlley(d.address.alley ?? '')
-          setPlaque(d.address.plaque ?? '')
-          setUnit(d.address.unit ?? '')
-          setPostalCode(d.address.postalCode ?? '')
-          if (d.address.fullName) setFullName(d.address.fullName)
-        } else {
-          setAddressMode('new')
+          fillAddress(def)
+          return
         }
+        // fallback: آخرین آدرس (کاربران قدیمی بدون دفترچه آدرس)
+        return fetch('/api/profile/last-address')
+          .then(r => r.json())
+          .then((d2: { address: SavedAddress | null }) => {
+            if (d2.address?.street) {
+              setSavedAddress(d2.address)
+              setSavedList([d2.address])
+              setAddressMode('saved')
+              fillAddress(d2.address)
+            } else {
+              setAddressMode('new')
+            }
+          })
       })
       .catch(() => setAddressMode('new'))
   }, [])
@@ -163,14 +184,13 @@ export default function CheckoutClient({ bankCard, phone: sessionPhone, userName
   const applySavedAddress = () => {
     if (!savedAddress) return
     setAddressMode('saved')
-    setProvince(savedAddress.province ?? '')
-    setCity(savedAddress.city ?? '')
-    setStreet(savedAddress.street ?? '')
-    setAlley(savedAddress.alley ?? '')
-    setPlaque(savedAddress.plaque ?? '')
-    setUnit(savedAddress.unit ?? '')
-    setPostalCode(savedAddress.postalCode ?? '')
-    if (savedAddress.fullName) setFullName(savedAddress.fullName)
+    fillAddress(savedAddress)
+  }
+
+  const pickAddress = (a: SavedAddress) => {
+    setSavedAddress(a)
+    setAddressMode('saved')
+    fillAddress(a)
   }
 
   // ── کوپن ──────────────────────────────────────────────────────────────
@@ -420,15 +440,35 @@ export default function CheckoutClient({ bankCard, phone: sessionPhone, userName
               </div>
 
               {savedAddress && addressMode === 'saved' && (
-                <div className="mb-5 bg-brand-50 border border-brand-200 rounded-xl p-4 text-sm text-brand-800">
-                  <p className="font-bold mb-1">
-                    {savedAddress.province && savedAddress.city ? `${savedAddress.province}، ${savedAddress.city}` : ''}
-                  </p>
-                  <p className="text-brand-700 leading-relaxed">
-                    {[savedAddress.street, savedAddress.alley, savedAddress.plaque && `پلاک ${savedAddress.plaque}`, savedAddress.unit && `واحد ${savedAddress.unit}`].filter(Boolean).join(' — ')}
-                    {savedAddress.postalCode && <span className="text-brand-500 text-xs ms-2">کد پستی: {savedAddress.postalCode}</span>}
-                  </p>
-                  <p className="text-xs text-brand-500 mt-2">می‌توانید فیلدها را ویرایش کنید یا «آدرس جدید» را انتخاب کنید.</p>
+                <div className="mb-5 space-y-3">
+                  {savedList.length > 1 && (
+                    <div className="flex flex-wrap gap-2">
+                      {savedList.map((a, i) => {
+                        const selected = a.id ? savedAddress.id === a.id : savedAddress === a
+                        const label = a.title || [a.province, a.city].filter(Boolean).join('، ') || `آدرس ${toFaDigits(i + 1)}`
+                        return (
+                          <button
+                            key={a.id ?? i}
+                            type="button"
+                            onClick={() => pickAddress(a)}
+                            className={`text-xs px-3 py-1.5 rounded-lg font-semibold border transition-all ${selected ? 'bg-brand-600 text-white border-brand-600' : 'bg-white text-surface-600 border-surface-200 hover:border-brand-300'}`}
+                          >
+                            {label}{a.isDefault ? ' ★' : ''}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
+                  <div className="bg-brand-50 border border-brand-200 rounded-xl p-4 text-sm text-brand-800">
+                    <p className="font-bold mb-1">
+                      {savedAddress.province && savedAddress.city ? `${savedAddress.province}، ${savedAddress.city}` : ''}
+                    </p>
+                    <p className="text-brand-700 leading-relaxed">
+                      {[savedAddress.street, savedAddress.alley, savedAddress.plaque && `پلاک ${savedAddress.plaque}`, savedAddress.unit && `واحد ${savedAddress.unit}`].filter(Boolean).join(' — ')}
+                      {savedAddress.postalCode && <span className="text-brand-500 text-xs ms-2">کد پستی: {savedAddress.postalCode}</span>}
+                    </p>
+                    <p className="text-xs text-brand-500 mt-2">می‌توانید فیلدها را ویرایش کنید یا «آدرس جدید» را انتخاب کنید.</p>
+                  </div>
                 </div>
               )}
               <div className="grid sm:grid-cols-2 gap-4">

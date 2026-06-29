@@ -120,6 +120,13 @@
             "when": 1750400000000,
             "tag": "0024_wishlist",
             "breakpoints": true
+        },
+        {
+            "idx": 17,
+            "version": "7",
+            "when": 1750500000000,
+            "tag": "0025_user_addresses",
+            "breakpoints": true
         }
     ]
 }
