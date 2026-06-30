@@ -19,7 +19,7 @@ export interface ChangelogRelease {
 export const CHANGELOG: ChangelogRelease[] = [
   {
     version: '0.4.0',
-    date: '۱۴۰۵/۰۴/۰۸',
+    date: '۱۴۰۵/۰۴/۰۹',
     entries: [
       { type: 'feature', text: 'قابلیت PWA — امکان نصب بیواز روی صفحهٔ اصلی موبایل با آیکون و نام اختصاصی' },
       { type: 'feature', text: 'دفترچه آدرس چندتایی در پروفایل — افزودن، ویرایش، حذف و تعیین آدرس پیش‌فرض؛ انتخاب مستقیم آدرس ذخیره‌شده هنگام تکمیل خرید' },
